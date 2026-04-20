@@ -1,0 +1,20 @@
+# YTChat TTS — dependencias de Python
+#
+# Instalar con:
+#   pip install -r requirements.txt
+#
+# Todo funciona con Python 3.11+ de 64 bits en Windows 10/11.
+
+# Captura del chat en vivo de YouTube (InnerTube API)
+pytchat>=0.5.5
+
+# Acceso a SAPI5 y COM (Windows)
+pywin32>=305
+
+# Interfaz gráfica accesible
+wxPython>=4.2.2
+
+# Puente con los lectores de pantalla NVDA y JAWS.
+# Opcional: si falla la instalación, el programa funciona igualmente
+# pero sin anuncios hablados complementarios.
+cytolk>=0.1.11

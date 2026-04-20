@@ -1,0 +1,17 @@
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Logs
+ytchat.log
+
+# Editor / OS
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
