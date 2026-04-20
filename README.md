@@ -83,22 +83,18 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 ## Estructura del proyecto
 
 ```
-ytchat_v22/
+ytchat-tts/
 ├── main.py          # Entrada, orquestación, captura de chat
 ├── gui.py           # Ventana wxPython, eventos, persistencia runtime
 ├── tts_worker.py    # Hilo TTS (COM/STA), sanitización, volumen
 ├── config.py        # Constantes, logging, INI, atajos, guardar_opcion()
 ├── sound_player.py  # Reproductor asíncrono vía winmm.dll
 ├── sound_gen.py     # Generador de WAV stdlib (setup / regenerar)
-├── config.ini       # Configuración de usuario (editabe)
+├── config.ini       # Configuración de usuario (editable)
 ├── sounds.ini       # Configuración de sonidos (editable)
 ├── sounds/          # Archivos WAV de retroalimentación
-├── instalar.bat     # Instalador de dependencias + generación de sonidos
-├── build.bat        # Empaquetado con PyInstaller
-└── docs/
-    ├── arquitectura.md
-    ├── decisiones.md
-    └── changelog.md
+├── requirements.txt
+└── instalar.bat     # Instalador de dependencias + generación de sonidos
 ```
 
 ---
@@ -137,12 +133,6 @@ Para regenerar los sonidos:
 
 ```bash
 python sound_gen.py --forzar
-```
-
-Para empaquetar en `.exe`:
-
-```bash
-build.bat
 ```
 
 ---
@@ -257,3 +247,9 @@ Falso positivo conocido de PyInstaller. Añade `dist\YTChat-TTS\` a las exclusio
 ## Diagnóstico
 
 `ytchat.log` (junto al ejecutable) recoge warnings y errores. En operación normal está vacío. Cuando contiene entradas, la primera línea de error suele indicar la causa.
+
+---
+
+## Licencia
+
+MIT — ver archivo [LICENSE](LICENSE).
