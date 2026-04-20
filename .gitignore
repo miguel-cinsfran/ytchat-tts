@@ -10,6 +10,13 @@ __pycache__/
 # Logs
 ytchat.log
 
+# Claude Code
+.claude/
+.claudeignore
+CLAUDE.md
+docs/
+*.bat
+
 # Editor / OS
 .vscode/
 *.swp
