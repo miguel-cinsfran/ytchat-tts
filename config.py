@@ -70,23 +70,26 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 
 
 # ── Atajos de teclado ─────────────────────────────────────────────────────────
-# Solo Alt+X: NVDA usa Insert, Ctrl se reserva a los estándar, Shift+Alt
-# colisiona con atajos de idioma de Windows.
+# Navegación (van a un widget): Alt+letra.
+# Acciones de control en tiempo real: F5–F12 (sin modificador).
+# NVDA usa Insert, Ctrl se reserva a los estándar, Shift+Alt colisiona
+# con atajos de idioma de Windows.
 
 ATAJOS_DEFAULTS = {
-    "url": "alt+u", "conectar": "alt+c", "pausa": "alt+p",
+    "url": "alt+u", "conectar": "alt+c", "pausa": "f5",
     "chat": "alt+l", "voz": "alt+v", "filtro": "alt+f",
-    "salir": "alt+s", "velocidad_mas": "alt+.",
-    "velocidad_menos": "alt+,", "detener_tts": "alt+d",
-    "silenciar_sonidos": "alt+m", "vaciar_cola": "alt+x",
-    "volumen_mas": "alt+n", "volumen_menos": "alt+-",
-    "silenciar_lectura": "alt+t", "aplicar_voz": "alt+a",
+    "salir": "alt+s", "velocidad_mas": "f10",
+    "velocidad_menos": "f9", "detener_tts": "f8",
+    "silenciar_sonidos": "f7", "vaciar_cola": "alt+x",
+    "volumen_mas": "f12", "volumen_menos": "f11",
+    "silenciar_lectura": "f6", "aplicar_voz": "alt+a",
     "copiar_mensaje": "alt+k", "copiar_todo": "alt+o",
     "releer": "alt+r", "abrir_enlace": "alt+e",
 }
 
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
 _RE_ATAJO = re.compile(r"^alt\+(.)$", re.IGNORECASE)
+_RE_FKEY  = re.compile(r"^f(1[0-2]|[1-9])$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +107,8 @@ def _normalizar_atajo(valor: str | None) -> str | None:
     valor = valor.strip().lower().replace(" ", "")
     if not valor:
         return None
+    if _RE_FKEY.match(valor):
+        return valor
     m = _RE_ATAJO.match(valor)
     if not m:
         return None
@@ -133,7 +138,7 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
         if normalizado is None:
             continue
 
-        tecla = normalizado.split("+", 1)[1]
+        tecla = normalizado.split("+", 1)[-1]
         if tecla in teclas_usadas:
             logger.warning("atajos: conflicto — %r y %r usan %r. Desactivando %r.",
                            teclas_usadas[tecla], accion, normalizado, accion)
@@ -146,14 +151,18 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
 def atajos_a_tuplas_wx(atajos: dict[str, Atajo], ids_por_accion: dict[str, int]):
     """Adapta el dict a la forma que espera wx.AcceleratorTable."""
     import wx
+    _WX_FKEYS = {f"f{i}": getattr(wx, f"WXK_F{i}") for i in range(1, 13)}
     tuplas = []
     for accion, atajo in atajos.items():
         wid = ids_por_accion.get(accion)
         if wid is None:
             continue
         ch = atajo.tecla
-        keycode = ord(ch.upper()) if ch.isalnum() else ord(ch)
-        tuplas.append((wx.ACCEL_ALT, keycode, wid))
+        if ch in _WX_FKEYS:
+            tuplas.append((wx.ACCEL_NORMAL, _WX_FKEYS[ch], wid))
+        else:
+            keycode = ord(ch.upper()) if ch.isalnum() else ord(ch)
+            tuplas.append((wx.ACCEL_ALT, keycode, wid))
     return tuplas
 
 
@@ -196,19 +205,19 @@ max_longitud_mensaje = 200
 [atajos]
 url = alt+u
 conectar = alt+c
-pausa = alt+p
+pausa = f5
 chat = alt+l
 voz = alt+v
 filtro = alt+f
 salir = alt+s
-velocidad_mas = alt+.
-velocidad_menos = alt+,
-detener_tts = alt+d
-silenciar_sonidos = alt+m
+velocidad_mas = f10
+velocidad_menos = f9
+detener_tts = f8
+silenciar_sonidos = f7
 vaciar_cola = alt+x
-volumen_mas = alt+n
-volumen_menos = alt+-
-silenciar_lectura = alt+t
+volumen_mas = f12
+volumen_menos = f11
+silenciar_lectura = f6
 aplicar_voz = alt+a
 copiar_mensaje = alt+k
 copiar_todo = alt+o

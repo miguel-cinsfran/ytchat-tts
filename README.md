@@ -49,7 +49,7 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 **Accesibilidad**
 
 - Todos los controles tienen etiquetas accesibles y son alcanzables con Tab.
-- Integración con NVDA y JAWS vía `cytolk`: anuncios al conectar, cambiar voz, filtrar, copiar.
+- Integración con NVDA y JAWS vía `accessible_output2`: anuncios al conectar, cambiar voz, filtrar, copiar.
 - Atajos todos en `Alt+X` para no chocar con Insert (NVDA) ni Ctrl (Windows).
 - Tema oscuro Catppuccin Mocha; tamaño de fuente del chat configurable.
 
@@ -74,7 +74,7 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 | GUI          | wxPython 4.2+, tema Catppuccin Mocha            |
 | TTS          | win32com / SAPI5 (pywin32), hilo COM/STA propio |
 | Chat         | pytchat (InnerTube API de YouTube)              |
-| Accesibilidad| cytolk (NVDA/JAWS, opcional)                    |
+| Accesibilidad| accessible_output2 (NVDA/JAWS, opcional)        |
 | Audio        | ctypes + winmm.dll (MCI), sin pygame/numpy      |
 | Empaquetado  | PyInstaller + `build.bat`                       |
 
@@ -104,7 +104,7 @@ ytchat-tts/
 - Windows 10 (22H2 o posterior) o Windows 11.
 - **Python 3.11 o superior, de 64 bits.** Con Python 32-bit, SAPI5 no verá las voces modernas.
 - Al menos una voz SAPI5 instalada (*Configuración → Hora e idioma → Voz*).
-- Dependencias Python: `wxPython`, `pytchat`, `pywin32`, `cytolk` (ver `instalar.bat`).
+- Dependencias Python: `wxPython`, `pytchat`, `pywin32`, `accessible_output2` (ver `instalar.bat`).
 
 ---
 
@@ -118,7 +118,7 @@ instalar.bat
 `instalar.bat` hace lo siguiente:
 
 1. Comprueba que Python esté instalado y sea de 64 bits.
-2. Instala las dependencias (`wxPython`, `pytchat`, `pywin32`, `cytolk`).
+2. Instala las dependencias (`wxPython`, `pytchat`, `pywin32`, `accessible_output2`).
 3. Pregunta si instalar el fork alternativo de pytchat (útil con ciertos directos).
 4. Genera los 12 sonidos de retroalimentación con `sound_gen.py`.
 5. Pregunta si abrir la aplicación ahora.
@@ -147,25 +147,34 @@ Una vez conectado, los mensajes aparecen en la lista. Enter sobre uno lo copia a
 
 ## Atajos de teclado
 
-Configurables en `config.ini`, sección `[atajos]`. Todos usan `Alt` para no chocar con Insert (NVDA) ni Ctrl (Windows).
+Configurables en `config.ini`, sección `[atajos]`. Los atajos de navegación usan `Alt`; las acciones de control en tiempo real usan teclas de función (sin modificador).
+
+**Navegación**
 
 | Atajo  | Acción                                       |
 | ------ | -------------------------------------------- |
 | Alt+U  | Saltar al campo URL                          |
 | Alt+C  | Conectar o desconectar                       |
-| Alt+P  | Pausar o reanudar el TTS                     |
 | Alt+L  | Saltar a la lista del chat                   |
 | Alt+V  | Saltar al selector de voz                    |
 | Alt+F  | Saltar al filtro de mensajes                 |
-| Alt+D  | Detener mensaje actual y vaciar cola         |
-| Alt+T  | Silenciar o reactivar la lectura TTS         |
-| Alt+M  | Silenciar o reactivar los sonidos WAV        |
 | Alt+X  | Vaciar la cola de lectura                    |
-| Alt+.  | Subir velocidad del TTS                      |
-| Alt+,  | Bajar velocidad del TTS                      |
 | Alt+S  | Salir                                        |
 
-Para reasignar: `pausa = alt+j` en `config.ini`. Para desactivar: `pausa = ` (valor vacío). Si dos acciones comparten tecla, la segunda se ignora y se registra en `ytchat.log`.
+**Control en tiempo real**
+
+| Atajo  | Acción                                       |
+| ------ | -------------------------------------------- |
+| F5     | Pausar o reanudar el TTS                     |
+| F6     | Silenciar o reactivar la lectura TTS         |
+| F7     | Silenciar o reactivar los sonidos WAV        |
+| F8     | Detener mensaje actual y vaciar cola         |
+| F9     | Bajar velocidad del TTS                      |
+| F10    | Subir velocidad del TTS                      |
+| F11    | Bajar volumen del TTS                        |
+| F12    | Subir volumen del TTS                        |
+
+Para reasignar: `pausa = alt+j` o `pausa = f3` en `config.ini`. Para desactivar: `pausa = ` (valor vacío). Si dos acciones comparten tecla, la segunda se ignora y se registra en `ytchat.log`.
 
 ---
 

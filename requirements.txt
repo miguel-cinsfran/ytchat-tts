@@ -15,6 +15,6 @@ pywin32>=305
 wxPython>=4.2.2
 
 # Puente con los lectores de pantalla NVDA y JAWS.
-# Opcional: si falla la instalación, el programa funciona igualmente
-# pero sin anuncios hablados complementarios.
-cytolk>=0.1.11
+# Opcional: si no está instalado o no hay lector activo, el programa
+# funciona igualmente pero sin anuncios hablados complementarios.
+accessible_output2>=0.17

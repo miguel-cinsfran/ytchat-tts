@@ -36,29 +36,36 @@ _DIVISA_RE = re.compile(r"[^\d\s,.]+")
 logger = logging.getLogger(__name__)
 
 
-# ── cytolk (opcional) ────────────────────────────────────────────────────────
+# ── accessible_output2 (opcional) ───────────────────────────────────────────
 # Si no está instalado o no hay un lector de pantalla activo, los
 # `anunciar()` son no-ops silenciosos; la app funciona igual.
+# Solo se activa si hay un lector real (NVDA, JAWS…); se ignora SAPI5
+# para no interferir con el TTS propio de la aplicación.
 
-_tolk_ok = False
+_ao2 = None
 
 
-def _tolk_init():
-    global _tolk_ok
+def _ao2_init():
+    global _ao2
     try:
-        from cytolk import tolk
-        tolk.load()
-        _tolk_ok = tolk.is_loaded()
+        from accessible_output2.outputs.auto import Auto
+        candidate = Auto()
+        for out in getattr(candidate, "outputs", []):
+            try:
+                if out.is_active() and "sapi" not in type(out).__name__.lower():
+                    _ao2 = candidate
+                    return
+            except Exception:
+                pass
     except Exception:
-        _tolk_ok = False
+        pass
 
 
 def anunciar(texto: str) -> None:
-    if not _tolk_ok:
+    if _ao2 is None:
         return
     try:
-        from cytolk import tolk
-        tolk.speak(texto, interrupt=True)
+        _ao2.speak(texto, interrupt=True)
     except Exception:
         pass
 
@@ -86,7 +93,7 @@ def _tc(w, bg=None, fg=None):
 
 
 class WxAnnouncingHandler(logging.Handler):
-    """Reenvía los mensajes del logger al lector de pantalla vía cytolk.
+    """Reenvía los mensajes del logger al lector de pantalla.
 
     Sirve para que el usuario ciego se entere de los avisos sin tener
     que consultar el log.
@@ -537,9 +544,11 @@ class YTChatFrame(wx.Frame):
         # fallback con ctypes usa la API nativa y casi siempre consigue copiar.
         try:
             if wx.TheClipboard.Open():
-                wx.TheClipboard.SetData(wx.TextDataObject(text))
-                wx.TheClipboard.Flush()
-                wx.TheClipboard.Close()
+                try:
+                    wx.TheClipboard.SetData(wx.TextDataObject(text))
+                    wx.TheClipboard.Flush()
+                finally:
+                    wx.TheClipboard.Close()
                 return
         except Exception:
             pass
@@ -547,15 +556,24 @@ class YTChatFrame(wx.Frame):
             import ctypes
             k32 = ctypes.windll.kernel32
             u32 = ctypes.windll.user32
-            u32.OpenClipboard(0)
-            u32.EmptyClipboard()
-            encoded = text.encode("utf-16-le") + b"\x00\x00"
-            h = k32.GlobalAlloc(0x0042, len(encoded))
-            p = k32.GlobalLock(h)
-            ctypes.memmove(p, encoded, len(encoded))
-            k32.GlobalUnlock(h)
-            u32.SetClipboardData(13, h)  # CF_UNICODETEXT
-            u32.CloseClipboard()
+            if not u32.OpenClipboard(0):
+                return
+            try:
+                u32.EmptyClipboard()
+                encoded = text.encode("utf-16-le") + b"\x00\x00"
+                h = k32.GlobalAlloc(0x0042, len(encoded))
+                if not h:
+                    return
+                p = k32.GlobalLock(h)
+                if not p:
+                    k32.GlobalFree(h)
+                    return
+                ctypes.memmove(p, encoded, len(encoded))
+                k32.GlobalUnlock(h)
+                if not u32.SetClipboardData(13, h):  # CF_UNICODETEXT
+                    k32.GlobalFree(h)
+            finally:
+                u32.CloseClipboard()
         except Exception:
             pass
 
@@ -801,7 +819,7 @@ def iniciar_gui(config, cola, stats, worker, parada,
     global _gui_frame, RUTA_CONFIG
 
     RUTA_CONFIG = app_dir() / "config.ini"
-    _tolk_init()
+    _ao2_init()
 
     app = wx.App(redirect=False)
     frame = YTChatFrame(None, config, cola, stats, worker, parada)
@@ -846,9 +864,3 @@ def iniciar_gui(config, cola, stats, worker, parada,
 
     try:    logging.getLogger().removeHandler(h)
     except Exception: pass
-    if _tolk_ok:
-        try:
-            from cytolk import tolk
-            tolk.unload()
-        except Exception:
-            pass
