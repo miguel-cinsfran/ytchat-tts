@@ -362,8 +362,36 @@ class PreferenciasDialog(wx.Dialog):
         cfg.guardar_opcion(self._ruta, seccion, clave, valor)
         self._cambios = True
 
+    def _validar_atajos(self) -> list[str]:
+        area_txt = {"ctrl": "Ctrl+algo", "alt": "Alt+algo",
+                    "f": "una tecla F (f1 a f12)"}
+        errores = []
+        for accion, txt in self._campos_atajo.items():
+            if accion in cfg.ATAJOS_FIJOS:
+                continue
+            valor = txt.GetValue().strip().lower()
+            if valor == "":
+                continue   # desactivado a propósito
+            norm = cfg._normalizar_atajo(valor)
+            etq = _ETIQUETAS_ATAJO.get(accion, accion)
+            if norm is None:
+                errores.append(f"  {etq}: «{valor}» no es un atajo válido.")
+            elif not cfg.atajo_valido_para_area(accion, norm):
+                req = area_txt.get(cfg.ATAJOS_AREA.get(accion), "el modificador correcto")
+                errores.append(f"  {etq}: «{valor}» debe ser {req}.")
+        return errores
+
     def _on_guardar(self, event):
         c = self._config
+
+        # Validar atajos ANTES de guardar nada: cada uno debe respetar su área
+        # (Ctrl reproductor, Alt app, F voz). Si algo está mal, no se guarda.
+        errores = self._validar_atajos()
+        if errores:
+            self.nb.SetSelection(3)   # pestaña Atajos
+            wx.MessageBox("Estos atajos no son válidos:\n\n" + "\n".join(errores),
+                          "Atajos inválidos", wx.OK | wx.ICON_WARNING, self)
+            return
 
         # Interfaz
         fuente = str(self.sp_fuente.GetValue())

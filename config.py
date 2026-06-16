@@ -83,7 +83,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 
 ATAJOS_DEFAULTS = {
     # Reproductor (Ctrl)
-    "rep_play":          "ctrl+enter",
+    "rep_play":          "ctrl+p",
     "rep_retro":         "ctrl+left",
     "rep_avanz":         "ctrl+right",
     "rep_detener":       "ctrl+d",
@@ -123,6 +123,12 @@ ATAJOS_GRUPOS = [
       "silenciar_sonidos", "anunciar_estado"]),
 ]
 
+# Modificador obligatorio por acción: reproductor → Ctrl, app → Alt, voz → F.
+# Así el atajo es global y único, sin depender del panel con foco.
+_AREA_POR_GRUPO = ("ctrl", "alt", "f")
+ATAJOS_AREA = {ac: _AREA_POR_GRUPO[i]
+               for i, (_titulo, acs) in enumerate(ATAJOS_GRUPOS) for ac in acs}
+
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
 # Teclas con nombre admitidas (además de una letra/símbolo o una tecla F).
 _TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space"}
@@ -160,6 +166,20 @@ def _normalizar_atajo(valor: str | None) -> str | None:
     if len(key) == 1 and key.isascii() and (key.isalnum() or key in _SIMBOLOS_PERMITIDOS):
         return f"{mod}+{key}"
     return None
+
+
+def atajo_valido_para_area(accion: str, normalizado: str | None) -> bool:
+    """¿El atajo respeta el modificador del área de la acción?
+
+    Reproductor → Ctrl, app → Alt, voz → tecla F. Vacío (desactivado) o acción
+    sin área definida se aceptan sin restricción.
+    """
+    area = ATAJOS_AREA.get(accion)
+    if not normalizado or area is None:
+        return True
+    if area == "f":
+        return bool(_RE_FKEY.match(normalizado))
+    return normalizado.startswith(area + "+")
 
 
 def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
@@ -233,7 +253,7 @@ max_longitud_mensaje = 200
 # Atajos por área: Ctrl = reproductor, Alt = conexión/chat, F = voz/lectura.
 # Editables desde Preferencias > Atajos (salvo F9-F12, fijos).
 [atajos]
-rep_play = ctrl+enter
+rep_play = ctrl+p
 rep_retro = ctrl+left
 rep_avanz = ctrl+right
 rep_detener = ctrl+d

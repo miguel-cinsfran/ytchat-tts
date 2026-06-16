@@ -72,9 +72,18 @@ robocopy "dist\YTChatTTS" "%OUT%" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "sounds" "%OUT%\sounds" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "docs"   "%OUT%\docs"   /E /NFL /NDL /NJH /NJS /NP >nul
 if defined VLCDIR (
-  echo == Empaquetando libVLC junto al exe ==
+  echo == Empaquetando libVLC junto al exe, solo plugins de audio ==
   robocopy "%VLCDIR%" "%OUT%\vlc" libvlc.dll libvlccore.dll /NFL /NDL /NJH /NJS /NP >nul
-  robocopy "%VLCDIR%\plugins" "%OUT%\vlc\plugins" /E /NFL /NDL /NJH /NJS /NP >nul
+  REM Solo los plugins de audio: HTTP/TLS, demux DASH/HLS, decodificador y
+  REM salida de audio. Quitar el resto -GUI, video, visualizaciones- reduce el
+  REM tamano y acelera el arranque. OJO: sin parentesis en estos REM, romperian
+  REM el bloque IF.
+  for %%d in (access codec demux audio_output audio_filter audio_mixer packetizer stream_filter stream_extractor misc keystore logger video_output video_chroma video_filter d3d9 d3d11) do (
+    robocopy "%VLCDIR%\plugins\%%d" "%OUT%\vlc\plugins\%%d" /E /NFL /NDL /NJH /NJS /NP >nul
+  )
+  REM Generar la cache de plugins del set recortado evita el escaneo en el
+  REM primer arranque, que hacia que la app tardara en abrir.
+  if exist "%VLCDIR%\vlc-cache-gen.exe" "%VLCDIR%\vlc-cache-gen.exe" "%OUT%\vlc\plugins" >nul 2>nul
 )
 copy /y "config.ini" "%OUT%\" >nul
 copy /y "sounds.ini" "%OUT%\" >nul
