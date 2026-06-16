@@ -17,8 +17,12 @@ where uv >nul 2>nul
 if errorlevel 1 ( echo ERROR: uv no esta instalado. Ver README. & pause & exit /b 1 )
 
 echo == Preparando entorno (uv) ==
-call uv venv
-if errorlevel 1 ( echo ERROR creando el entorno. & pause & exit /b 1 )
+REM Reutiliza el .venv si ya existe; si no, lo crea con Python 3.11 (las
+REM dependencias, sobre todo wxPython, tienen wheels para 3.11).
+if not exist ".venv" (
+  call uv venv --python 3.11
+  if errorlevel 1 ( echo ERROR creando el entorno. & pause & exit /b 1 )
+)
 call uv pip install -r requirements.txt
 if errorlevel 1 ( echo ERROR instalando dependencias. & pause & exit /b 1 )
 call uv pip install pyinstaller
