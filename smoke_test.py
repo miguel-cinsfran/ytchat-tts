@@ -100,7 +100,8 @@ def fase3_accesibilidad() -> bool:
         print("  [saltada] No es Windows; no hay árbol UI Automation que leer.")
         return True
     try:
-        from pywinauto import Application
+        import time
+        from pywinauto import Application, Desktop
     except ImportError:
         print("  [saltada] pywinauto no está instalado.  pip install pywinauto")
         return True
@@ -108,11 +109,45 @@ def fase3_accesibilidad() -> bool:
     main_py = os.path.join(AQUI, "main.py")
     cmd = f'"{sys.executable}" "{main_py}"'
     print(f"  Lanzando: {cmd}")
-    app = None
+    # wait_for_idle=False: el ejecutable lanzado es python.exe (proceso de
+    # consola que luego abre la ventana wx). pywinauto, por defecto, llama a
+    # WaitForInputIdle sobre ese proceso y falla con el error 1471 ("no es un
+    # proceso GUI").
+    #
+    # Además, NO buscamos la ventana por el PID que lanzamos: bajo `uv` el
+    # python.exe del venv es un trampolín que reejecuta el intérprete base en un
+    # proceso hijo, y es ese hijo quien crea la ventana. Por eso localizamos la
+    # ventana por título en todo el escritorio y luego cerramos su PID real.
+    app = Application(backend="uia").start(cmd, work_dir=AQUI,
+                                           wait_for_idle=False)
+    win_pid = None
     try:
-        app = Application(backend="uia").start(cmd, work_dir=AQUI)
-        win = app.window(title_re="YTChat TTS.*")
-        win.wait("visible ready", timeout=25)
+        def _buscar_ventana():
+            # Iteramos los top-level del escritorio y casamos por título. Es más
+            # fiable con backend UIA que window(title_re=...).exists(), y nos da
+            # directamente el wrapper sobre el que recorrer descendientes.
+            try:
+                for w in Desktop(backend="uia").windows():
+                    try:
+                        if (w.window_text() or "").startswith("YTChat TTS"):
+                            return w
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+            return None
+
+        # Sondeo manual hasta 25 s: la ventana puede tardar en aparecer.
+        win = None
+        limite = time.monotonic() + 25
+        while time.monotonic() < limite:
+            win = _buscar_ventana()
+            if win is not None:
+                break
+            time.sleep(0.5)
+        if win is None:
+            raise TimeoutError("la ventana 'YTChat TTS' no apareció en 25 s")
+        win_pid = win.element_info.process_id
         print("  Ventana visible. Recorriendo controles...\n")
 
         controles = _recorrer(win)
@@ -134,12 +169,22 @@ def fase3_accesibilidad() -> bool:
         print(f"  [FALLO] {exc.__class__.__name__}: {exc}")
         return False
     finally:
-        if app is not None:
+        cerrado = False
+        # El proceso real de la ventana (hijo bajo uv) y el lanzado pueden ser
+        # distintos: intentamos cerrar ambos.
+        if win_pid is not None:
             try:
-                app.kill()
-                print("\n  Aplicación cerrada.")
+                Application(backend="uia").connect(process=win_pid).kill()
+                cerrado = True
             except Exception:
                 pass
+        try:
+            app.kill()
+            cerrado = True
+        except Exception:
+            pass
+        if cerrado:
+            print("\n  Aplicación cerrada.")
 
 
 def main():
