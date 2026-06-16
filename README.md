@@ -157,7 +157,7 @@ instalar.bat
 1. Comprueba que Python esté instalado y sea de 64 bits.
 2. Instala las dependencias (`wxPython`, `pytchat`, `pywin32`, `accessible_output2`).
 3. Pregunta si instalar el fork alternativo de pytchat (útil con ciertos directos).
-4. Genera los 12 sonidos de retroalimentación con `sound_gen.py`.
+4. Genera los sonidos de retroalimentación con `sound_gen.py`.
 5. Pregunta si abrir la aplicación ahora.
 
 ### Instalación manual (sin `instalar.bat`)
@@ -167,7 +167,7 @@ con Python 3.11+ de 64 bits:
 
 ```bash
 pip install -r requirements.txt
-python sound_gen.py          # genera los WAV de la carpeta sounds/
+python sound_gen.py          # genera los WAV del tema por defecto (sounds/themes/default/)
 python main.py               # arranca la aplicación
 ```
 
@@ -249,7 +249,10 @@ Si se borra el archivo, se regenera con valores por defecto al arrancar. Un erro
 
 - `activar` — `true` / `false` para todo el sistema de sonidos.
 - `volumen` — De 0.0 a 1.0, independiente del volumen TTS.
-- Ruta de cada WAV — `superchat = C:\Audio\mi_campana.wav`. Vacío desactiva ese sonido.
+- `tema` — Nombre de la carpeta de sonidos a usar dentro de `sounds/themes/`
+  (por defecto `default`). Ver «[Temas de sonido](#temas-de-sonido)».
+- Override por evento (avanzado) — `superchat = C:\Audio\mi_campana.wav`. Tiene
+  prioridad sobre el tema. Vacío (`copiar =`) desactiva ese sonido.
 
 ---
 
@@ -269,10 +272,26 @@ Si se borra el archivo, se regenera con valores por defecto al arrancar. Un erro
 | `reanudar`      | Al reanudar el TTS                              |
 | `copiar`        | Al copiar un mensaje al portapapeles            |
 | `voz_cambiada`  | Al aplicar un cambio de voz                     |
+| `enviado`       | Al enviar un mensaje al chat del directo        |
+| `comentario`    | Al publicar o responder un comentario           |
+| `moderacion`    | Al banear o expulsar a un usuario               |
+| `cola_vaciada`  | Al vaciar la cola de lectura                    |
 
-Para sustituir un sonido: reemplaza el WAV en `sounds/` manteniendo el nombre.
-Para regenerar los originales: `python sound_gen.py --forzar`.
-Para silenciar temporalmente: Alt+M. Para desactivar en permanente: `activar = false` en `sounds.ini`.
+Para regenerar los sonidos: `python sound_gen.py --forzar`.
+Para silenciar temporalmente: F7. Para desactivar en permanente: `activar = false` en `sounds.ini`.
+
+### Temas de sonido
+
+Los sonidos se agrupan en **temas**: carpetas dentro de `sounds/themes/`, cada
+una con un WAV por evento nombrado igual que el evento (`mensaje_nuevo.wav`,
+`superchat.wav`, …). El tema activo se elige con `tema = ` en `sounds.ini`.
+
+Para crear el tuyo:
+
+1. Copia `sounds/themes/default` a `sounds/themes/mi_tema`.
+2. Reemplaza los WAV que quieras (mismo nombre de archivo). Formato
+   recomendado: WAV PCM 16-bit, 44100 Hz, breve (< 1 s).
+3. Pon `tema = mi_tema` en `sounds.ini` y reinicia.
 
 ---
 

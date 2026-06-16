@@ -237,25 +237,29 @@ _SOUNDS_FALLBACK = """\
 [sonidos]
 activar = true
 volumen = 0.7
-app_inicio = sounds/app_inicio.wav
-conectando = sounds/conectando.wav
-conectado = sounds/conectado.wav
-desconectado = sounds/desconectado.wav
-mensaje_nuevo = sounds/mensaje.wav
-superchat = sounds/superchat.wav
-nuevo_miembro = sounds/miembro.wav
-error = sounds/error.wav
-pausa = sounds/pausa.wav
-reanudar = sounds/reanudar.wav
-copiar = sounds/copiar.wav
-voz_cambiada = sounds/voz_cambiada.wav
+
+# Tema de sonido: carpeta dentro de sounds/themes/ con un WAV por evento,
+# nombrado igual que el evento (p. ej. mensaje_nuevo.wav). Para crear tu
+# propio tema, copia sounds/themes/default a sounds/themes/mi_tema,
+# reemplaza los .wav que quieras y pon aquí:  tema = mi_tema
+tema = default
+
+# Opcional (avanzado): puedes forzar un archivo concreto para un evento
+# escribiendo su ruta aquí; tiene prioridad sobre el tema. Por ejemplo:
+#   superchat = sounds/mis_efectos/caja.wav
 """
 
 _EVENTOS_SONIDO = [
     "app_inicio", "conectando", "conectado", "desconectado",
     "mensaje_nuevo", "superchat", "nuevo_miembro", "error",
     "pausa", "reanudar", "copiar", "voz_cambiada",
+    # v0.6 online y acciones que antes reutilizaban otros sonidos:
+    "enviado", "comentario", "moderacion", "cola_vaciada",
 ]
+
+# Carpeta base de temas y tema por defecto.
+_TEMAS_DIR   = "themes"
+_TEMA_DEFECTO = "default"
 
 
 def _mk_parser() -> configparser.ConfigParser:
@@ -418,22 +422,29 @@ def cargar_sonidos() -> dict:
         logger.warning("Error en sounds.ini: %s. Sonidos desactivados.", exc)
         return {"activar": False, "volumen": 0.7, "eventos": {}}
 
-    activar, volumen = True, 0.7
+    activar, volumen, tema = True, 0.7, _TEMA_DEFECTO
     if p.has_section("sonidos"):
         try:    activar = p.getboolean("sonidos", "activar", fallback=True)
         except Exception: pass
         try:    volumen = max(0.0, min(1.0, float(p.get("sonidos", "volumen", fallback="0.7"))))
         except Exception: pass
+        try:    tema = (p.get("sonidos", "tema", fallback=_TEMA_DEFECTO).strip()
+                        or _TEMA_DEFECTO)
+        except Exception: pass
+
+    carpeta_tema = base / "sounds" / _TEMAS_DIR / tema
 
     eventos: dict[str, Path | None] = {}
     for ev in _EVENTOS_SONIDO:
+        # 1) Ruta explícita en sounds.ini (override avanzado, máxima prioridad).
         raw = p.get("sonidos", ev, fallback="").strip()
-        if not raw:
-            eventos[ev] = None
+        if raw:
+            ruta_ev = Path(raw)
+            if not ruta_ev.is_absolute():
+                ruta_ev = base / ruta_ev
+            eventos[ev] = ruta_ev
             continue
-        ruta_ev = Path(raw)
-        if not ruta_ev.is_absolute():
-            ruta_ev = base / ruta_ev
-        eventos[ev] = ruta_ev
+        # 2) Si no, el archivo del tema: sounds/themes/<tema>/<evento>.wav
+        eventos[ev] = carpeta_tema / f"{ev}.wav"
 
     return {"activar": activar, "volumen": volumen, "eventos": eventos}

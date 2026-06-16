@@ -284,7 +284,7 @@ class ComentariosFrame(wx.Frame):
         threading.Thread(target=_run, daemon=True, name="ComentarAPI").start()
 
     def _escritura_ok(self, mensaje):
-        _snd.reproducir("voz_cambiada")
+        _snd.reproducir("comentario")
         anunciar(mensaje + ". Recuerda que YouTube puede tardar o retenerlo.")
 
     def _escritura_err(self, exc):

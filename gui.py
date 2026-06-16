@@ -336,6 +336,7 @@ class YTChatFrame(wx.Frame):
 
     def _on_vaciar(self, event):
         self._worker.vaciar_cola()
+        _snd.reproducir("cola_vaciada")
         anunciar("Cola vaciada")
 
     def _on_detener_tts(self, event):
@@ -403,7 +404,7 @@ class YTChatFrame(wx.Frame):
             return False
         return True
 
-    def _accion_api(self, accion, mensaje_ok: str) -> None:
+    def _accion_api(self, accion, mensaje_ok: str, sonido: str = "enviado") -> None:
         """Ejecuta una acción de escritura en un hilo y persiste el token si se refresca."""
         anunciar("Enviando")
 
@@ -413,7 +414,7 @@ class YTChatFrame(wx.Frame):
                 accion(cli)
                 if cli.token_actualizado():
                     credenciales.guardar_campo("token", cli.token_actualizado())
-                wx.CallAfter(self._api_ok, mensaje_ok)
+                wx.CallAfter(self._api_ok, mensaje_ok, sonido)
             except Exception as exc:
                 logger.warning("acción API: %s", exc)
                 wx.CallAfter(self._api_err, exc)
@@ -421,8 +422,8 @@ class YTChatFrame(wx.Frame):
         import threading
         threading.Thread(target=_run, daemon=True, name="AccionAPI").start()
 
-    def _api_ok(self, mensaje):
-        _snd.reproducir("voz_cambiada")
+    def _api_ok(self, mensaje, sonido: str = "enviado"):
+        _snd.reproducir(sonido)
         anunciar(mensaje)
 
     def _api_err(self, exc):
@@ -447,7 +448,8 @@ class YTChatFrame(wx.Frame):
         lcid = self._live_chat_id
         ok = f"{autor} expulsado 5 minutos" if segundos else f"{autor} baneado del directo"
         self._accion_api(
-            lambda cli: cli.banear_usuario(lcid, canal_id, segundos), ok)
+            lambda cli: cli.banear_usuario(lcid, canal_id, segundos), ok,
+            sonido="moderacion")
 
     def _ajustar_rate(self, delta):
         self._worker.cambiar_rate(delta)
