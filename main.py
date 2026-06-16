@@ -367,8 +367,9 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
             try:    chat.raise_for_status()
             except Exception as exc:
                 ultimo_error = exc
+            # El sonido de desconexión lo emite la GUI (set_conectado(False)),
+            # para que suene también al desconectar a mano y sin duplicarse.
             if on_estado: on_estado("desconectado", "El directo ha terminado o se perdió la conexión.")
-            _snd.reproducir("desconectado")
     return ultimo_error
 
 
@@ -489,11 +490,14 @@ def main():
             if not _gm._gui_frame or not _gm._gui_frame._alive:
                 return
             if tipo_estado == "conectado":
+                # set_conectado ya anuncia un mensaje claro según el tipo; no
+                # repetimos el texto genérico aquí.
                 wx.CallAfter(_gm._gui_frame.set_conectado, True)
-            elif tipo_estado in ("error_permanente", "error", "desconectado"):
+                return
+            if tipo_estado in ("error_permanente", "error", "desconectado"):
                 wx.CallAfter(_gm._gui_frame.set_conectado, False)
                 wx.CallAfter(_gm._gui_frame.set_titulo_stream, "")
-            # Todos los estados se anuncian al lector de pantalla.
+            # El resto de estados (conectando, reintentando, errores) se anuncian.
             from gui import anunciar
             wx.CallAfter(anunciar, texto)
 

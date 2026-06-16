@@ -101,7 +101,10 @@ class ReproductorPanel(wx.Panel):
         self.SetBackgroundColour(_T.bg)
         self.SetForegroundColour(_T.text)
         if self._listo:
-            self._inst = _vlc.Instance("--no-video", "--quiet")
+            # network-caching más bajo que el defecto (1000 ms) para que play,
+            # pausa y búsqueda respondan antes; http-reconnect ayuda en directos.
+            self._inst = _vlc.Instance(
+                "--no-video", "--quiet", "--network-caching=700", "--http-reconnect")
             self._player = self._inst.media_player_new()
             self._build_ui()
         else:
@@ -269,20 +272,19 @@ class ReproductorPanel(wx.Panel):
             return
         st = self._player.get_state()
         if st == _vlc.State.Playing:
-            self._player.pause()
+            self._player.set_pause(1)
             self.btn_play.SetLabel("&Reproducir")
             self._timer.Stop()
             anunciar("Pausa")
-        else:
-            # Si no hay medio cargado todavía, cargar y reproducir.
-            if st in (_vlc.State.NothingSpecial, _vlc.State.Ended, _vlc.State.Stopped, _vlc.State.Error):
-                if self._video_id:
-                    self.cargar(reproducir=True)
-                return
-            self._player.play()
+        elif st == _vlc.State.Paused:
+            self._player.set_pause(0)
             self.btn_play.SetLabel("&Pausa")
             self._timer.Start(500)
             anunciar("Reproduciendo")
+        else:
+            # Sin medio (parado/terminado/error): cargar y reproducir de nuevo.
+            if self._video_id:
+                self.cargar(reproducir=True)
 
     def _detener(self, silencioso: bool = False):
         if self._player is not None:

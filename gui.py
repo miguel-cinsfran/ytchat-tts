@@ -316,25 +316,35 @@ class YTChatFrame(wx.Frame):
         row.Add(self.btn_conectar, 0, wx.ALIGN_CENTER_VERTICAL)
         vs.Add(row, 0, wx.EXPAND | wx.ALL, 10)
 
-        self.lbl_tipo = wx.StaticText(panel, label="Sin conectar.", name="TipoVideo")
+        self.lbl_tipo = wx.StaticText(panel, label="Sin conectar. Pega una URL y pulsa Conectar.",
+                                      name="TipoVideo")
         self.lbl_tipo.SetForegroundColour(_T.dim)
         vs.Add(self.lbl_tipo, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        # ── Notebook: solo Chat en vivo y Comentarios ──
-        self.nb = wx.Notebook(panel, name="Paneles")
-        _tc(self.nb, bg=_T.surface)
+        # ── Zona de contenido: notebook + reproductor. Se oculta hasta que hay
+        # conexión y se vuelve a ocultar al desconectar (queda solo la barra
+        # superior), para que no aparezca todo a medio cargar. ──
+        self._zona = wx.Panel(panel, name="ZonaContenido")
+        self._zona.SetBackgroundColour(_T.bg)
+        zvs = wx.BoxSizer(wx.VERTICAL)
 
+        self.nb = wx.Notebook(self._zona, name="Paneles")
+        _tc(self.nb, bg=_T.surface)
         self._pag_chat = self._build_pagina_chat(self.nb)
         self._com_panel = ComentariosPanel(self.nb, self._cola, self._config)
         self.nb.AddPage(self._pag_chat, "Chat en vivo")
         self.nb.AddPage(self._com_panel, "Comentarios")
-        vs.Add(self.nb, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        zvs.Add(self.nb, 1, wx.EXPAND | wx.BOTTOM, 10)
 
-        # ── Reproductor: región fija, siempre visible bajo las pestañas ──
-        self._rep_panel = ReproductorPanel(panel, self._config)
-        vs.Add(self._rep_panel, 0, wx.EXPAND | wx.ALL, 10)
+        self._rep_panel = ReproductorPanel(self._zona, self._config)
+        zvs.Add(self._rep_panel, 0, wx.EXPAND)
+
+        self._zona.SetSizer(zvs)
+        vs.Add(self._zona, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self._zona.Hide()
 
         panel.SetSizer(vs)
+        self._panel_principal = panel
 
         # Regiones que recorre F6 / Shift+F6.
         self._region_idx = REG_CONTENIDO
@@ -393,11 +403,18 @@ class YTChatFrame(wx.Frame):
     # ── Navegación de paneles ────────────────────────────────────────────────
 
     def _navegar_region(self, delta: int):
+        if not self._conectado:
+            self.txt_url.SetFocus()
+            anunciar("Conéctate primero para usar los paneles")
+            return
         self._region_idx = (self._region_idx + delta) % len(self._regiones)
         self._ir_region(self._region_idx)
 
     def _ir_region(self, idx: int):
         if not (0 <= idx < len(self._regiones)):
+            return
+        if idx != REG_CONEXION and not self._conectado:
+            anunciar("Conéctate primero para usar los paneles")
             return
         self._region_idx = idx
         try:    self._regiones[idx]()
@@ -436,8 +453,7 @@ class YTChatFrame(wx.Frame):
         if self._conectado:
             if self.on_desconectar_cb:
                 self.on_desconectar_cb()
-            self._set_conectado_ui(False)
-            anunciar("Desconectando")
+            self.set_conectado(False)
         else:
             url = self.txt_url.GetValue().strip()
             if not url:
@@ -917,11 +933,45 @@ class YTChatFrame(wx.Frame):
     def set_conectado(self, conectado: bool) -> None:
         if not self._alive:
             return
-        if not conectado:
+        estaba = self._conectado
+        self._conectado = conectado
+        if conectado:
+            if not estaba:
+                self._mostrar_zona(True)
+                self._region_idx = REG_CONTENIDO
+                self._anunciar_conectado()
+                wx.CallAfter(self._foco_contenido)
+        else:
             self._live_chat_id = ""
             self._canal_por_autor.clear()
+            try:    self._rep_panel.detener_todo()
+            except Exception: pass
+            # Solo si veníamos de una conexión real: ocultar, sonar y avisar.
+            # (Un fallo de conexión nunca llegó a "conectado", así que no suena.)
+            if estaba:
+                self._mostrar_zona(False)
+                self.set_titulo_stream("")
+                self.lbl_tipo.SetLabel("Sin conectar. Pega una URL y pulsa Conectar.")
+                _snd.reproducir("desconectado")
+                anunciar("Desconectado")
         self._set_conectado_ui(conectado)
         self._actualizar_estado_online()
+
+    def _mostrar_zona(self, mostrar: bool) -> None:
+        self._zona.Show(mostrar)
+        self._panel_principal.Layout()
+
+    def _anunciar_conectado(self) -> None:
+        t = self._tipo_video
+        if t == deteccion.LIVE:
+            msg = "Conectado al directo. Leyendo el chat en vivo."
+        elif t == deteccion.UPCOMING:
+            msg = "Directo programado. Aún no hay chat; puedes ver los comentarios."
+        elif t == deteccion.VOD:
+            msg = "Vídeo conectado. Comentarios y reproductor disponibles."
+        else:
+            msg = "Conectado."
+        anunciar(msg)
 
     def set_live_chat_id(self, live_chat_id: str) -> None:
         if not self._alive:
@@ -962,7 +1012,8 @@ class YTChatFrame(wx.Frame):
             return
         self._titulo_stream = (titulo or "").strip()
         if self._titulo_stream:
-            self.SetTitle(f"{self._titulo_stream} — {APP_NAME} v{APP_VERSION}")
+            # Formato tipo navegador: «Nombre del vídeo — YTChat TTS».
+            self.SetTitle(f"{self._titulo_stream} — {APP_NAME}")
         else:
             self.SetTitle(f"{APP_NAME} v{APP_VERSION}")
 
@@ -1025,20 +1076,17 @@ class YTChatFrame(wx.Frame):
                 self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
 
     def _set_conectado_ui(self, conectado: bool) -> None:
-        self._conectado = conectado
+        # Solo botón Conectar/Desconectar y campo URL. El resto (ocultar zona,
+        # sonido, título) lo gestiona set_conectado.
         if conectado:
             self.btn_conectar.SetLabel("&Desconectar")
-            self.btn_conectar.Enable()
             self.mi_conectar.SetItemLabel("&Desconectar")
             self.txt_url.Disable()
         else:
             self.btn_conectar.SetLabel("&Conectar")
-            self.btn_conectar.Enable()
             self.mi_conectar.SetItemLabel("&Conectar")
             self.txt_url.Enable()
-            self.lbl_tipo.SetLabel("Sin conectar.")
-            try:    self._rep_panel.detener_todo()
-            except Exception: pass
+        self.btn_conectar.Enable()
 
     def _actualizar_sb(self) -> None:
         sin_tts = " [sin TTS]" if self._config.get("silenciar_lectura", False) else ""
