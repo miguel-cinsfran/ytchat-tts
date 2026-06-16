@@ -117,9 +117,11 @@ verificación de Google.
 ```
 ytchat-tts/
 ├── main.py            # Entrada, orquestación, captura de chat
-├── gui.py             # Ventana wxPython, eventos, persistencia runtime
-├── gui_config.py      # Diálogo de Configuración (API key + OAuth)
-├── gui_comentarios.py # Ventana de comentarios de vídeos
+├── gui.py             # Ventana wxPython: menú, regiones, eventos
+├── gui_preferencias.py# Diálogo de Preferencias por pestañas (incl. API/OAuth)
+├── gui_comentarios.py # Panel de comentarios de vídeos
+├── reproductor.py     # Reproductor de audio (yt-dlp + libVLC)
+├── deteccion.py       # Clasificación directo/programado/VOD (puro, testeado)
 ├── tts_worker.py      # Hilo TTS (COM/STA), sanitización, volumen
 ├── config.py          # Constantes, logging, INI, atajos, guardar_opcion()
 ├── montos.py          # Parseo del importe de Super Chats (locale-aware)
