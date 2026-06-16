@@ -32,8 +32,9 @@ for /f "delims=" %%i in ('uv run python -c "import googleapiclient,os;print(os.p
 echo    %YTDOC%
 
 REM Icono opcional: si dejas un app.ico en la raiz, se usa para el .exe.
+REM Ruta absoluta: PyInstaller resuelve --icon relativo a --specpath (build).
 set "ICONO="
-if exist "app.ico" set "ICONO=--icon app.ico"
+if exist "app.ico" set "ICONO=--icon "%~dp0app.ico""
 
 echo == Empaquetando con PyInstaller ==
 REM --noupx: NO comprimir con UPX. UPX dispara muchos falsos positivos de

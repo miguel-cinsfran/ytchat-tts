@@ -338,6 +338,9 @@ Los lectores de pantalla no monitorizan la barra de estado automáticamente. Con
 **El ejecutable lo marca el antivirus como sospechoso**
 Falso positivo conocido de PyInstaller. Añade la carpeta `YTChat TTS\` a las exclusiones del antivirus.
 
+**"Windows protegió tu PC" al abrir por primera vez**
+Es SmartScreen: el ejecutable no está firmado con un certificado de pago. Pulsa *Más información* y luego *Ejecutar de todos modos*. Solo aparece la primera vez.
+
 ---
 
 ## Diagnóstico
