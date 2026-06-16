@@ -10,10 +10,15 @@ __pycache__/
 # Logs
 ytchat.log
 
-# Claude Code
+# Historial de sesión (opción guardar_historial en config.ini)
+historial.csv
+historial.txt
+
+# Claude Code y notas/informes ajenos al proyecto
 .claude/
 .claudeignore
 CLAUDE.md
+claude.md
 docs/
 *.bat
 

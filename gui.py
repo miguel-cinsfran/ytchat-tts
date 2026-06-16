@@ -29,10 +29,6 @@ ALTO_DEFECTO    = 560
 RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 
-# Para parsear el amountString de Super Chats ("€15.50", "5,00 €", ...)
-_NUM_RE    = re.compile(r"(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{1,2})?|\d+)")
-_DIVISA_RE = re.compile(r"[^\d\s,.]+")
-
 logger = logging.getLogger(__name__)
 
 
@@ -742,28 +738,14 @@ class YTChatFrame(wx.Frame):
     # ── Acumulación de Super Chats ───────────────────────────────────────────
 
     def _sumar_superchat(self, monto: str) -> None:
-        # El formato del amountString depende de la locale del viewer:
-        # "€15.50", "$10.00", "5,00 €", "1.234,56 €"... Intentamos
-        # normalizar antes de convertir a float.
-        if not monto:
+        # El amountString depende de la locale del viewer ("€15.50", "$10.00",
+        # "5,00 €", "1.234,56 €", "PYG 50000"...). montos.parsear_monto lo
+        # normaliza; aquí solo acumulamos por divisa.
+        from montos import parsear_monto
+        r = parsear_monto(monto)
+        if r is None:
             return
-        m = _NUM_RE.search(monto)
-        if not m:
-            return
-        num = m.group(1)
-        if "," in num and "." in num:
-            # Formato europeo (1.234,56) vs anglosajón (1,234.56): gana la
-            # posición del último separador.
-            if num.rfind(",") > num.rfind("."):
-                num = num.replace(".", "").replace(",", ".")
-            else:
-                num = num.replace(",", "")
-        elif "," in num:
-            num = num.replace(",", ".")
-        try:    valor = float(num)
-        except ValueError: return
-        divisa_m = _DIVISA_RE.search(monto)
-        divisa = divisa_m.group(0).strip() if divisa_m else "?"
+        divisa, valor = r
         self._sc_totales[divisa] = self._sc_totales.get(divisa, 0.0) + valor
 
     def _formato_total_sc(self) -> str:

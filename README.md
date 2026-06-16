@@ -88,11 +88,13 @@ ytchat-tts/
 ├── gui.py           # Ventana wxPython, eventos, persistencia runtime
 ├── tts_worker.py    # Hilo TTS (COM/STA), sanitización, volumen
 ├── config.py        # Constantes, logging, INI, atajos, guardar_opcion()
+├── montos.py        # Parseo del importe de Super Chats (locale-aware)
 ├── sound_player.py  # Reproductor asíncrono vía winmm.dll
 ├── sound_gen.py     # Generador de WAV stdlib (setup / regenerar)
 ├── config.ini       # Configuración de usuario (editable)
 ├── sounds.ini       # Configuración de sonidos (editable)
 ├── sounds/          # Archivos WAV de retroalimentación
+├── tests/           # Pruebas de la lógica pura (unittest, sin Windows)
 ├── requirements.txt
 └── instalar.bat     # Instalador de dependencias + generación de sonidos
 ```
@@ -122,6 +124,17 @@ instalar.bat
 3. Pregunta si instalar el fork alternativo de pytchat (útil con ciertos directos).
 4. Genera los 12 sonidos de retroalimentación con `sound_gen.py`.
 5. Pregunta si abrir la aplicación ahora.
+
+### Instalación manual (sin `instalar.bat`)
+
+Los scripts `.bat` no se incluyen al clonar desde GitHub. Para instalar a mano,
+con Python 3.11+ de 64 bits:
+
+```bash
+pip install -r requirements.txt
+python sound_gen.py          # genera los WAV de la carpeta sounds/
+python main.py               # arranca la aplicación
+```
 
 Para ejecutar directamente en desarrollo:
 
@@ -256,6 +269,23 @@ Falso positivo conocido de PyInstaller. Añade `dist\YTChat-TTS\` a las exclusio
 ## Diagnóstico
 
 `ytchat.log` (junto al ejecutable) recoge warnings y errores. En operación normal está vacío. Cuando contiene entradas, la primera línea de error suele indicar la causa.
+
+---
+
+## Pruebas
+
+La lógica que no depende de Windows (extracción de ID de vídeo, sanitización
+de texto, formato de lectura, parseo de atajos, carga de `config.ini`, parseo
+de importes de Super Chat y filtros de la cola) está cubierta por una batería
+de tests con `unittest`, sin dependencias externas:
+
+```bash
+python -m unittest discover -s tests
+```
+
+No requieren `wxPython`, `pytchat` ni un lector de pantalla, así que corren en
+cualquier sistema operativo (útil para CI desde Linux/WSL). El TTS SAPI5, el
+audio MCI y la GUI wx se prueban a mano en Windows.
 
 ---
 
