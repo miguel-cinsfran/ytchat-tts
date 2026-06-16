@@ -37,10 +37,16 @@ ALTO_DEFECTO    = 600
 RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 
-# Índices de las páginas del notebook.
+# Índices de las páginas del notebook (solo chat y comentarios; el reproductor
+# es una región fija, no una pestaña).
 PAG_CHAT = 0
 PAG_COMENTARIOS = 1
-PAG_REPRODUCTOR = 2
+
+# Regiones que recorre F6 / Shift+F6.
+REG_CONEXION = 0
+REG_CONTENIDO = 1
+REG_REPRODUCTOR = 2
+_NOMBRE_REGION = ("Conexión", "Contenido", "Reproductor")
 
 logger = logging.getLogger(__name__)
 
@@ -178,22 +184,20 @@ class YTChatFrame(wx.Frame):
         m = wx.Menu()
         self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar")
         m.AppendSeparator()
-        mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
-        m.AppendSeparator()
         mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
         mb.Append(m, "&Archivo")
         self.Bind(wx.EVT_MENU, self._on_conectar, self.mi_conectar)
-        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
 
         # Ver
         m = wx.Menu()
-        mi_sig = m.Append(wx.ID_ANY, "Panel &siguiente\tF6")
-        mi_ant = m.Append(wx.ID_ANY, "Panel &anterior\tShift+F6")
+        mi_sig = m.Append(wx.ID_ANY, "Región &siguiente\tF6")
+        mi_ant = m.Append(wx.ID_ANY, "Región &anterior\tShift+F6")
         m.AppendSeparator()
+        mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)")
         mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
-        mi_rep  = m.Append(wx.ID_ANY, "Ir a &Reproductor")
+        mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
         m.AppendSeparator()
         # Submenú de filtro (radio).
         sub_f = wx.Menu()
@@ -206,11 +210,12 @@ class YTChatFrame(wx.Frame):
         m.AppendSeparator()
         mi_estado = m.Append(wx.ID_ANY, "&Anunciar estado" + self._accel("anunciar_estado"))
         mb.Append(m, "&Ver")
-        self.Bind(wx.EVT_MENU, lambda e: self._navegar_panel(+1), mi_sig)
-        self.Bind(wx.EVT_MENU, lambda e: self._navegar_panel(-1), mi_ant)
-        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_CHAT), mi_chat)
-        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_COMENTARIOS), mi_com)
-        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_REPRODUCTOR), mi_rep)
+        self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(+1), mi_sig)
+        self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(-1), mi_ant)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_CONEXION), mi_conx)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_CHAT), mi_chat)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_COMENTARIOS), mi_com)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_REPRODUCTOR), mi_rep)
         self.Bind(wx.EVT_MENU, lambda e: self._anunciar_estado(), mi_estado)
 
         # Voz (TTS)
@@ -244,26 +249,31 @@ class YTChatFrame(wx.Frame):
 
         # Reproductor
         m = wx.Menu()
-        self.mi_rep_cargar = m.Append(wx.ID_ANY, "&Cargar audio del vídeo")
-        self.mi_rep_play   = m.Append(wx.ID_ANY, "&Reproducir o pausa")
-        self.mi_rep_retro  = m.Append(wx.ID_ANY, "R&etroceder 10 segundos")
-        self.mi_rep_avanz  = m.Append(wx.ID_ANY, "&Avanzar 10 segundos")
-        self.mi_rep_stop   = m.Append(wx.ID_ANY, "De&tener reproducción")
+        mi_rep_play  = m.Append(wx.ID_ANY, "&Reproducir o pausa")
+        mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 10 segundos")
+        mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 10 segundos")
+        mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción")
+        mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio")
+        m.AppendSeparator()
+        mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor")
+        mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor")
         mb.Append(m, "&Reproductor")
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_panel.cargar(), self.mi_rep_cargar)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), self.mi_rep_play)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -10_000), self.mi_rep_retro)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +10_000), self.mi_rep_avanz)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), self.mi_rep_stop)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), mi_rep_play)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -10_000), mi_rep_retro)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +10_000), mi_rep_avanz)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), mi_rep_stop)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_mute"), mi_rep_mute)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", -5), mi_rep_volm)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", +5), mi_rep_volM)
 
         # Herramientas
         m = wx.Menu()
-        self.mi_enviar_live = m.Append(wx.ID_ANY, "&Enviar mensaje al chat del directo…")
+        mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
         m.AppendSeparator()
-        mi_api = m.Append(wx.ID_ANY, "&Configuración de API y sesión…")
+        self.mi_enviar_live = m.Append(wx.ID_ANY, "&Enviar mensaje al chat del directo…")
         mb.Append(m, "&Herramientas")
+        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
-        self.Bind(wx.EVT_MENU, self._on_config_api, mi_api)
 
         # Ayuda
         m = wx.Menu()
@@ -310,20 +320,29 @@ class YTChatFrame(wx.Frame):
         self.lbl_tipo.SetForegroundColour(_T.dim)
         vs.Add(self.lbl_tipo, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        # ── Notebook con los paneles ──
+        # ── Notebook: solo Chat en vivo y Comentarios ──
         self.nb = wx.Notebook(panel, name="Paneles")
         _tc(self.nb, bg=_T.surface)
 
         self._pag_chat = self._build_pagina_chat(self.nb)
         self._com_panel = ComentariosPanel(self.nb, self._cola, self._config)
-        self._rep_panel = ReproductorPanel(self.nb, self._config)
-
         self.nb.AddPage(self._pag_chat, "Chat en vivo")
         self.nb.AddPage(self._com_panel, "Comentarios")
-        self.nb.AddPage(self._rep_panel, "Reproductor")
+        vs.Add(self.nb, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
 
-        vs.Add(self.nb, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        # ── Reproductor: región fija, siempre visible bajo las pestañas ──
+        self._rep_panel = ReproductorPanel(panel, self._config)
+        vs.Add(self._rep_panel, 0, wx.EXPAND | wx.ALL, 10)
+
         panel.SetSizer(vs)
+
+        # Regiones que recorre F6 / Shift+F6.
+        self._region_idx = REG_CONTENIDO
+        self._regiones = [
+            lambda: self.txt_url.SetFocus(),
+            self._foco_contenido,
+            self._rep_panel.anclar_foco,
+        ]
 
         # 7 campos: estado, velocidad, voz, cola, leídos, volumen, total SC.
         self.sb = self.CreateStatusBar(7, name="BarraEstado")
@@ -373,17 +392,36 @@ class YTChatFrame(wx.Frame):
 
     # ── Navegación de paneles ────────────────────────────────────────────────
 
-    def _navegar_panel(self, delta: int):
-        n = self.nb.GetPageCount()
-        if n == 0:
-            return
-        nuevo = (self.nb.GetSelection() + delta) % n
-        self._ir_panel(nuevo)
+    def _navegar_region(self, delta: int):
+        self._region_idx = (self._region_idx + delta) % len(self._regiones)
+        self._ir_region(self._region_idx)
 
-    def _ir_panel(self, idx: int):
+    def _ir_region(self, idx: int):
+        if not (0 <= idx < len(self._regiones)):
+            return
+        self._region_idx = idx
+        try:    self._regiones[idx]()
+        except Exception as exc: logger.debug("ir_region %d: %s", idx, exc)
+        nombre = _NOMBRE_REGION[idx]
+        if idx == REG_CONTENIDO:
+            nombre += f": {self.nb.GetPageText(self.nb.GetSelection())}"
+        anunciar(nombre)
+
+    def _foco_contenido(self):
+        pag = self.nb.GetCurrentPage()
+        if pag is self._pag_chat:
+            self.lb_chat.SetFocus()
+        elif pag is self._com_panel:
+            self._com_panel.anclar_foco()
+        else:
+            self.nb.SetFocus()
+
+    def _ir_pestana(self, idx: int):
+        """Selecciona una pestaña del notebook y deja el foco en su contenido."""
         if 0 <= idx < self.nb.GetPageCount():
             self.nb.SetSelection(idx)
-            self.nb.GetPage(idx).SetFocus()
+            self._region_idx = REG_CONTENIDO
+            self._foco_contenido()
             anunciar(self.nb.GetPageText(idx))
 
     def _rep_accion(self, metodo: str, *args):
@@ -424,6 +462,8 @@ class YTChatFrame(wx.Frame):
             logger.warning("No se pudo abrir preferencias: %s", exc)
             wx.MessageBox(f"No se pudo abrir Preferencias:\n{exc}",
                           "Error", wx.OK | wx.ICON_ERROR, self)
+        # La pestaña API puede haber cambiado la sesión: refrescar.
+        self._actualizar_estado_online()
 
     def _aplicar_preferencias_en_caliente(self):
         # Reconstruir atajos y menú por si cambiaron las teclas.
@@ -447,16 +487,6 @@ class YTChatFrame(wx.Frame):
         except Exception:
             pass
         anunciar("Preferencias aplicadas")
-
-    def _on_config_api(self, event):
-        try:
-            from gui_config import abrir_configuracion
-            abrir_configuracion(self)
-        except Exception as exc:
-            logger.warning("No se pudo abrir configuración API: %s", exc)
-            wx.MessageBox(f"No se pudo abrir la configuración de API:\n{exc}",
-                          "Error", wx.OK | wx.ICON_ERROR, self)
-        self._actualizar_estado_online()
 
     def _on_about(self, event):
         wx.MessageBox(
@@ -904,22 +934,23 @@ class YTChatFrame(wx.Frame):
             return
         self._tipo_video = tipo
         es_live = deteccion.tiene_chat_en_vivo(tipo)
-        # Pasar el vídeo a comentarios y reproductor; autocargar comentarios solo
-        # cuando no hay chat en vivo (en un directo no queremos saturar).
+        autoplay = bool(self._config.get("autoplay_reproductor", True))
+        # Comentarios: autocargar solo cuando no hay chat en vivo (en un directo
+        # no queremos saturar). Reproductor: siempre, con autoplay según prefs.
         try:    self._com_panel.set_video(video_id, autocargar=not es_live)
         except Exception: pass
-        try:    self._rep_panel.set_video(video_id)
+        try:    self._rep_panel.set_video(video_id, autoplay=autoplay)
         except Exception: pass
 
         if tipo == deteccion.LIVE:
             self.lbl_tipo.SetLabel("Directo en vivo: leyendo el chat.")
-            self._ir_panel(PAG_CHAT)
+            self.nb.SetSelection(PAG_CHAT)
         elif tipo == deteccion.UPCOMING:
             self.lbl_tipo.SetLabel("Directo programado: aún sin chat. Hay comentarios.")
-            self._ir_panel(PAG_COMENTARIOS)
+            self.nb.SetSelection(PAG_COMENTARIOS)
         elif tipo == deteccion.VOD:
             self.lbl_tipo.SetLabel("Vídeo subido: comentarios y reproductor.")
-            self._ir_panel(PAG_COMENTARIOS)
+            self.nb.SetSelection(PAG_COMENTARIOS)
         else:
             self.lbl_tipo.SetLabel("Tipo no determinado: intentando leer el chat.")
 

@@ -35,6 +35,12 @@ echo == Localizando el discovery doc de YouTube (solo ese, no el cache entero) =
 for /f "delims=" %%i in ('uv run python -c "import googleapiclient,os;print(os.path.join(os.path.dirname(googleapiclient.__file__),'discovery_cache','documents','youtube.v3.json'))"') do set "YTDOC=%%i"
 echo    %YTDOC%
 
+echo == Localizando VLC (para empaquetar libVLC y que el amigo no instale nada) ==
+set "VLCDIR="
+if exist "C:\Program Files\VideoLAN\VLC\libvlc.dll" set "VLCDIR=C:\Program Files\VideoLAN\VLC"
+if not defined VLCDIR if exist "C:\Program Files (x86)\VideoLAN\VLC\libvlc.dll" set "VLCDIR=C:\Program Files (x86)\VideoLAN\VLC"
+if defined VLCDIR ( echo    %VLCDIR% ) else ( echo    AVISO: VLC no encontrado. El paquete saldra SIN reproductor. Instala VLC y reconstruye. )
+
 REM Icono opcional: si dejas un app.ico en la raiz, se usa para el .exe.
 REM Ruta absoluta: PyInstaller resuelve --icon relativo a --specpath (build).
 set "ICONO="
@@ -53,6 +59,7 @@ call uv run pyinstaller main.py ^
   --collect-submodules google_auth_oauthlib ^
   --collect-submodules pytchat ^
   --collect-all yt_dlp ^
+  --hidden-import vlc ^
   --add-data "!YTDOC!;googleapiclient/discovery_cache/documents"
 if errorlevel 1 ( echo ERROR en PyInstaller. & pause & exit /b 1 )
 
@@ -64,6 +71,11 @@ REM robocopy devuelve codigos ^>=1 incluso en exito; no encadenamos errorlevel.
 robocopy "dist\YTChatTTS" "%OUT%" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "sounds" "%OUT%\sounds" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "docs"   "%OUT%\docs"   /E /NFL /NDL /NJH /NJS /NP >nul
+if defined VLCDIR (
+  echo == Empaquetando libVLC junto al exe ==
+  robocopy "%VLCDIR%" "%OUT%\vlc" libvlc.dll libvlccore.dll /NFL /NDL /NJH /NJS /NP >nul
+  robocopy "%VLCDIR%\plugins" "%OUT%\vlc\plugins" /E /NFL /NDL /NJH /NJS /NP >nul
+)
 copy /y "config.ini" "%OUT%\" >nul
 copy /y "sounds.ini" "%OUT%\" >nul
 copy /y "README.md"  "%OUT%\" >nul

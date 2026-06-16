@@ -186,7 +186,7 @@ _DEF = {
     "palabras_silenciadas": "", "usuarios_silenciados": "",
     "limpiar_emojis": "true", "eliminar_urls": "true", "max_longitud_mensaje": "200",
     "tamanio_fuente_chat": "12", "mostrar_total_superchats": "true",
-    "guardar_historial": "no",
+    "guardar_historial": "no", "autoplay_reproductor": "true",
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
 }
 
@@ -227,6 +227,7 @@ volumen_mas = f12
 [ui]
 tamanio_fuente_chat = 12
 mostrar_total_superchats = true
+autoplay_reproductor = true
 filtro_activo = todos
 silenciar_sonidos = false
 [sesion]
@@ -372,6 +373,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "ui", "filtro_activo", "todos")
     if not p.has_option("ui", "silenciar_sonidos"):
         guardar_opcion(ruta, "ui", "silenciar_sonidos", "false")
+    if not p.has_option("ui", "autoplay_reproductor"):
+        guardar_opcion(ruta, "ui", "autoplay_reproductor", "true")
     if not p.has_option("sesion", "silenciar_lectura"):
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
 
@@ -397,6 +400,7 @@ def cargar_configuracion() -> dict:
         "max_longitud_mensaje": _pi(p, "texto", "max_longitud_mensaje"),
         "tamanio_fuente_chat": _pi(p, "ui", "tamanio_fuente_chat", lo=8, hi=24),
         "mostrar_total_superchats": _pb(p, "ui", "mostrar_total_superchats"),
+        "autoplay_reproductor": _pb(p, "ui", "autoplay_reproductor"),
         "filtro_activo": filtro_activo,
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),
         "guardar_historial": guardar,

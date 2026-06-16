@@ -10,14 +10,20 @@ La configuración de API/OAuth sigue en su propio diálogo (Herramientas).
 from __future__ import annotations
 
 import logging
+import threading
+import webbrowser
 
 import wx
 
 import config as cfg
 import sound_player as _snd
+import credenciales
+import youtube_api
 from gui import anunciar, _T, _tc
 
 logger = logging.getLogger(__name__)
+
+URL_GUIA = "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"
 
 _FORMATOS = [
     ("Nombre y mensaje", "nombre_mensaje"),
@@ -52,6 +58,7 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_lectura(self.nb), "Lectura")
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
+        self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -97,6 +104,12 @@ class PreferenciasDialog(wx.Dialog):
         self.chk_total_sc.SetForegroundColour(_T.text)
         self.chk_total_sc.SetValue(bool(self._config.get("mostrar_total_superchats", True)))
         vs.Add(self.chk_total_sc, 0, wx.ALL, 10)
+
+        self.chk_autoplay = wx.CheckBox(p, label="&Reproducir el audio automáticamente al conectar",
+                                        name="AutoplayReproductor")
+        self.chk_autoplay.SetForegroundColour(_T.text)
+        self.chk_autoplay.SetValue(bool(self._config.get("autoplay_reproductor", True)))
+        vs.Add(self.chk_autoplay, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         p.SetSizer(vs)
         return p
@@ -204,6 +217,136 @@ class PreferenciasDialog(wx.Dialog):
         p.SetSizer(vs)
         return p
 
+    def _pag_api(self, parent):
+        p = self._make_panel(parent, "PagApi")
+        self._login_en_curso = False
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        intro = wx.StaticText(p, name="IntroApi", label=(
+            "La API key permite LEER comentarios (sin iniciar sesión). El cliente "
+            "OAuth e iniciar sesión permiten MODERAR el chat, enviar mensajes al "
+            "directo y publicar o responder comentarios."))
+        intro.SetForegroundColour(_T.dim)
+        intro.Wrap(560)
+        vs.Add(intro, 0, wx.ALL, 10)
+
+        if not youtube_api.google_disponible():
+            aviso = wx.StaticText(p, name="AvisoLibreriasApi", label=(
+                "AVISO: faltan las librerías de la API. Instálalas con:\n"
+                "pip install google-api-python-client google-auth-oauthlib"))
+            aviso.SetForegroundColour(_T.red)
+            vs.Add(aviso, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        datos = credenciales.cargar()
+        grid = wx.FlexGridSizer(3, 2, 8, 8)
+        grid.AddGrowableCol(1, 1)
+        self.txt_api = self._fila_api(p, grid, "&API key:", "API key de YouTube",
+                                      datos.get("api_key", ""))
+        self.txt_cid = self._fila_api(p, grid, "ID de &cliente OAuth:",
+                                      "ID de cliente OAuth", datos.get("oauth_client_id", ""))
+        self.txt_secret = self._fila_api(p, grid, "&Secreto de cliente OAuth:",
+                                         "Secreto de cliente OAuth",
+                                         datos.get("oauth_client_secret", ""), password=True)
+        vs.Add(grid, 0, wx.EXPAND | wx.ALL, 10)
+
+        self.lbl_estado_api = wx.StaticText(p, name="EstadoSesion", label="")
+        self.lbl_estado_api.SetForegroundColour(_T.accent)
+        vs.Add(self.lbl_estado_api, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_api_guardar = wx.Button(p, label="&Guardar claves", name="GuardarClaves")
+        self.btn_api_login   = wx.Button(p, label="&Iniciar sesión", name="IniciarSesion")
+        self.btn_api_logout  = wx.Button(p, label="Cerrar s&esión", name="CerrarSesion")
+        self.btn_api_guia    = wx.Button(p, label="Abrir g&uía", name="AbrirGuia")
+        for b in (self.btn_api_guardar, self.btn_api_login, self.btn_api_logout, self.btn_api_guia):
+            b.SetBackgroundColour(_T.btn)
+            b.SetForegroundColour(_T.btn_t)
+            row.Add(b, 0, wx.RIGHT, 6)
+        vs.Add(row, 0, wx.ALL, 10)
+
+        p.SetSizer(vs)
+        self.btn_api_guardar.Bind(wx.EVT_BUTTON, self._api_guardar)
+        self.btn_api_login.Bind(wx.EVT_BUTTON, self._api_login)
+        self.btn_api_logout.Bind(wx.EVT_BUTTON, self._api_logout)
+        self.btn_api_guia.Bind(wx.EVT_BUTTON, lambda e: webbrowser.open(URL_GUIA))
+        self._api_refrescar_estado()
+        return p
+
+    def _fila_api(self, p, grid, etiqueta, nombre, valor, password=False):
+        lbl = wx.StaticText(p, label=etiqueta)
+        lbl.SetForegroundColour(_T.text)
+        estilo = wx.TE_PASSWORD if password else 0
+        txt = wx.TextCtrl(p, value=valor or "", style=estilo, name=nombre)
+        _tc(txt)
+        grid.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL)
+        grid.Add(txt, 1, wx.EXPAND)
+        return txt
+
+    def _api_refrescar_estado(self):
+        if credenciales.hay_sesion():
+            texto = "Estado: sesión iniciada. Moderación y comentarios activos."
+            self.btn_api_logout.Enable()
+        else:
+            texto = "Estado: sin sesión. Solo lectura de comentarios (si hay API key)."
+            self.btn_api_logout.Disable()
+        if not youtube_api.google_disponible():
+            self.btn_api_login.Disable()
+        self.lbl_estado_api.SetLabel(texto)
+
+    def _api_guardar(self, event):
+        credenciales.guardar_campo("api_key", self.txt_api.GetValue().strip())
+        credenciales.guardar_campo("oauth_client_id", self.txt_cid.GetValue().strip())
+        credenciales.guardar_campo("oauth_client_secret", self.txt_secret.GetValue().strip())
+        _snd.reproducir("copiar")
+        anunciar("Claves guardadas")
+        self._api_refrescar_estado()
+
+    def _api_login(self, event):
+        if self._login_en_curso:
+            return
+        cid = self.txt_cid.GetValue().strip()
+        secret = self.txt_secret.GetValue().strip()
+        if not (cid and secret):
+            wx.MessageBox("Rellena el ID y el secreto de cliente OAuth antes de "
+                          "iniciar sesión.", "Faltan datos", wx.OK | wx.ICON_WARNING, self)
+            return
+        self._api_guardar(None)
+        self._login_en_curso = True
+        self.btn_api_login.Disable()
+        anunciar("Abriendo el navegador para iniciar sesión. Autoriza y vuelve aquí.")
+
+        def _run():
+            try:
+                token = youtube_api.iniciar_sesion(cid, secret)
+                credenciales.guardar_campo("token", token)
+                wx.CallAfter(self._api_login_ok)
+            except Exception as exc:
+                logger.warning("Login OAuth falló: %s", exc)
+                wx.CallAfter(self._api_login_err, exc)
+
+        threading.Thread(target=_run, daemon=True, name="OAuthLogin").start()
+
+    def _api_login_ok(self):
+        self._login_en_curso = False
+        self.btn_api_login.Enable()
+        _snd.reproducir("conectado")
+        anunciar("Sesión iniciada correctamente.")
+        self._api_refrescar_estado()
+
+    def _api_login_err(self, exc):
+        self._login_en_curso = False
+        self.btn_api_login.Enable()
+        _snd.reproducir("error")
+        anunciar("No se pudo iniciar sesión.")
+        wx.MessageBox(f"No se pudo iniciar sesión:\n\n{exc}", "Error de inicio de sesión",
+                      wx.OK | wx.ICON_ERROR, self)
+
+    def _api_logout(self, event):
+        credenciales.cerrar_sesion()
+        _snd.reproducir("desconectado")
+        anunciar("Sesión cerrada.")
+        self._api_refrescar_estado()
+
     def _fila_label(self, p, texto):
         lbl = wx.StaticText(p, label=texto)
         lbl.SetForegroundColour(_T.accent)
@@ -226,6 +369,10 @@ class PreferenciasDialog(wx.Dialog):
         total_sc = self.chk_total_sc.GetValue()
         self._set("ui", "mostrar_total_superchats", "true" if total_sc else "false")
         c["mostrar_total_superchats"] = total_sc
+
+        autoplay = self.chk_autoplay.GetValue()
+        self._set("ui", "autoplay_reproductor", "true" if autoplay else "false")
+        c["autoplay_reproductor"] = autoplay
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():

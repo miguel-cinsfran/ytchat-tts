@@ -128,6 +128,10 @@ class ComentariosPanel(wx.Panel):
         self._next_token = ""
         self.btn_mas.Disable()
 
+    def anclar_foco(self) -> None:
+        try:    self.lb.SetFocus()
+        except Exception: pass
+
     # ── Carga ────────────────────────────────────────────────────────────────
 
     def _cliente(self) -> youtube_api.ClienteYouTube:

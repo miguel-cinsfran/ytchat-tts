@@ -29,7 +29,10 @@ google-auth-oauthlib>=1.2
 google-auth>=2.30
 
 # ── Reproductor de audio (OPCIONAL) ───────────────────────────────────────────
-# Solo para la pestaña Reproductor: yt-dlp extrae la URL del flujo de audio del
-# vídeo y wx.media (incluido en wxPython) lo reproduce. Si no se instala, la
-# pestaña muestra un aviso y el resto de la app funciona igual.
+# Para el reproductor: yt-dlp extrae la URL del flujo de audio y libVLC
+# (python-vlc) lo reproduce. python-vlc necesita VLC instalado en el equipo
+# (videolan.org); el paquete distribuible lleva libVLC dentro, así que el amigo
+# no instala nada. Si falta cualquiera, el reproductor muestra un aviso y el
+# resto de la app funciona igual.
 yt-dlp>=2025.1.1
+python-vlc>=3.0.20
