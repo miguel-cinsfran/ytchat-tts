@@ -322,6 +322,17 @@ No requieren `wxPython`, `pytchat` ni un lector de pantalla, así que corren en
 cualquier sistema operativo (útil para CI desde Linux/WSL). El TTS SAPI5, el
 audio MCI y la GUI wx se prueban a mano en Windows.
 
+Además, `smoke_test.py` hace una verificación más amplia (pensada para Windows):
+
+```bash
+python smoke_test.py            # importa todo y, si hay pywinauto, revisa accesibilidad
+python smoke_test.py --no-gui   # solo importaciones, sin abrir la ventana
+```
+
+Importa los módulos de GUI (caza errores que la compilación no ve) y, con
+`pywinauto` instalado, lanza la app y recorre el árbol de UI Automation —el
+mismo que lee NVDA— avisando de controles interactivos sin nombre accesible.
+
 ---
 
 ## Licencia
