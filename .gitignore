@@ -1,9 +1,9 @@
-# PyInstaller
+# PyInstaller / paquete distribuible
 build/
 dist/
 *.spec
-"YTChat TTS"/
 YTChat TTS/
+YTChat TTS.zip
 
 # Python
 __pycache__/
@@ -25,7 +25,12 @@ historial.txt
 CLAUDE.md
 claude.md
 INFORME_CLAUDE.md
+
+# Scripts .bat locales sueltos. Los oficiales del proyecto SÍ se versionan.
 *.bat
+!instalar.bat
+!ejecutar.bat
+!construir.bat
 
 # Editor / OS
 .vscode/

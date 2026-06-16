@@ -134,11 +134,12 @@ ytchat-tts/
 ├── docs/              # Documentación (guía de la API de YouTube)
 ├── requirements.txt
 ├── instalar.bat       # Crea el entorno con uv e instala dependencias
+├── ejecutar.bat       # Arranca la aplicación (un clic)
 └── construir.bat      # Empaqueta el .exe distribuible con PyInstaller
 ```
 
-> Los scripts `.bat`, `CLAUDE.md` y `credenciales.json` no se versionan
-> (`.gitignore`): viajan con la copia de la carpeta, no con `git clone`.
+> `CLAUDE.md` y `credenciales.json` no se versionan (`.gitignore`): viajan con
+> la copia de la carpeta, no con `git clone`.
 
 ---
 
@@ -206,7 +207,9 @@ abre el `.exe`.
 
 Abre la aplicación. Pega la URL del directo en el campo de texto y pulsa Enter o el botón Conectar. Acepta URL completa, URL acortada (`youtu.be/…`) o el ID de vídeo de 11 caracteres.
 
-Una vez conectado, los mensajes aparecen en la lista. Enter sobre uno lo copia al portapapeles. La tecla de menú (o Mayúsculas+F10) abre el menú contextual: copiar línea completa, releer con TTS, abrir enlace del mensaje, silenciar autor.
+Una vez conectado, los mensajes aparecen en la lista. Enter sobre uno lo copia al portapapeles. La tecla de menú (o Mayúsculas+F10) abre el menú contextual: copiar línea completa, releer con TTS, abrir enlace del mensaje y silenciar autor. Si has iniciado sesión (ver [Funciones online](#funciones-online-api-de-youtube)), el mismo menú añade **expulsar** (timeout) y **banear** al autor, con confirmación.
+
+Los botones de la barra superior cubren el resto: **Conectar/Desconectar**, **Pausa**, **Vaciar cola**, **Detener TTS**, selector de **Voz** y **Filtro**, **Enviar al chat** (escribe un mensaje en el directo), **Comentarios** (abre la ventana de comentarios del vídeo) y **Configuración** (claves de API e inicio de sesión). Los tres últimos solo funcionan tras configurar la API.
 
 ---
 
