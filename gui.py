@@ -1,11 +1,16 @@
-"""Interfaz wxPython accesible."""
+"""Interfaz wxPython accesible: barra de menú nativa + paneles en notebook.
+
+Rediseño: una sola ventana con barra de menú (que NVDA lee de forma nativa y
+que muestra los atajos), barra superior con URL+Conectar, y un notebook con los
+paneles Chat en vivo, Comentarios y Reproductor. Al conectar se detecta si la
+URL es un directo o un vídeo subido y se ajustan los paneles.
+"""
 
 from __future__ import annotations
 
 import logging
 import re
 import webbrowser
-from pathlib import Path
 
 import wx
 
@@ -14,7 +19,8 @@ from config import (
     TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO,
     FILTROS,
 )
-from config import parsear_atajos, atajos_a_tuplas_wx, ATAJOS_DEFAULTS, app_dir, guardar_opcion
+from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
+import deteccion
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -26,10 +32,15 @@ _IDX_FILTRO     = {"todos": 0, "texto": 1, "superchat": 2, "miembro": 3}
 
 MAX_ITEMS_CHAT  = 500
 TIMER_STATUS_MS = 1000
-ANCHO_DEFECTO   = 820
-ALTO_DEFECTO    = 560
+ANCHO_DEFECTO   = 860
+ALTO_DEFECTO    = 600
 RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
+
+# Índices de las páginas del notebook.
+PAG_CHAT = 0
+PAG_COMENTARIOS = 1
+PAG_REPRODUCTOR = 2
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +48,6 @@ logger = logging.getLogger(__name__)
 # ── accessible_output2 (opcional) ───────────────────────────────────────────
 # Si no está instalado o no hay un lector de pantalla activo, los
 # `anunciar()` son no-ops silenciosos; la app funciona igual.
-# Solo se activa si hay un lector real (NVDA, JAWS…); se ignora SAPI5
-# para no interferir con el TTS propio de la aplicación.
 
 _ao2 = None
 
@@ -90,12 +99,17 @@ def _tc(w, bg=None, fg=None):
     w.SetForegroundColour(fg or _T.text)
 
 
-class WxAnnouncingHandler(logging.Handler):
-    """Reenvía los mensajes del logger al lector de pantalla.
+def _fmt_accel(texto: str) -> str:
+    """'f5' -> 'F5', 'alt+c' -> 'Alt+C'. Formato que entiende wx en menús."""
+    if not texto:
+        return ""
+    if texto.startswith("alt+"):
+        return "Alt+" + texto.split("+", 1)[1].upper()
+    return texto.upper()
 
-    Sirve para que el usuario ciego se entere de los avisos sin tener
-    que consultar el log.
-    """
+
+class WxAnnouncingHandler(logging.Handler):
+    """Reenvía los mensajes del logger al lector de pantalla."""
 
     def __init__(self):
         super().__init__()
@@ -125,120 +139,190 @@ class YTChatFrame(wx.Frame):
         self._alive     = True
         self._conectado = False
         self._titulo_stream = ""
+        self._tipo_video = deteccion.DESCONOCIDO
 
-        # Almacenamos los mensajes como tuplas por compatibilidad histórica.
-        # _chat_vis son índices en _chat_all que pasan el filtro actual.
         self._chat_all: list = []
         self._chat_vis: list[int] = []
         self._filtro = None
 
-        # Totales acumulados por divisa (el amountString varía: €, $, ...).
         self._sc_totales: dict[str, float] = {}
-
-        # Funciones online (API oficial). channelId por autor para moderar y
-        # el id del chat en vivo del directo actual (se resuelve al conectar).
         self._canal_por_autor: dict[str, str] = {}
         self._live_chat_id = ""
+
+        # Voz activa (antes era un wx.Choice; ahora es un submenú de radio).
+        self._voz_idx = 0
+        self._voz_nombre = "—"
 
         self.on_conectar_cb    = None
         self.on_desconectar_cb = None
 
         self._atajos = parsear_atajos(config.get("atajos_raw", {}))
-        self._ids    = {accion: wx.NewIdRef() for accion in ATAJOS_DEFAULTS.keys()}
 
         self.SetBackgroundColour(_T.bg)
+        self._build_menubar()
         self._build_ui()
         self._bind_events()
         self._init_timer()
         self.Centre()
 
+    # ── Barra de menú ────────────────────────────────────────────────────────
+
+    def _accel(self, accion: str) -> str:
+        at = self._atajos.get(accion)
+        return ("\t" + _fmt_accel(at.texto)) if at else ""
+
+    def _build_menubar(self):
+        mb = wx.MenuBar()
+
+        # Archivo
+        m = wx.Menu()
+        self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar")
+        m.AppendSeparator()
+        mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
+        m.AppendSeparator()
+        mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
+        mb.Append(m, "&Archivo")
+        self.Bind(wx.EVT_MENU, self._on_conectar, self.mi_conectar)
+        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
+        self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
+
+        # Ver
+        m = wx.Menu()
+        mi_sig = m.Append(wx.ID_ANY, "Panel &siguiente\tF6")
+        mi_ant = m.Append(wx.ID_ANY, "Panel &anterior\tShift+F6")
+        m.AppendSeparator()
+        mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
+        mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
+        mi_rep  = m.Append(wx.ID_ANY, "Ir a &Reproductor")
+        m.AppendSeparator()
+        # Submenú de filtro (radio).
+        sub_f = wx.Menu()
+        self.fi_items = []
+        for i, (nombre, _) in enumerate(FILTROS):
+            it = sub_f.AppendRadioItem(wx.ID_ANY, nombre)
+            self.fi_items.append(it)
+            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_filtro(idx), it)
+        m.AppendSubMenu(sub_f, "&Filtro de mensajes")
+        m.AppendSeparator()
+        mi_estado = m.Append(wx.ID_ANY, "&Anunciar estado" + self._accel("anunciar_estado"))
+        mb.Append(m, "&Ver")
+        self.Bind(wx.EVT_MENU, lambda e: self._navegar_panel(+1), mi_sig)
+        self.Bind(wx.EVT_MENU, lambda e: self._navegar_panel(-1), mi_ant)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_CHAT), mi_chat)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_COMENTARIOS), mi_com)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_panel(PAG_REPRODUCTOR), mi_rep)
+        self.Bind(wx.EVT_MENU, lambda e: self._anunciar_estado(), mi_estado)
+
+        # Voz (TTS)
+        m = wx.Menu()
+        self.mi_pausa = m.Append(wx.ID_ANY, "&Pausar lectura" + self._accel("pausa"))
+        mi_det = m.Append(wx.ID_ANY, "&Detener voz" + self._accel("detener_tts"))
+        mi_vac = m.Append(wx.ID_ANY, "&Vaciar cola")
+        m.AppendSeparator()
+        mi_vmenos = m.Append(wx.ID_ANY, "Más &lento" + self._accel("velocidad_menos"))
+        mi_vmas   = m.Append(wx.ID_ANY, "Más &rápido" + self._accel("velocidad_mas"))
+        mi_volm   = m.Append(wx.ID_ANY, "&Bajar volumen" + self._accel("volumen_menos"))
+        mi_volM   = m.Append(wx.ID_ANY, "&Subir volumen" + self._accel("volumen_mas"))
+        m.AppendSeparator()
+        self.mi_sil_lectura = m.AppendCheckItem(
+            wx.ID_ANY, "Silenciar &lectura TTS" + self._accel("silenciar_lectura"))
+        self.mi_sil_sonidos = m.AppendCheckItem(
+            wx.ID_ANY, "Silenciar s&onidos" + self._accel("silenciar_sonidos"))
+        m.AppendSeparator()
+        self.voz_submenu = wx.Menu()
+        m.AppendSubMenu(self.voz_submenu, "Seleccionar vo&z")
+        mb.Append(m, "&Voz")
+        self.Bind(wx.EVT_MENU, self._on_pausa, self.mi_pausa)
+        self.Bind(wx.EVT_MENU, self._on_detener_tts, mi_det)
+        self.Bind(wx.EVT_MENU, self._on_vaciar, mi_vac)
+        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_rate(-1), mi_vmenos)
+        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_rate(+1), mi_vmas)
+        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_volume(-5), mi_volm)
+        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_volume(+5), mi_volM)
+        self.Bind(wx.EVT_MENU, lambda e: self._toggle_silenciar_lectura(), self.mi_sil_lectura)
+        self.Bind(wx.EVT_MENU, lambda e: self._toggle_silenciar_sonidos(), self.mi_sil_sonidos)
+
+        # Reproductor
+        m = wx.Menu()
+        self.mi_rep_cargar = m.Append(wx.ID_ANY, "&Cargar audio del vídeo")
+        self.mi_rep_play   = m.Append(wx.ID_ANY, "&Reproducir o pausa")
+        self.mi_rep_retro  = m.Append(wx.ID_ANY, "R&etroceder 10 segundos")
+        self.mi_rep_avanz  = m.Append(wx.ID_ANY, "&Avanzar 10 segundos")
+        self.mi_rep_stop   = m.Append(wx.ID_ANY, "De&tener reproducción")
+        mb.Append(m, "&Reproductor")
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_panel.cargar(), self.mi_rep_cargar)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), self.mi_rep_play)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -10_000), self.mi_rep_retro)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +10_000), self.mi_rep_avanz)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), self.mi_rep_stop)
+
+        # Herramientas
+        m = wx.Menu()
+        self.mi_enviar_live = m.Append(wx.ID_ANY, "&Enviar mensaje al chat del directo…")
+        m.AppendSeparator()
+        mi_api = m.Append(wx.ID_ANY, "&Configuración de API y sesión…")
+        mb.Append(m, "&Herramientas")
+        self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
+        self.Bind(wx.EVT_MENU, self._on_config_api, mi_api)
+
+        # Ayuda
+        m = wx.Menu()
+        mi_guia = m.Append(wx.ID_ANY, "&Guía de configuración de la API…")
+        mi_about = m.Append(wx.ID_ABOUT, "&Acerca de")
+        mb.Append(m, "A&yuda")
+        self.Bind(wx.EVT_MENU, lambda e: webbrowser.open(
+            "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"),
+            mi_guia)
+        self.Bind(wx.EVT_MENU, self._on_about, mi_about)
+
+        self.SetMenuBar(mb)
+        self.mi_enviar_live.Enable(False)
+
     # ── Construcción de la UI ────────────────────────────────────────────────
 
     def _build_ui(self):
+        # Importes diferidos para evitar el ciclo (esos módulos importan de gui).
+        from gui_comentarios import ComentariosPanel
+        from reproductor import ReproductorPanel
+
         panel = wx.Panel(self, name="PanelPrincipal")
         panel.SetBackgroundColour(_T.bg)
         panel.SetForegroundColour(_T.text)
         vs = wx.BoxSizer(wx.VERTICAL)
 
-        # ── URL ──
+        # ── Barra superior: URL + tipo + Conectar ──
         row = wx.BoxSizer(wx.HORIZONTAL)
         lbl = wx.StaticText(panel, label="&URL/ID:", name="EtiquetaURL")
         lbl.SetForegroundColour(_T.accent)
         row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        # name= hace que NVDA lea la etiqueta al llegar al control con Tab.
-        self.txt_url = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER, name="URL del directo")
+        self.txt_url = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER, name="URL del directo o vídeo")
         _tc(self.txt_url)
         self.txt_url.SetToolTip(
-            "URL del directo de YouTube o ID de 11 caracteres. Pulsa Enter para conectar.")
-        row.Add(self.txt_url, 1, wx.EXPAND)
+            "URL de YouTube o ID de 11 caracteres. Pulsa Enter para conectar.")
+        row.Add(self.txt_url, 1, wx.EXPAND | wx.RIGHT, 8)
+        self.btn_conectar = wx.Button(panel, label="&Conectar", name="Conectar")
+        self.btn_conectar.SetBackgroundColour(_T.btn)
+        self.btn_conectar.SetForegroundColour(_T.btn_t)
+        row.Add(self.btn_conectar, 0, wx.ALIGN_CENTER_VERTICAL)
         vs.Add(row, 0, wx.EXPAND | wx.ALL, 10)
 
-        # ── Botones principales ──
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_conectar = wx.Button(panel, label="&Conectar",    name="Conectar")
-        self.btn_pausa    = wx.Button(panel, label="&Pausa",       name="Pausar")
-        self.btn_vaciar   = wx.Button(panel, label="Vaciar cola",  name="VaciarCola")
-        self.btn_detener  = wx.Button(panel, label="&Detener TTS", name="DetenerTTS")
-        self.btn_salir    = wx.Button(panel, label="&Salir",       name="Salir")
-        self.btn_pausa.Disable()
-        self.btn_vaciar.Disable()
-        self.btn_detener.Disable()
-        for b in (self.btn_conectar, self.btn_pausa, self.btn_vaciar,
-                  self.btn_detener, self.btn_salir):
-            b.SetBackgroundColour(_T.btn)
-            b.SetForegroundColour(_T.btn_t)
-            row.Add(b, 0, wx.RIGHT, 6)
-        vs.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        self.lbl_tipo = wx.StaticText(panel, label="Sin conectar.", name="TipoVideo")
+        self.lbl_tipo.SetForegroundColour(_T.dim)
+        vs.Add(self.lbl_tipo, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        # ── Voz + Filtro ──
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        lbl = wx.StaticText(panel, label="&Voz:", name="EtiquetaVoz")
-        lbl.SetForegroundColour(_T.dim)
-        row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
-        self.cho_voz = wx.Choice(panel, choices=[], name="Voz SAPI5")
-        _tc(self.cho_voz)
-        row.Add(self.cho_voz, 1, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.btn_aplicar_voz = wx.Button(panel, label="Aplicar voz", name="AplicarVoz")
-        self.btn_aplicar_voz.SetBackgroundColour(_T.btn)
-        self.btn_aplicar_voz.SetForegroundColour(_T.btn_t)
-        row.Add(self.btn_aplicar_voz, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
-        lbl = wx.StaticText(panel, label="&Filtro:", name="EtiquetaFiltro")
-        lbl.SetForegroundColour(_T.dim)
-        row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 4)
-        self.cho_filtro = wx.Choice(panel, choices=[f[0] for f in FILTROS], name="Filtro de mensajes")
-        _tc(self.cho_filtro)
-        self.cho_filtro.SetSelection(0)
-        row.Add(self.cho_filtro, 0, wx.ALIGN_CENTER_VERTICAL)
-        vs.Add(row, 0, wx.EXPAND | wx.ALL, 10)
+        # ── Notebook con los paneles ──
+        self.nb = wx.Notebook(panel, name="Paneles")
+        _tc(self.nb, bg=_T.surface)
 
-        # ── Funciones online (API oficial) ──
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_comentarios = wx.Button(panel, label="Co&mentarios", name="Comentarios")
-        self.btn_enviar_live = wx.Button(panel, label="&Enviar al chat", name="EnviarAlChat")
-        self.btn_config      = wx.Button(panel, label="Confi&guración", name="Configuracion")
-        self.btn_enviar_live.Disable()
-        for b in (self.btn_comentarios, self.btn_enviar_live, self.btn_config):
-            b.SetBackgroundColour(_T.btn)
-            b.SetForegroundColour(_T.btn_t)
-            row.Add(b, 0, wx.RIGHT, 6)
-        vs.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+        self._pag_chat = self._build_pagina_chat(self.nb)
+        self._com_panel = ComentariosPanel(self.nb, self._cola, self._config)
+        self._rep_panel = ReproductorPanel(self.nb, self._config)
 
-        # ── Lista de chat ──
-        lbl = wx.StaticText(panel, label="Chat:", name="EtiquetaChat")
-        lbl.SetForegroundColour(_T.accent)
-        vs.Add(lbl, 0, wx.LEFT | wx.RIGHT, 10)
+        self.nb.AddPage(self._pag_chat, "Chat en vivo")
+        self.nb.AddPage(self._com_panel, "Comentarios")
+        self.nb.AddPage(self._rep_panel, "Reproductor")
 
-        self.lb_chat = wx.ListBox(
-            panel, style=wx.LB_SINGLE | wx.LB_HSCROLL, name="Chat en vivo")
-        _tc(self.lb_chat)
-        pt = int(self._config.get("tamanio_fuente_chat", 12))
-        self.lb_chat.SetFont(wx.Font(
-            pt, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-        self.lb_chat.SetToolTip(
-            "Mensajes del chat. Enter copia el mensaje. "
-            "Tecla aplicaciones abre el menú contextual.")
-        vs.Add(self.lb_chat, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-
+        vs.Add(self.nb, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         panel.SetSizer(vs)
 
         # 7 campos: estado, velocidad, voz, cola, leídos, volumen, total SC.
@@ -248,69 +332,73 @@ class YTChatFrame(wx.Frame):
         self.sb.SetStatusWidths([-3, -1, -3, -1, -1, -1, -2])
         self._actualizar_sb()
 
+    def _build_pagina_chat(self, parent) -> wx.Panel:
+        pag = wx.Panel(parent, name="PaginaChat")
+        pag.SetBackgroundColour(_T.bg)
+        pag.SetForegroundColour(_T.text)
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        lbl = wx.StaticText(pag, label="Mensajes del chat:", name="EtiquetaChat")
+        lbl.SetForegroundColour(_T.accent)
+        vs.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        self.lb_chat = wx.ListBox(
+            pag, style=wx.LB_SINGLE | wx.LB_HSCROLL, name="Chat en vivo")
+        _tc(self.lb_chat)
+        pt = int(self._config.get("tamanio_fuente_chat", 12))
+        self.lb_chat.SetFont(wx.Font(
+            pt, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        self.lb_chat.SetToolTip(
+            "Mensajes del chat. Enter copia el mensaje. "
+            "Tecla aplicaciones abre el menú contextual.")
+        vs.Add(self.lb_chat, 1, wx.EXPAND | wx.ALL, 8)
+
+        pag.SetSizer(vs)
+        return pag
+
     # ── Enlaces de eventos ───────────────────────────────────────────────────
 
     def _bind_events(self):
         self.Bind(wx.EVT_CLOSE, self._on_close)
-        self.btn_conectar.Bind(wx.EVT_BUTTON,    self._on_conectar)
-        self.btn_pausa.Bind(wx.EVT_BUTTON,       self._on_pausa)
-        self.btn_vaciar.Bind(wx.EVT_BUTTON,      self._on_vaciar)
-        self.btn_detener.Bind(wx.EVT_BUTTON,     self._on_detener_tts)
-        self.btn_salir.Bind(wx.EVT_BUTTON,       lambda e: self.Close())
-        self.txt_url.Bind(wx.EVT_TEXT_ENTER,     self._on_conectar)
-        self.btn_aplicar_voz.Bind(wx.EVT_BUTTON, self._on_aplicar_voz)
-        self.btn_comentarios.Bind(wx.EVT_BUTTON, self._on_comentarios)
-        self.btn_enviar_live.Bind(wx.EVT_BUTTON, self._on_enviar_live)
-        self.btn_config.Bind(wx.EVT_BUTTON,      self._on_config)
-        self.cho_filtro.Bind(wx.EVT_CHOICE,      self._on_filtro)
+        self.btn_conectar.Bind(wx.EVT_BUTTON, self._on_conectar)
+        self.txt_url.Bind(wx.EVT_TEXT_ENTER,  self._on_conectar)
         self.lb_chat.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._copiar_mensaje())
         self.lb_chat.Bind(wx.EVT_KEY_DOWN,       self._on_chat_key)
         self.lb_chat.Bind(wx.EVT_CONTEXT_MENU,   self._on_chat_menu)
 
-        handlers = {
-            "url":               lambda e: self.txt_url.SetFocus(),
-            "conectar":          lambda e: self._on_conectar(None),
-            "pausa":             lambda e: self._on_pausa(None),
-            "chat":              lambda e: self.lb_chat.SetFocus(),
-            "voz":               lambda e: self.cho_voz.SetFocus(),
-            "filtro":            lambda e: self.cho_filtro.SetFocus(),
-            "salir":             lambda e: self.Close(),
-            "velocidad_mas":     lambda e: self._ajustar_rate(+1),
-            "velocidad_menos":   lambda e: self._ajustar_rate(-1),
-            "detener_tts":       lambda e: self._on_detener_tts(None),
-            "silenciar_sonidos": lambda e: self._toggle_silenciar_sonidos(),
-            "vaciar_cola":       lambda e: self._on_vaciar(None),
-            "volumen_mas":       lambda e: self._ajustar_volume(+5),
-            "volumen_menos":     lambda e: self._ajustar_volume(-5),
-            "silenciar_lectura": lambda e: self._toggle_silenciar_lectura(),
-            "aplicar_voz":       lambda e: self._on_aplicar_voz(None),
-            "copiar_mensaje":    lambda e: self._copiar_atajo(),
-            "copiar_todo":       lambda e: self._copiar_todo_atajo(),
-            "releer":            lambda e: self._releer_atajo(),
-            "abrir_enlace":      lambda e: self._abrir_enlace_atajo(),
-        }
-        for accion, h in handlers.items():
-            wid = self._ids.get(accion)
-            if wid is not None:
-                self.Bind(wx.EVT_MENU, h, id=wid)
-
-        self.SetAcceleratorTable(wx.AcceleratorTable(
-            atajos_a_tuplas_wx(self._atajos, self._ids)))
-
     def _init_timer(self):
         self._timer = wx.Timer(self)
-        self.Bind(wx.EVT_TIMER, self._on_timer)
+        self.Bind(wx.EVT_TIMER, self._on_timer, self._timer)
         self._timer.Start(TIMER_STATUS_MS)
 
-    # ── Handlers ─────────────────────────────────────────────────────────────
+    # ── Navegación de paneles ────────────────────────────────────────────────
+
+    def _navegar_panel(self, delta: int):
+        n = self.nb.GetPageCount()
+        if n == 0:
+            return
+        nuevo = (self.nb.GetSelection() + delta) % n
+        self._ir_panel(nuevo)
+
+    def _ir_panel(self, idx: int):
+        if 0 <= idx < self.nb.GetPageCount():
+            self.nb.SetSelection(idx)
+            self.nb.GetPage(idx).SetFocus()
+            anunciar(self.nb.GetPageText(idx))
+
+    def _rep_accion(self, metodo: str, *args):
+        try:
+            getattr(self._rep_panel, metodo)(*args)
+        except Exception as exc:
+            logger.debug("acción reproductor %s: %s", metodo, exc)
+
+    # ── Handlers de conexión ─────────────────────────────────────────────────
 
     def _on_conectar(self, event):
         if self._conectado:
             if self.on_desconectar_cb:
                 self.on_desconectar_cb()
-            self._set_botones(False)
-            # El sonido y el anuncio detallado vienen del hilo de captura
-            # vía on_estado; aquí solo damos retroalimentación inmediata.
+            self._set_conectado_ui(False)
             anunciar("Desconectando")
         else:
             url = self.txt_url.GetValue().strip()
@@ -327,10 +415,62 @@ class YTChatFrame(wx.Frame):
             if self.on_conectar_cb:
                 self.on_conectar_cb(url)
 
+    def _on_preferencias(self, event):
+        try:
+            from gui_preferencias import abrir_preferencias
+            if abrir_preferencias(self, self._config):
+                self._aplicar_preferencias_en_caliente()
+        except Exception as exc:
+            logger.warning("No se pudo abrir preferencias: %s", exc)
+            wx.MessageBox(f"No se pudo abrir Preferencias:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
+
+    def _aplicar_preferencias_en_caliente(self):
+        # Reconstruir atajos y menú por si cambiaron las teclas.
+        self._atajos = parsear_atajos(self._config.get("atajos_raw", {}))
+        try:
+            voces_actuales = [self.voz_submenu.FindItemByPosition(i).GetItemLabelText()
+                              for i in range(self.voz_submenu.GetMenuItemCount())]
+        except Exception:
+            voces_actuales = []
+        self._build_menubar()
+        # Restaurar submenú de voz y filtro tras reconstruir.
+        if voces_actuales:
+            self.poblar_voces(voces_actuales, self._voz_idx)
+        self._marcar_filtro()
+        self._sincronizar_checks()
+        # Tamaño de fuente del chat.
+        try:
+            pt = int(self._config.get("tamanio_fuente_chat", 12))
+            self.lb_chat.SetFont(wx.Font(pt, wx.FONTFAMILY_DEFAULT,
+                                         wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        except Exception:
+            pass
+        anunciar("Preferencias aplicadas")
+
+    def _on_config_api(self, event):
+        try:
+            from gui_config import abrir_configuracion
+            abrir_configuracion(self)
+        except Exception as exc:
+            logger.warning("No se pudo abrir configuración API: %s", exc)
+            wx.MessageBox(f"No se pudo abrir la configuración de API:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
+        self._actualizar_estado_online()
+
+    def _on_about(self, event):
+        wx.MessageBox(
+            f"{APP_NAME} v{APP_VERSION}\n\n"
+            "Lector accesible del chat de YouTube Live con voz SAPI5.",
+            "Acerca de", wx.OK | wx.ICON_INFORMATION, self)
+
+    # ── Handlers de voz / TTS ────────────────────────────────────────────────
+
     def _on_pausa(self, event):
         self._worker.toggle_pausa()
         pausado = self._worker.esta_pausado()
-        self.btn_pausa.SetLabel("Reanudar" if pausado else "Pausa")
+        self.mi_pausa.SetItemLabel(
+            ("&Reanudar lectura" if pausado else "&Pausar lectura") + self._accel("pausa"))
         _snd.reproducir("pausa" if pausado else "reanudar")
         anunciar("Pausado" if pausado else "Reanudado")
 
@@ -343,44 +483,76 @@ class YTChatFrame(wx.Frame):
         self._worker.detener_actual()
         anunciar("TTS detenido")
 
-    def _on_aplicar_voz(self, event):
-        idx = self.cho_voz.GetSelection()
-        if idx == wx.NOT_FOUND:
-            return
+    def _aplicar_voz(self, idx: int):
         self._worker.cambiar_voz(idx)
+        self._voz_idx = idx
+        try:    self._voz_nombre = self._nombre_voz(idx)
+        except Exception: self._voz_nombre = "—"
         self._config["voz"] = str(idx)
         guardar_opcion(RUTA_CONFIG, "voz", "voz", str(idx))
         _snd.reproducir("voz_cambiada")
-        anunciar(f"Voz: {self.cho_voz.GetString(idx)}")
+        anunciar(f"Voz: {self._voz_nombre}")
 
-    def _on_filtro(self, event):
-        sel = self.cho_filtro.GetSelection()
-        self._filtro = FILTROS[sel][1] if sel < len(FILTROS) else None
+    def _nombre_voz(self, idx: int) -> str:
+        it = self.voz_submenu.FindItemByPosition(idx)
+        return it.GetItemLabelText() if it else "—"
+
+    def _aplicar_filtro(self, idx: int):
+        self._filtro = FILTROS[idx][1] if idx < len(FILTROS) else None
         self._rebuild_listbox()
         guardar_opcion(RUTA_CONFIG, "ui", "filtro_activo",
-                       _NOMBRES_FILTRO[sel] if sel < len(_NOMBRES_FILTRO) else "todos")
-        anunciar(f"Filtro: {FILTROS[sel][0]}. {self.lb_chat.GetCount()} mensajes")
+                       _NOMBRES_FILTRO[idx] if idx < len(_NOMBRES_FILTRO) else "todos")
+        anunciar(f"Filtro: {FILTROS[idx][0]}. {self.lb_chat.GetCount()} mensajes")
 
-    # ── Funciones online (API oficial) ───────────────────────────────────────
+    def _ajustar_rate(self, delta):
+        self._worker.cambiar_rate(delta)
+        r = max(-10, min(10, self._worker.get_rate() + delta))
+        wpm = max(50, min(500, r * 20 + 180))
+        guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
+        anunciar(f"Velocidad: {r:+d}")
 
-    def _on_comentarios(self, event):
-        try:
-            from gui_comentarios import abrir_comentarios
-            abrir_comentarios(self, self._cola, self._config)
-        except Exception as exc:
-            logger.warning("No se pudo abrir comentarios: %s", exc)
-            wx.MessageBox(f"No se pudo abrir la ventana de comentarios:\n{exc}",
-                          "Error", wx.OK | wx.ICON_ERROR, self)
+    def _ajustar_volume(self, delta):
+        self._worker.cambiar_volumen(delta)
+        v = max(0, min(100, self._worker.get_volume() + delta))
+        guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
+        anunciar(f"Volumen: {v}%")
 
-    def _on_config(self, event):
-        try:
-            from gui_config import abrir_configuracion
-            abrir_configuracion(self)
-        except Exception as exc:
-            logger.warning("No se pudo abrir configuración: %s", exc)
-            wx.MessageBox(f"No se pudo abrir la configuración:\n{exc}",
-                          "Error", wx.OK | wx.ICON_ERROR, self)
-        self._actualizar_estado_online()
+    def _toggle_silenciar_sonidos(self):
+        nuevo = not _snd.esta_silenciado()
+        _snd.silenciar_todo(nuevo)
+        self._config["silenciar_sonidos"] = nuevo
+        self.mi_sil_sonidos.Check(nuevo)
+        guardar_opcion(RUTA_CONFIG, "ui", "silenciar_sonidos", "true" if nuevo else "false")
+        anunciar("Sonidos silenciados" if nuevo else "Sonidos activados")
+
+    def _toggle_silenciar_lectura(self):
+        nuevo = not self._config.get("silenciar_lectura", False)
+        self._config["silenciar_lectura"] = nuevo
+        self.mi_sil_lectura.Check(nuevo)
+        guardar_opcion(RUTA_CONFIG, "sesion", "silenciar_lectura", "true" if nuevo else "false")
+        anunciar("Lectura TTS silenciada" if nuevo else "Lectura TTS activada")
+
+    def _anunciar_estado(self):
+        partes = []
+        if self._conectado and self._titulo_stream:
+            partes.append(f"Conectado a {self._titulo_stream[:40]}")
+        elif self._conectado:
+            partes.append("Conectado")
+        else:
+            partes.append("Desconectado")
+        try:    partes.append(f"cola {self._cola.qsize()}")
+        except Exception: pass
+        try:    partes.append(f"leídos {self._stats.leidos}")
+        except Exception: pass
+        try:    partes.append(f"velocidad {self._worker.get_rate():+d}")
+        except Exception: pass
+        try:    partes.append(f"volumen {self._worker.get_volume()} por ciento")
+        except Exception: pass
+        if self._config.get("silenciar_lectura", False):
+            partes.append("lectura silenciada")
+        anunciar(". ".join(partes))
+
+    # ── Enviar al chat del directo (API oficial) ─────────────────────────────
 
     def _on_enviar_live(self, event):
         if not self._puede_escribir_live():
@@ -397,7 +569,7 @@ class YTChatFrame(wx.Frame):
 
     def _puede_escribir_live(self) -> bool:
         if not (youtube_api.google_disponible() and credenciales.hay_sesion()):
-            anunciar("Inicia sesión en Configuración para usar esta función")
+            anunciar("Inicia sesión en Configuración de API para usar esta función")
             return False
         if not self._live_chat_id:
             anunciar("No hay un chat en vivo activo en este directo")
@@ -405,7 +577,6 @@ class YTChatFrame(wx.Frame):
         return True
 
     def _accion_api(self, accion, mensaje_ok: str, sonido: str = "enviado") -> None:
-        """Ejecuta una acción de escritura en un hilo y persiste el token si se refresca."""
         anunciar("Enviando")
 
         def _run():
@@ -433,10 +604,9 @@ class YTChatFrame(wx.Frame):
         wx.MessageBox(msg, "Error de la API", wx.OK | wx.ICON_ERROR, self)
 
     def _actualizar_estado_online(self):
-        """Habilita/inhabilita el envío al chat según sesión y chat en vivo."""
         puede = bool(self._conectado and self._live_chat_id
                      and youtube_api.google_disponible() and credenciales.hay_sesion())
-        try:    self.btn_enviar_live.Enable(puede)
+        try:    self.mi_enviar_live.Enable(puede)
         except Exception: pass
 
     def _moderar(self, autor: str, canal_id: str, segundos: int | None) -> None:
@@ -451,55 +621,13 @@ class YTChatFrame(wx.Frame):
             lambda cli: cli.banear_usuario(lcid, canal_id, segundos), ok,
             sonido="moderacion")
 
-    def _ajustar_rate(self, delta):
-        self._worker.cambiar_rate(delta)
-        r = max(-10, min(10, self._worker.get_rate() + delta))
-        wpm = max(50, min(500, r * 20 + 180))
-        guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
-        anunciar(f"Velocidad: {r:+d}")
-
-    def _ajustar_volume(self, delta):
-        self._worker.cambiar_volumen(delta)
-        v = max(0, min(100, self._worker.get_volume() + delta))
-        guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
-        anunciar(f"Volumen: {v}%")
-
-    def _toggle_silenciar_sonidos(self):
-        nuevo = not _snd.esta_silenciado()
-        _snd.silenciar_todo(nuevo)
-        self._config["silenciar_sonidos"] = nuevo
-        guardar_opcion(RUTA_CONFIG, "ui", "silenciar_sonidos", "true" if nuevo else "false")
-        anunciar("Sonidos silenciados" if nuevo else "Sonidos activados")
-
-    def _toggle_silenciar_lectura(self):
-        nuevo = not self._config.get("silenciar_lectura", False)
-        self._config["silenciar_lectura"] = nuevo
-        guardar_opcion(RUTA_CONFIG, "sesion", "silenciar_lectura", "true" if nuevo else "false")
-        anunciar("Lectura TTS silenciada" if nuevo else "Lectura TTS activada")
+    # ── Atajos sobre la lista de chat ────────────────────────────────────────
 
     def _copiar_atajo(self):
         if self.lb_chat.GetSelection() == wx.NOT_FOUND:
             anunciar("Sin mensaje seleccionado")
         else:
             self._copiar_mensaje()
-
-    def _copiar_todo_atajo(self):
-        if self.lb_chat.GetSelection() == wx.NOT_FOUND:
-            anunciar("Sin mensaje seleccionado")
-        else:
-            self._copiar_todo()
-
-    def _releer_atajo(self):
-        if self.lb_chat.GetSelection() == wx.NOT_FOUND:
-            anunciar("Sin mensaje seleccionado")
-        else:
-            self._releer_mensaje()
-
-    def _abrir_enlace_atajo(self):
-        if self.lb_chat.GetSelection() == wx.NOT_FOUND:
-            anunciar("Sin mensaje seleccionado")
-        else:
-            self._abrir_enlace()
 
     # ── Chat: teclado, menú, copiar, silenciar ───────────────────────────────
 
@@ -546,9 +674,6 @@ class YTChatFrame(wx.Frame):
                 menu.Append(id_sil_tts,  f"Silenciar a {autor} (solo TTS)")
                 menu.Append(id_sil_full, f"Silenciar a {autor} (ocultar y TTS)")
 
-        # Moderación real (API oficial): solo si hay sesión, chat en vivo y
-        # conocemos el channelId del autor. Es local a este equipo y reversible
-        # solo desde YouTube, así que se confirma antes de actuar.
         id_ban     = wx.NewIdRef()
         id_timeout = wx.NewIdRef()
         canal_autor = self._canal_por_autor.get(autor.lower().strip(), "")
@@ -569,7 +694,7 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=True),  id=id_sil_full)
         self.Bind(wx.EVT_MENU, lambda e: self._rehabilitar_autor(autor),              id=id_rehab)
 
-        self.PopupMenu(menu)
+        self.lb_chat.PopupMenu(menu)
         menu.Destroy()
 
     def _copiar_mensaje(self):
@@ -616,9 +741,6 @@ class YTChatFrame(wx.Frame):
         anunciar("Abriendo enlace")
 
     # ── Silenciado en caliente ───────────────────────────────────────────────
-    # Dos conjuntos en el dict config: uno para los que no queremos oír (el
-    # TTS los salta) y otro para los que tampoco queremos ver en la lista.
-    # El "modo ocultar" implica también el "modo solo TTS".
 
     def _silenciar_autor(self, autor: str, ocultar: bool) -> None:
         if not autor:
@@ -664,8 +786,6 @@ class YTChatFrame(wx.Frame):
         return self._chat_all[real_idx]
 
     def _clipboard_set(self, text: str) -> None:
-        # El wx.Clipboard a veces falla si otra app lo tiene abierto; el
-        # fallback con ctypes usa la API nativa y casi siempre consigue copiar.
         try:
             if wx.TheClipboard.Open():
                 try:
@@ -712,6 +832,9 @@ class YTChatFrame(wx.Frame):
             except Exception: pass
         self._parada.set()
         try:
+            self._rep_panel.detener_todo()
+        except Exception: pass
+        try:
             self._worker.vaciar_cola()
             self._worker.detener()
         except Exception: pass
@@ -736,7 +859,6 @@ class YTChatFrame(wx.Frame):
         if self._autor_esta_oculto(autor):
             return
 
-        # Trim: mantener a raya el uso de memoria en directos muy largos.
         while len(self._chat_all) >= MAX_ITEMS_CHAT:
             self._chat_all.pop(0)
             self._chat_vis = [i - 1 for i in self._chat_vis if i > 0]
@@ -759,8 +881,6 @@ class YTChatFrame(wx.Frame):
                 self.lb_chat.Delete(0)
                 if self._chat_vis:
                     self._chat_vis.pop(0)
-            # Solo auto-scroll si el usuario no está leyendo la lista: si
-            # tiene el foco, puede estar revisando un mensaje anterior.
             if wx.Window.FindFocus() is not self.lb_chat:
                 self.lb_chat.SetFirstItem(self.lb_chat.GetCount() - 1)
 
@@ -770,7 +890,7 @@ class YTChatFrame(wx.Frame):
         if not conectado:
             self._live_chat_id = ""
             self._canal_por_autor.clear()
-        self._set_botones(conectado)
+        self._set_conectado_ui(conectado)
         self._actualizar_estado_online()
 
     def set_live_chat_id(self, live_chat_id: str) -> None:
@@ -778,6 +898,30 @@ class YTChatFrame(wx.Frame):
             return
         self._live_chat_id = live_chat_id or ""
         self._actualizar_estado_online()
+
+    def set_tipo_video(self, tipo: str, video_id: str) -> None:
+        if not self._alive:
+            return
+        self._tipo_video = tipo
+        es_live = deteccion.tiene_chat_en_vivo(tipo)
+        # Pasar el vídeo a comentarios y reproductor; autocargar comentarios solo
+        # cuando no hay chat en vivo (en un directo no queremos saturar).
+        try:    self._com_panel.set_video(video_id, autocargar=not es_live)
+        except Exception: pass
+        try:    self._rep_panel.set_video(video_id)
+        except Exception: pass
+
+        if tipo == deteccion.LIVE:
+            self.lbl_tipo.SetLabel("Directo en vivo: leyendo el chat.")
+            self._ir_panel(PAG_CHAT)
+        elif tipo == deteccion.UPCOMING:
+            self.lbl_tipo.SetLabel("Directo programado: aún sin chat. Hay comentarios.")
+            self._ir_panel(PAG_COMENTARIOS)
+        elif tipo == deteccion.VOD:
+            self.lbl_tipo.SetLabel("Vídeo subido: comentarios y reproductor.")
+            self._ir_panel(PAG_COMENTARIOS)
+        else:
+            self.lbl_tipo.SetLabel("Tipo no determinado: intentando leer el chat.")
 
     def set_url(self, url: str) -> None:
         self.txt_url.SetValue(url)
@@ -795,9 +939,38 @@ class YTChatFrame(wx.Frame):
         self._on_conectar(None)
 
     def poblar_voces(self, voces: list, idx_actual: int = 0) -> None:
-        self.cho_voz.Set(voces)
-        if voces and 0 <= idx_actual < len(voces):
-            self.cho_voz.SetSelection(idx_actual)
+        # Vaciar el submenú de voz y reconstruir con radio items.
+        for it in list(self.voz_submenu.GetMenuItems()):
+            self.voz_submenu.Delete(it)
+        if not voces:
+            it = self.voz_submenu.Append(wx.ID_ANY, "(no disponible)")
+            it.Enable(False)
+            self._voz_nombre = "—"
+            return
+        for i, nombre in enumerate(voces):
+            it = self.voz_submenu.AppendRadioItem(wx.ID_ANY, nombre)
+            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_voz(idx), it)
+        idx_actual = idx_actual if 0 <= idx_actual < len(voces) else 0
+        self.voz_submenu.FindItemByPosition(idx_actual).Check(True)
+        self._voz_idx = idx_actual
+        self._voz_nombre = voces[idx_actual]
+
+    def _marcar_filtro(self):
+        idx = _IDX_FILTRO.get(
+            _NOMBRES_FILTRO[0] if self._filtro is None else "", 0)
+        # Buscar el índice cuyo valor coincide con self._filtro.
+        for i, (_, val) in enumerate(FILTROS):
+            if val == self._filtro:
+                idx = i
+                break
+        if 0 <= idx < len(self.fi_items):
+            self.fi_items[idx].Check(True)
+
+    def _sincronizar_checks(self):
+        try:    self.mi_sil_sonidos.Check(_snd.esta_silenciado())
+        except Exception: pass
+        try:    self.mi_sil_lectura.Check(self._config.get("silenciar_lectura", False))
+        except Exception: pass
 
     # ── Formato y helpers ────────────────────────────────────────────────────
 
@@ -820,23 +993,21 @@ class YTChatFrame(wx.Frame):
                 self._chat_vis.append(i)
                 self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
 
-    def _set_botones(self, conectado: bool) -> None:
+    def _set_conectado_ui(self, conectado: bool) -> None:
         self._conectado = conectado
         if conectado:
-            self.btn_conectar.SetLabel("Desconectar")
+            self.btn_conectar.SetLabel("&Desconectar")
             self.btn_conectar.Enable()
-            self.btn_pausa.Enable()
-            self.btn_vaciar.Enable()
-            self.btn_detener.Enable()
+            self.mi_conectar.SetItemLabel("&Desconectar")
             self.txt_url.Disable()
         else:
-            self.btn_conectar.SetLabel("Conectar")
+            self.btn_conectar.SetLabel("&Conectar")
             self.btn_conectar.Enable()
-            self.btn_pausa.Disable()
-            self.btn_vaciar.Disable()
-            self.btn_detener.Disable()
-            self.btn_pausa.SetLabel("Pausa")
+            self.mi_conectar.SetItemLabel("&Conectar")
             self.txt_url.Enable()
+            self.lbl_tipo.SetLabel("Sin conectar.")
+            try:    self._rep_panel.detener_todo()
+            except Exception: pass
 
     def _actualizar_sb(self) -> None:
         sin_tts = " [sin TTS]" if self._config.get("silenciar_lectura", False) else ""
@@ -851,17 +1022,10 @@ class YTChatFrame(wx.Frame):
         try:    self.sb.SetStatusText(f"Vel: {self._worker.get_rate():+d}", 1)
         except Exception: self.sb.SetStatusText("Vel: --", 1)
 
-        try:
-            idx = self.cho_voz.GetSelection()
-            if idx != wx.NOT_FOUND:
-                nombre = self.cho_voz.GetString(idx)
-                if len(nombre) > 28:
-                    nombre = nombre[:25] + "..."
-                self.sb.SetStatusText(f"Voz: {nombre}", 2)
-            else:
-                self.sb.SetStatusText("Voz: —", 2)
-        except Exception:
-            self.sb.SetStatusText("Voz: —", 2)
+        nombre = self._voz_nombre or "—"
+        if len(nombre) > 28:
+            nombre = nombre[:25] + "..."
+        self.sb.SetStatusText(f"Voz: {nombre}", 2)
 
         try:    self.sb.SetStatusText(f"Cola: {self._cola.qsize()}", 3)
         except Exception: self.sb.SetStatusText("Cola: —", 3)
@@ -879,9 +1043,6 @@ class YTChatFrame(wx.Frame):
     # ── Acumulación de Super Chats ───────────────────────────────────────────
 
     def _sumar_superchat(self, monto: str) -> None:
-        # El amountString depende de la locale del viewer ("€15.50", "$10.00",
-        # "5,00 €", "1.234,56 €", "PYG 50000"...). montos.parsear_monto lo
-        # normaliza; aquí solo acumulamos por divisa.
         from montos import parsear_monto
         r = parsear_monto(monto)
         if r is None:
@@ -955,23 +1116,19 @@ def iniciar_gui(config, cola, stats, worker, parada,
     logging.getLogger().addHandler(h)
 
     voces = _listar_voces_sapi5()
-    if voces:
-        frame.poblar_voces(voces, _resolver_idx_voz(config.get("voz", "0"), voces))
-    else:
-        frame.cho_voz.Append("(no disponible)")
-        frame.cho_voz.Disable()
-        frame.btn_aplicar_voz.Disable()
+    frame.poblar_voces(voces, _resolver_idx_voz(config.get("voz", "0"), voces))
 
     # Restaurar filtro de la sesión anterior.
     fa = config.get("filtro_activo", "todos")
     idx_f = _IDX_FILTRO.get(fa, 0)
-    if idx_f > 0 and idx_f < len(FILTROS):
-        frame.cho_filtro.SetSelection(idx_f)
+    if 0 <= idx_f < len(FILTROS):
         frame._filtro = FILTROS[idx_f][1]
+        frame._marcar_filtro()
 
     # Restaurar silenciado de sonidos si la sesión anterior lo tenía activo.
     if config.get("silenciar_sonidos", False):
         _snd.silenciar_todo(True)
+    frame._sincronizar_checks()
 
     if url_inicial:
         frame.set_url(url_inicial)

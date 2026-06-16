@@ -34,8 +34,9 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 _INTERACTIVOS = {"Button", "Edit", "ComboBox", "List", "CheckBox", "RadioButton"}
 
 _MODULOS_PUROS = ["config", "tts_worker", "montos", "sound_player",
-                  "credenciales", "youtube_api", "main"]
-_MODULOS_GUI = ["gui", "gui_config", "gui_comentarios"]
+                  "credenciales", "youtube_api", "deteccion", "main"]
+_MODULOS_GUI = ["gui", "gui_config", "gui_comentarios", "gui_preferencias",
+                "reproductor"]
 
 
 def _titulo(texto):

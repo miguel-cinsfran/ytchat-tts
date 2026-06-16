@@ -27,3 +27,9 @@ accessible_output2>=0.17
 google-api-python-client>=2.100
 google-auth-oauthlib>=1.2
 google-auth>=2.30
+
+# ── Reproductor de audio (OPCIONAL) ───────────────────────────────────────────
+# Solo para la pestaña Reproductor: yt-dlp extrae la URL del flujo de audio del
+# vídeo y wx.media (incluido en wxPython) lo reproduce. Si no se instala, la
+# pestaña muestra un aviso y el resto de la app funciona igual.
+yt-dlp>=2025.1.1

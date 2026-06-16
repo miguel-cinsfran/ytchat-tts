@@ -48,6 +48,7 @@ call uv run pyinstaller main.py ^
   --collect-submodules googleapiclient ^
   --collect-submodules google_auth_oauthlib ^
   --collect-submodules pytchat ^
+  --collect-all yt_dlp ^
   --add-data "!YTDOC!;googleapiclient/discovery_cache/documents"
 if errorlevel 1 ( echo ERROR en PyInstaller. & pause & exit /b 1 )
 

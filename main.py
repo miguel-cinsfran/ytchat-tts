@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd
+import deteccion
 
 
 # Traducción pytchat → tipos internos.
@@ -92,7 +93,8 @@ def extraer_video_id(entrada: str) -> str:
     return entrada
 
 
-def obtener_titulo(video_id: str, timeout: float = 8.0) -> str:
+def _descargar_watch(video_id: str, timeout: float = 8.0) -> str:
+    """Descarga (parcial) el HTML del watch. Cadena vacía si falla."""
     try:
         req = urllib.request.Request(
             f"https://www.youtube.com/watch?v={video_id}",
@@ -102,18 +104,60 @@ def obtener_titulo(video_id: str, timeout: float = 8.0) -> str:
             },
         )
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            html = r.read(65536).decode("utf-8", errors="ignore")
-        m = re.search(r'"videoDetails"[^}]{0,200}"title"\s*:\s*"([^"]+)"', html)
-        if m:
-            return m.group(1).replace("\\u0026", "&").replace("\\n", " ").replace("\\/", "/").strip()
-        m = re.search(r"<title>([^<]+)</title>", html)
-        if m:
-            t = m.group(1).replace(" - YouTube", "").strip()
-            if t and t.lower() != "youtube":
-                return t
+            # Más bytes que antes: las banderas de directo aparecen algo después
+            # del título dentro de videoDetails.
+            return r.read(200_000).decode("utf-8", errors="ignore")
     except Exception as exc:
-        logger.debug("obtener_titulo: %s", exc)
+        logger.debug("_descargar_watch: %s", exc)
+        return ""
+
+
+def _parsear_titulo(html: str) -> str:
+    if not html:
+        return ""
+    m = re.search(r'"videoDetails"[^}]{0,200}"title"\s*:\s*"([^"]+)"', html)
+    if m:
+        return m.group(1).replace("\\u0026", "&").replace("\\n", " ").replace("\\/", "/").strip()
+    m = re.search(r"<title>([^<]+)</title>", html)
+    if m:
+        t = m.group(1).replace(" - YouTube", "").strip()
+        if t and t.lower() != "youtube":
+            return t
     return ""
+
+
+def obtener_titulo(video_id: str, timeout: float = 8.0) -> str:
+    return _parsear_titulo(_descargar_watch(video_id, timeout))
+
+
+def _clasificar_por_api(video_id: str) -> str:
+    """Reserva: si hay API key, clasifica con la Data API. Si no, desconocido."""
+    try:
+        import credenciales
+        import youtube_api
+        if not (youtube_api.google_disponible() and credenciales.hay_lectura()):
+            return deteccion.DESCONOCIDO
+        cli = youtube_api.ClienteYouTube(credenciales.cargar())
+        resp = cli._lectura().videos().list(
+            part="snippet", id=video_id).execute()
+        items = resp.get("items", []) or []
+        if not items:
+            return deteccion.DESCONOCIDO
+        lbc = items[0].get("snippet", {}).get("liveBroadcastContent")
+        return deteccion.clasificar_desde_api(lbc)
+    except Exception as exc:
+        logger.debug("_clasificar_por_api: %s", exc)
+        return deteccion.DESCONOCIDO
+
+
+def obtener_info_video(video_id: str) -> tuple[str, str]:
+    """Devuelve (titulo, tipo). tipo: live/upcoming/vod/desconocido."""
+    html = _descargar_watch(video_id)
+    titulo = _parsear_titulo(html)
+    tipo = deteccion.clasificar_desde_html(html)
+    if tipo == deteccion.DESCONOCIDO:
+        tipo = _clasificar_por_api(video_id)
+    return titulo, tipo
 
 
 def _resolver_live_chat_id(video_id: str) -> None:
@@ -454,18 +498,30 @@ def main():
             wx.CallAfter(anunciar, texto)
 
         def _run():
-            titulo = obtener_titulo(vid)
-            if _gm._gui_frame and titulo:
-                wx.CallAfter(_gm._gui_frame.set_titulo_stream, titulo)
-            # Resolver el id del chat en vivo (para moderar/enviar) en paralelo:
-            # es una llamada de red opcional que nunca debe frenar la captura.
-            threading.Thread(target=_resolver_live_chat_id, args=(vid,),
-                             daemon=True, name="LiveChatId").start()
-            captura_con_reconexion(vid, cola, config, ps, stats,
-                                   on_message=_on_msg, on_estado=_on_estado)
-            if _gm._gui_frame and not parada.is_set():
-                wx.CallAfter(_gm._gui_frame.set_conectado, False)
-                wx.CallAfter(_gm._gui_frame.set_titulo_stream, "")
+            # Una sola descarga del watch para sacar título y tipo de vídeo.
+            titulo, tipo = obtener_info_video(vid)
+            frame = _gm._gui_frame
+            if frame:
+                if titulo:
+                    wx.CallAfter(frame.set_titulo_stream, titulo)
+                wx.CallAfter(frame.set_tipo_video, tipo, vid)
+
+            if deteccion.tiene_chat_en_vivo(tipo):
+                # Directo (o tipo no determinado): capturamos el chat con pytchat.
+                # Resolver el id del chat en vivo en paralelo (red opcional).
+                threading.Thread(target=_resolver_live_chat_id, args=(vid,),
+                                 daemon=True, name="LiveChatId").start()
+                captura_con_reconexion(vid, cola, config, ps, stats,
+                                       on_message=_on_msg, on_estado=_on_estado)
+                if frame and not parada.is_set():
+                    wx.CallAfter(frame.set_conectado, False)
+                    wx.CallAfter(frame.set_titulo_stream, "")
+            else:
+                # Vídeo subido o directo programado: no hay chat en vivo. No se
+                # arranca pytchat; quedan disponibles comentarios y reproductor.
+                if frame:
+                    wx.CallAfter(frame.set_conectado, True)
+                _snd.reproducir("conectado")
 
         threading.Thread(target=_run, daemon=True, name="Chat").start()
 

@@ -52,10 +52,10 @@ class TestParsearAtajos(unittest.TestCase):
 
     def test_conflicto_descarta_el_segundo(self):
         # Dos acciones reclamando la misma tecla: la segunda se descarta.
-        atajos = parsear_atajos({"url": "alt+z", "conectar": "alt+z"})
+        atajos = parsear_atajos({"pausa": "f3", "detener_tts": "f3"})
         teclas = [a.tecla for a in atajos.values()]
-        # 'z' aparece una sola vez.
-        self.assertEqual(teclas.count("z"), 1)
+        # 'f3' aparece una sola vez.
+        self.assertEqual(teclas.count("f3"), 1)
 
     def test_override_valido(self):
         atajos = parsear_atajos({"pausa": "alt+j"})

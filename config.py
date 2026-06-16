@@ -70,22 +70,32 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 
 
 # ── Atajos de teclado ─────────────────────────────────────────────────────────
-# Navegación (van a un widget): Alt+letra.
-# Acciones de control en tiempo real: F5–F12 (sin modificador).
-# NVDA usa Insert, Ctrl se reserva a los estándar, Shift+Alt colisiona
-# con atajos de idioma de Windows.
+# Desde el rediseño con barra de menú nativa, los atajos personalizables son
+# SOLO las acciones de control en tiempo real, mapeadas a teclas de función
+# (sin modificador): son las que se pulsan mucho durante el directo y deben ser
+# instantáneas. El resto de acciones (conectar, ir a paneles, copiar, moderar…)
+# viven en la barra de menú y el menú contextual, accesibles con Alt y flechas,
+# que NVDA lee de forma nativa. Así evitamos el choque entre Alt+letra y los
+# mnemónicos de menú de Windows.
+#
+# Fijos por petición del usuario (NO reasignar): F9/F10 velocidad, F11/F12
+# volumen. Reservados para navegación entre paneles (no editables aquí, los
+# gestiona el notebook): F6 = panel siguiente, Shift+F6 = panel anterior.
 
 ATAJOS_DEFAULTS = {
-    "url": "alt+u", "conectar": "alt+c", "pausa": "f5",
-    "chat": "alt+l", "voz": "alt+v", "filtro": "alt+f",
-    "salir": "alt+s", "velocidad_mas": "f10",
-    "velocidad_menos": "f9", "detener_tts": "f8",
-    "silenciar_sonidos": "f7", "vaciar_cola": "alt+x",
-    "volumen_mas": "f12", "volumen_menos": "f11",
-    "silenciar_lectura": "f6", "aplicar_voz": "alt+a",
-    "copiar_mensaje": "alt+k", "copiar_todo": "alt+o",
-    "releer": "alt+r", "abrir_enlace": "alt+e",
+    "anunciar_estado":   "f2",
+    "silenciar_lectura": "f4",
+    "pausa":             "f5",
+    "silenciar_sonidos": "f7",
+    "detener_tts":       "f8",
+    "velocidad_menos":   "f9",
+    "velocidad_mas":     "f10",
+    "volumen_menos":     "f11",
+    "volumen_mas":       "f12",
 }
+
+# Acciones cuya tecla NO debe poder cambiarse en el editor de atajos.
+ATAJOS_FIJOS = {"velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas"}
 
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
 _RE_ATAJO = re.compile(r"^alt\+(.)$", re.IGNORECASE)
@@ -202,27 +212,18 @@ usuarios_silenciados =
 limpiar_emojis = true
 eliminar_urls = true
 max_longitud_mensaje = 200
+# Atajos de control en tiempo real (teclas de función). El resto de acciones
+# están en la barra de menú (Alt) y el menú contextual. F9-F12 son fijos.
 [atajos]
-url = alt+u
-conectar = alt+c
+anunciar_estado = f2
+silenciar_lectura = f4
 pausa = f5
-chat = alt+l
-voz = alt+v
-filtro = alt+f
-salir = alt+s
-velocidad_mas = f10
-velocidad_menos = f9
-detener_tts = f8
 silenciar_sonidos = f7
-vaciar_cola = alt+x
-volumen_mas = f12
+detener_tts = f8
+velocidad_menos = f9
+velocidad_mas = f10
 volumen_menos = f11
-silenciar_lectura = f6
-aplicar_voz = alt+a
-copiar_mensaje = alt+k
-copiar_todo = alt+o
-releer = alt+r
-abrir_enlace = alt+e
+volumen_mas = f12
 [ui]
 tamanio_fuente_chat = 12
 mostrar_total_superchats = true
@@ -448,3 +449,29 @@ def cargar_sonidos() -> dict:
         eventos[ev] = carpeta_tema / f"{ev}.wav"
 
     return {"activar": activar, "volumen": volumen, "eventos": eventos}
+
+
+# ── Helpers de temas de sonido (para el diálogo de Preferencias) ──────────────
+
+def listar_temas_sonido() -> list[str]:
+    """Nombres de carpeta dentro de sounds/themes/ (cada una es un tema)."""
+    carpeta = app_dir() / "sounds" / _TEMAS_DIR
+    try:
+        temas = sorted(d.name for d in carpeta.iterdir() if d.is_dir())
+    except Exception:
+        temas = []
+    if _TEMA_DEFECTO not in temas:
+        temas.insert(0, _TEMA_DEFECTO)
+    return temas
+
+
+def tema_sonido_actual() -> str:
+    """Lee el tema activo de sounds.ini (o el por defecto)."""
+    ruta = app_dir() / "sounds.ini"
+    p = _mk_parser()
+    try:
+        p.read(ruta, encoding="utf-8")
+        return (p.get("sonidos", "tema", fallback=_TEMA_DEFECTO).strip()
+                or _TEMA_DEFECTO)
+    except Exception:
+        return _TEMA_DEFECTO
