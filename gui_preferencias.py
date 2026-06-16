@@ -187,32 +187,36 @@ class PreferenciasDialog(wx.Dialog):
         vs = wx.BoxSizer(wx.VERTICAL)
 
         nota = wx.StaticText(p, label=(
-            "Atajos de control en tiempo real (teclas de función como F5, o "
-            "Alt+letra). El resto de acciones están en la barra de menú. "
-            "F9 a F12 son fijos. Deja en blanco para desactivar."),
+            "El modificador indica el área: Ctrl para el reproductor, Alt para "
+            "conexión y chat, y teclas F para la voz. Escribe combinaciones como "
+            "ctrl+d, alt+enter, ctrl+left o f5. F9 a F12 son fijas. Deja en "
+            "blanco para desactivar. La navegación entre regiones (F6 y "
+            "Shift+F6) no se cambia aquí."),
             name="NotaAtajos")
         nota.SetForegroundColour(_T.dim)
         nota.Wrap(560)
         vs.Add(nota, 0, wx.ALL, 10)
 
-        grid = wx.FlexGridSizer(0, 2, 6, 10)
-        grid.AddGrowableCol(1, 1)
         self._campos_atajo: dict[str, wx.TextCtrl] = {}
         raw = self._config.get("atajos_raw", {})
-        for accion in cfg.ATAJOS_DEFAULTS:
-            etiqueta = _ETIQUETAS_ATAJO.get(accion, accion)
-            valor = raw.get(accion, cfg.ATAJOS_DEFAULTS[accion])
-            lbl = wx.StaticText(p, label=etiqueta + ":")
-            lbl.SetForegroundColour(_T.text)
-            txt = wx.TextCtrl(p, value=valor, name=etiqueta)
-            _tc(txt)
-            if accion in cfg.ATAJOS_FIJOS:
-                txt.SetValue(valor)
-                txt.Disable()
-            grid.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL)
-            grid.Add(txt, 1, wx.EXPAND)
-            self._campos_atajo[accion] = txt
-        vs.Add(grid, 1, wx.EXPAND | wx.ALL, 10)
+        for titulo, acciones in cfg.ATAJOS_GRUPOS:
+            box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
+            grid = wx.FlexGridSizer(0, 2, 6, 10)
+            grid.AddGrowableCol(1, 1)
+            for accion in acciones:
+                etiqueta = _ETIQUETAS_ATAJO.get(accion, accion)
+                valor = raw.get(accion, cfg.ATAJOS_DEFAULTS[accion])
+                lbl = wx.StaticText(p, label=etiqueta + ":")
+                lbl.SetForegroundColour(_T.text)
+                txt = wx.TextCtrl(p, value=valor, name=etiqueta)
+                _tc(txt)
+                if accion in cfg.ATAJOS_FIJOS:
+                    txt.Disable()
+                grid.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL)
+                grid.Add(txt, 1, wx.EXPAND)
+                self._campos_atajo[accion] = txt
+            box.Add(grid, 0, wx.EXPAND | wx.ALL, 6)
+            vs.Add(box, 0, wx.EXPAND | wx.ALL, 8)
 
         p.SetSizer(vs)
         return p
@@ -422,15 +426,29 @@ class PreferenciasDialog(wx.Dialog):
 
 
 _ETIQUETAS_ATAJO = {
-    "anunciar_estado":   "Anunciar estado",
-    "silenciar_lectura": "Silenciar lectura TTS",
+    # Reproductor
+    "rep_play":          "Reproducir o pausa",
+    "rep_retro":         "Retroceder 10 segundos",
+    "rep_avanz":         "Avanzar 10 segundos",
+    "rep_detener":       "Detener vídeo",
+    "rep_mute":          "Silenciar o activar audio",
+    "rep_vol_menos":     "Bajar volumen del reproductor",
+    "rep_vol_mas":       "Subir volumen del reproductor",
+    # Conexión y chat
+    "conectar":          "Conectar",
+    "desconectar":       "Desconectar",
+    "enviar_chat":       "Enviar mensaje al chat",
+    "ir_url":            "Ir al campo URL",
+    # Voz / lectura
     "pausa":             "Pausar o reanudar lectura",
-    "silenciar_sonidos": "Silenciar sonidos",
     "detener_tts":       "Detener voz actual",
-    "velocidad_menos":   "Bajar velocidad (fijo)",
-    "velocidad_mas":     "Subir velocidad (fijo)",
-    "volumen_menos":     "Bajar volumen (fijo)",
-    "volumen_mas":       "Subir volumen (fijo)",
+    "velocidad_menos":   "Bajar velocidad (fija)",
+    "velocidad_mas":     "Subir velocidad (fija)",
+    "volumen_menos":     "Bajar volumen del TTS (fijo)",
+    "volumen_mas":       "Subir volumen del TTS (fijo)",
+    "silenciar_lectura": "Silenciar lectura TTS",
+    "silenciar_sonidos": "Silenciar sonidos",
+    "anunciar_estado":   "Anunciar estado",
 }
 
 

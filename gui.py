@@ -105,13 +105,24 @@ def _tc(w, bg=None, fg=None):
     w.SetForegroundColour(fg or _T.text)
 
 
+_ACCEL_NOMBRES = {
+    "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift",
+    "enter": "Enter", "left": "Left", "right": "Right",
+    "up": "Up", "down": "Down", "space": "Space",
+}
+
+
 def _fmt_accel(texto: str) -> str:
-    """'f5' -> 'F5', 'alt+c' -> 'Alt+C'. Formato que entiende wx en menús."""
+    """'f5'->'F5', 'ctrl+left'->'Ctrl+Left', 'alt+enter'->'Alt+Enter'.
+
+    Formato que entiende wx para los aceleradores de menú.
+    """
     if not texto:
         return ""
-    if texto.startswith("alt+"):
-        return "Alt+" + texto.split("+", 1)[1].upper()
-    return texto.upper()
+    partes = []
+    for p in texto.split("+"):
+        partes.append(_ACCEL_NOMBRES.get(p, p.upper()))
+    return "+".join(partes)
 
 
 class WxAnnouncingHandler(logging.Handler):
@@ -182,11 +193,13 @@ class YTChatFrame(wx.Frame):
 
         # Archivo
         m = wx.Menu()
-        self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar")
+        self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar" + self._accel("conectar"))
+        self.mi_desconectar = m.Append(wx.ID_ANY, "&Desconectar" + self._accel("desconectar"))
         m.AppendSeparator()
         mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
         mb.Append(m, "&Archivo")
-        self.Bind(wx.EVT_MENU, self._on_conectar, self.mi_conectar)
+        self.Bind(wx.EVT_MENU, lambda e: self._conectar_si_procede(), self.mi_conectar)
+        self.Bind(wx.EVT_MENU, lambda e: self._desconectar_si_procede(), self.mi_desconectar)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
 
         # Ver
@@ -194,7 +207,7 @@ class YTChatFrame(wx.Frame):
         mi_sig = m.Append(wx.ID_ANY, "Región &siguiente\tF6")
         mi_ant = m.Append(wx.ID_ANY, "Región &anterior\tShift+F6")
         m.AppendSeparator()
-        mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)")
+        mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)" + self._accel("ir_url"))
         mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
         mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
@@ -236,7 +249,7 @@ class YTChatFrame(wx.Frame):
         m.AppendSeparator()
         self.voz_submenu = wx.Menu()
         m.AppendSubMenu(self.voz_submenu, "Seleccionar vo&z")
-        mb.Append(m, "&Voz")
+        mb.Append(m, "Vo&z")
         self.Bind(wx.EVT_MENU, self._on_pausa, self.mi_pausa)
         self.Bind(wx.EVT_MENU, self._on_detener_tts, mi_det)
         self.Bind(wx.EVT_MENU, self._on_vaciar, mi_vac)
@@ -249,14 +262,14 @@ class YTChatFrame(wx.Frame):
 
         # Reproductor
         m = wx.Menu()
-        mi_rep_play  = m.Append(wx.ID_ANY, "&Reproducir o pausa")
-        mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 10 segundos")
-        mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 10 segundos")
-        mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción")
-        mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio")
+        mi_rep_play  = m.Append(wx.ID_ANY, "&Reproducir o pausa" + self._accel("rep_play"))
+        mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 10 segundos" + self._accel("rep_retro"))
+        mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 10 segundos" + self._accel("rep_avanz"))
+        mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción" + self._accel("rep_detener"))
+        mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio" + self._accel("rep_mute"))
         m.AppendSeparator()
-        mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor")
-        mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor")
+        mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor" + self._accel("rep_vol_menos"))
+        mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
         mb.Append(m, "&Reproductor")
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), mi_rep_play)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -10_000), mi_rep_retro)
@@ -270,7 +283,8 @@ class YTChatFrame(wx.Frame):
         m = wx.Menu()
         mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
         m.AppendSeparator()
-        self.mi_enviar_live = m.Append(wx.ID_ANY, "&Enviar mensaje al chat del directo…")
+        self.mi_enviar_live = m.Append(
+            wx.ID_ANY, "&Enviar mensaje al chat del directo…" + self._accel("enviar_chat"))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
@@ -360,6 +374,7 @@ class YTChatFrame(wx.Frame):
         self.sb.SetForegroundColour(_T.dim)
         self.sb.SetStatusWidths([-3, -1, -3, -1, -1, -1, -2])
         self._actualizar_sb()
+        self._set_conectado_ui(False)   # estado inicial: desconectado
 
     def _build_pagina_chat(self, parent) -> wx.Panel:
         pag = wx.Panel(parent, name="PaginaChat")
@@ -449,6 +464,14 @@ class YTChatFrame(wx.Frame):
 
     # ── Handlers de conexión ─────────────────────────────────────────────────
 
+    def _conectar_si_procede(self):
+        if not self._conectado:
+            self._on_conectar(None)
+
+    def _desconectar_si_procede(self):
+        if self._conectado:
+            self._on_conectar(None)
+
     def _on_conectar(self, event):
         if self._conectado:
             if self.on_desconectar_cb:
@@ -463,6 +486,7 @@ class YTChatFrame(wx.Frame):
                 return
             self.btn_conectar.SetLabel("Conectando...")
             self.btn_conectar.Disable()
+            self.mi_conectar.Enable(False)
             self.txt_url.Disable()
             _snd.reproducir("conectando")
             anunciar("Conectando")
@@ -495,6 +519,10 @@ class YTChatFrame(wx.Frame):
             self.poblar_voces(voces_actuales, self._voz_idx)
         self._marcar_filtro()
         self._sincronizar_checks()
+        # Restaurar estado de los items de conexión y del envío al chat tras
+        # reconstruir el menú.
+        self._set_conectado_ui(self._conectado)
+        self._actualizar_estado_online()
         # Tamaño de fuente del chat.
         try:
             pt = int(self._config.get("tamanio_fuente_chat", 12))
@@ -1076,17 +1104,13 @@ class YTChatFrame(wx.Frame):
                 self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
 
     def _set_conectado_ui(self, conectado: bool) -> None:
-        # Solo botón Conectar/Desconectar y campo URL. El resto (ocultar zona,
-        # sonido, título) lo gestiona set_conectado.
-        if conectado:
-            self.btn_conectar.SetLabel("&Desconectar")
-            self.mi_conectar.SetItemLabel("&Desconectar")
-            self.txt_url.Disable()
-        else:
-            self.btn_conectar.SetLabel("&Conectar")
-            self.mi_conectar.SetItemLabel("&Conectar")
-            self.txt_url.Enable()
+        # Botón (toggle), items de menú Conectar/Desconectar y campo URL. El
+        # resto (ocultar zona, sonido, título) lo gestiona set_conectado.
+        self.btn_conectar.SetLabel("&Desconectar" if conectado else "&Conectar")
         self.btn_conectar.Enable()
+        self.mi_conectar.Enable(not conectado)
+        self.mi_desconectar.Enable(conectado)
+        self.txt_url.Enable(not conectado)
 
     def _actualizar_sb(self) -> None:
         sin_tts = " [sin TTS]" if self._config.get("silenciar_lectura", False) else ""

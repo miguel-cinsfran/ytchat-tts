@@ -14,7 +14,7 @@ from pathlib import Path
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
 APP_NAME    = "YTChat TTS"
-APP_VERSION = "0.6"
+APP_VERSION = "0.7"
 
 # ── Tipos de mensaje ──────────────────────────────────────────────────────────
 
@@ -70,35 +70,63 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 
 
 # ── Atajos de teclado ─────────────────────────────────────────────────────────
-# Desde el rediseño con barra de menú nativa, los atajos personalizables son
-# SOLO las acciones de control en tiempo real, mapeadas a teclas de función
-# (sin modificador): son las que se pulsan mucho durante el directo y deben ser
-# instantáneas. El resto de acciones (conectar, ir a paneles, copiar, moderar…)
-# viven en la barra de menú y el menú contextual, accesibles con Alt y flechas,
-# que NVDA lee de forma nativa. Así evitamos el choque entre Alt+letra y los
-# mnemónicos de menú de Windows.
+# Esquema por ÁREA: el modificador indica la zona, para que sea intuitivo.
+#   Ctrl  → Reproductor (vídeo/audio), como las apps de medios.
+#   Alt   → Conexión y chat (acciones sobre el directo).
+#   F     → Voz/lectura TTS (ajustes en caliente) y navegación.
+# Se muestran como aceleradores en la barra de menú (NVDA los lee). No chocan
+# con los mnemónicos de menú (Alt+inicial) porque usamos otras letras.
 #
-# Fijos por petición del usuario (NO reasignar): F9/F10 velocidad, F11/F12
-# volumen. Reservados para navegación entre paneles (no editables aquí, los
-# gestiona el notebook): F6 = panel siguiente, Shift+F6 = panel anterior.
+# Fijos (no editables): F9/F10 velocidad y F11/F12 volumen del TTS, y la
+# navegación entre regiones F6 / Shift+F6 (esta última no está aquí: la gestiona
+# la ventana directamente).
 
 ATAJOS_DEFAULTS = {
-    "anunciar_estado":   "f2",
-    "silenciar_lectura": "f4",
+    # Reproductor (Ctrl)
+    "rep_play":          "ctrl+enter",
+    "rep_retro":         "ctrl+left",
+    "rep_avanz":         "ctrl+right",
+    "rep_detener":       "ctrl+d",
+    "rep_mute":          "ctrl+m",
+    "rep_vol_menos":     "ctrl+down",
+    "rep_vol_mas":       "ctrl+up",
+    # Conexión y chat (Alt)
+    "conectar":          "alt+c",
+    "desconectar":       "alt+d",
+    "enviar_chat":       "alt+enter",
+    "ir_url":            "alt+u",
+    # Voz / lectura (teclas F)
     "pausa":             "f5",
-    "silenciar_sonidos": "f7",
     "detener_tts":       "f8",
     "velocidad_menos":   "f9",
     "velocidad_mas":     "f10",
     "volumen_menos":     "f11",
     "volumen_mas":       "f12",
+    "silenciar_lectura": "f4",
+    "silenciar_sonidos": "f7",
+    "anunciar_estado":   "f2",
 }
 
 # Acciones cuya tecla NO debe poder cambiarse en el editor de atajos.
 ATAJOS_FIJOS = {"velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas"}
 
+# Agrupación para el editor de Preferencias (título de grupo, acciones).
+ATAJOS_GRUPOS = [
+    ("Reproductor (Ctrl)",
+     ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
+      "rep_vol_menos", "rep_vol_mas"]),
+    ("Conexión y chat (Alt)",
+     ["conectar", "desconectar", "enviar_chat", "ir_url"]),
+    ("Voz y lectura (teclas F)",
+     ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
+      "volumen_menos", "volumen_mas", "silenciar_lectura",
+      "silenciar_sonidos", "anunciar_estado"]),
+]
+
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
-_RE_ATAJO = re.compile(r"^alt\+(.)$", re.IGNORECASE)
+# Teclas con nombre admitidas (además de una letra/símbolo o una tecla F).
+_TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space"}
+_RE_ATAJO = re.compile(r"^(ctrl|alt)\+(.+)$", re.IGNORECASE)
 _RE_FKEY  = re.compile(r"^f(1[0-2]|[1-9])$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
@@ -112,6 +140,10 @@ class Atajo:
 
 
 def _normalizar_atajo(valor: str | None) -> str | None:
+    """Normaliza a 'ctrl+x' / 'alt+enter' / 'ctrl+left' / 'f5'. None si no vale.
+
+    Modificador único (ctrl o alt) + tecla, o una tecla F sin modificador.
+    """
     if valor is None:
         return None
     valor = valor.strip().lower().replace(" ", "")
@@ -122,9 +154,11 @@ def _normalizar_atajo(valor: str | None) -> str | None:
     m = _RE_ATAJO.match(valor)
     if not m:
         return None
-    ch = m.group(1)
-    if len(ch) == 1 and ch.isascii() and (ch.isalnum() or ch in _SIMBOLOS_PERMITIDOS):
-        return f"alt+{ch}"
+    mod, key = m.group(1), m.group(2)
+    if key in _TECLAS_NOMBRE:
+        return f"{mod}+{key}"
+    if len(key) == 1 and key.isascii() and (key.isalnum() or key in _SIMBOLOS_PERMITIDOS):
+        return f"{mod}+{key}"
     return None
 
 
@@ -148,32 +182,16 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
         if normalizado is None:
             continue
 
-        tecla = normalizado.split("+", 1)[-1]
-        if tecla in teclas_usadas:
+        # El conflicto se mide por la combinación COMPLETA: 'ctrl+d' y 'alt+d'
+        # son atajos distintos y no chocan; dos 'alt+d' sí.
+        if normalizado in teclas_usadas:
             logger.warning("atajos: conflicto — %r y %r usan %r. Desactivando %r.",
-                           teclas_usadas[tecla], accion, normalizado, accion)
+                           teclas_usadas[normalizado], accion, normalizado, accion)
             continue
-        teclas_usadas[tecla] = accion
+        teclas_usadas[normalizado] = accion
+        tecla = normalizado.split("+", 1)[-1]
         resultado[accion] = Atajo(accion=accion, texto=normalizado, tecla=tecla)
     return resultado
-
-
-def atajos_a_tuplas_wx(atajos: dict[str, Atajo], ids_por_accion: dict[str, int]):
-    """Adapta el dict a la forma que espera wx.AcceleratorTable."""
-    import wx
-    _WX_FKEYS = {f"f{i}": getattr(wx, f"WXK_F{i}") for i in range(1, 13)}
-    tuplas = []
-    for accion, atajo in atajos.items():
-        wid = ids_por_accion.get(accion)
-        if wid is None:
-            continue
-        ch = atajo.tecla
-        if ch in _WX_FKEYS:
-            tuplas.append((wx.ACCEL_NORMAL, _WX_FKEYS[ch], wid))
-        else:
-            keycode = ord(ch.upper()) if ch.isalnum() else ord(ch)
-            tuplas.append((wx.ACCEL_ALT, keycode, wid))
-    return tuplas
 
 
 # ── Carga de config.ini ──────────────────────────────────────────────────────
@@ -212,18 +230,29 @@ usuarios_silenciados =
 limpiar_emojis = true
 eliminar_urls = true
 max_longitud_mensaje = 200
-# Atajos de control en tiempo real (teclas de función). El resto de acciones
-# están en la barra de menú (Alt) y el menú contextual. F9-F12 son fijos.
+# Atajos por área: Ctrl = reproductor, Alt = conexión/chat, F = voz/lectura.
+# Editables desde Preferencias > Atajos (salvo F9-F12, fijos).
 [atajos]
-anunciar_estado = f2
-silenciar_lectura = f4
+rep_play = ctrl+enter
+rep_retro = ctrl+left
+rep_avanz = ctrl+right
+rep_detener = ctrl+d
+rep_mute = ctrl+m
+rep_vol_menos = ctrl+down
+rep_vol_mas = ctrl+up
+conectar = alt+c
+desconectar = alt+d
+enviar_chat = alt+enter
+ir_url = alt+u
 pausa = f5
-silenciar_sonidos = f7
 detener_tts = f8
 velocidad_menos = f9
 velocidad_mas = f10
 volumen_menos = f11
 volumen_mas = f12
+silenciar_lectura = f4
+silenciar_sonidos = f7
+anunciar_estado = f2
 [ui]
 tamanio_fuente_chat = 12
 mostrar_total_superchats = true

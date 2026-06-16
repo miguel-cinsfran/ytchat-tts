@@ -29,8 +29,21 @@ class TestNormalizarAtajo(unittest.TestCase):
     def test_simbolo_permitido(self):
         self.assertEqual(_normalizar_atajo("alt+."), "alt+.")
 
+    def test_ctrl_letra(self):
+        self.assertEqual(_normalizar_atajo("ctrl+d"), "ctrl+d")
+
+    def test_teclas_con_nombre(self):
+        self.assertEqual(_normalizar_atajo("ctrl+left"), "ctrl+left")
+        self.assertEqual(_normalizar_atajo("alt+enter"), "alt+enter")
+        self.assertEqual(_normalizar_atajo("ctrl+up"), "ctrl+up")
+
     def test_modificador_no_soportado(self):
-        self.assertIsNone(_normalizar_atajo("ctrl+u"))
+        # Shift y combinaciones multi-modificador no se admiten en el editor.
+        self.assertIsNone(_normalizar_atajo("shift+u"))
+        self.assertIsNone(_normalizar_atajo("ctrl+shift+x"))
+
+    def test_tecla_nombre_desconocida(self):
+        self.assertIsNone(_normalizar_atajo("ctrl+home"))
 
 
 class TestParsearAtajos(unittest.TestCase):
@@ -60,6 +73,12 @@ class TestParsearAtajos(unittest.TestCase):
     def test_override_valido(self):
         atajos = parsear_atajos({"pausa": "alt+j"})
         self.assertEqual(atajos["pausa"].texto, "alt+j")
+
+    def test_ctrl_y_alt_misma_letra_no_chocan(self):
+        # 'ctrl+d' (rep_detener) y 'alt+d' (desconectar) conviven.
+        atajos = parsear_atajos({})
+        self.assertEqual(atajos["rep_detener"].texto, "ctrl+d")
+        self.assertEqual(atajos["desconectar"].texto, "alt+d")
 
 
 if __name__ == "__main__":
