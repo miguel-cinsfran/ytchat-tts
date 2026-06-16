@@ -2,6 +2,8 @@
 build/
 dist/
 *.spec
+"YTChat TTS"/
+YTChat TTS/
 
 # Python
 __pycache__/

@@ -14,7 +14,7 @@
 - [Stack técnico](#stack-técnico)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Requisitos](#requisitos)
-- [Instalación desde código fuente](#instalación-desde-código-fuente)
+- [Instalación](#instalación)
 - [Uso](#uso)
 - [Atajos de teclado](#atajos-de-teclado)
 - [Configuración](#configuración)
@@ -44,7 +44,7 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 - Cambio de voz y velocidad en tiempo real, sin reconectar.
 - Filtros por palabras y por usuarios en `config.ini`.
 - Silencio por usuario en sesión (solo TTS o también ocultar de la lista).
-- Alt+D vacía la cola al instante, útil contra spam o mensajes muy largos.
+- Alt+X vacía la cola al instante, útil contra spam o mensajes muy largos.
 
 **Accesibilidad**
 
@@ -55,9 +55,10 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 
 **Sonidos de retroalimentación**
 
-- 12 sonidos WAV para eventos clave generados con Python stdlib (sin dependencias de audio).
+- 16 sonidos WAV para eventos clave generados con Python stdlib (sin dependencias de audio).
+- Organizados en **temas** intercambiables; se incluyen dos (`default` y `suave`) y puedes crear el tuyo.
 - Reproducción simultánea sin bloqueo vía `winmm.dll` (MCI): los sonidos se solapan.
-- Sustituibles por WAV propios manteniendo el nombre de archivo.
+- Paneo estéreo sutil por evento para distinguirlos sin mirar.
 
 **Funciones online (opcionales, API de YouTube)**
 
@@ -106,7 +107,8 @@ verificación de Google.
 | Online       | YouTube Data API v3 (OAuth2, google-api-python-client; opcional) |
 | Accesibilidad| accessible_output2 (NVDA/JAWS, opcional)        |
 | Audio        | ctypes + winmm.dll (MCI), sin pygame/numpy      |
-| Empaquetado  | PyInstaller + `build.bat`                       |
+| Entorno      | uv (gestiona Python y dependencias)             |
+| Empaquetado  | PyInstaller (onedir) vía `construir.bat`        |
 
 ---
 
@@ -124,64 +126,79 @@ ytchat-tts/
 ├── youtube_api.py     # YouTube Data API v3 (comentarios, OAuth, moderación)
 ├── credenciales.py    # Almacén de claves/token (credenciales.json, gitignored)
 ├── sound_player.py    # Reproductor asíncrono vía winmm.dll
-├── sound_gen.py       # Generador de WAV stdlib (setup / regenerar)
+├── sound_gen.py       # Generador de WAV stdlib (temas de sonido)
 ├── config.ini         # Configuración de usuario (editable)
 ├── sounds.ini         # Configuración de sonidos (editable)
-├── sounds/            # Archivos WAV de retroalimentación
+├── sounds/themes/     # Temas de sonido (default, suave, …)
 ├── tests/             # Pruebas de la lógica pura (unittest, sin Windows)
 ├── docs/              # Documentación (guía de la API de YouTube)
 ├── requirements.txt
-└── instalar.bat       # Instalador de dependencias + generación de sonidos
+├── instalar.bat       # Crea el entorno con uv e instala dependencias
+└── construir.bat      # Empaqueta el .exe distribuible con PyInstaller
 ```
+
+> Los scripts `.bat`, `CLAUDE.md` y `credenciales.json` no se versionan
+> (`.gitignore`): viajan con la copia de la carpeta, no con `git clone`.
 
 ---
 
 ## Requisitos
 
-- Windows 10 (22H2 o posterior) o Windows 11.
-- **Python 3.11 o superior, de 64 bits.** Con Python 32-bit, SAPI5 no verá las voces modernas.
-- Al menos una voz SAPI5 instalada (*Configuración → Hora e idioma → Voz*).
-- Dependencias Python: `wxPython`, `pytchat`, `pywin32`, `accessible_output2` (ver `instalar.bat`).
+**Para usar el ejecutable:** Windows 10 (22H2 o posterior) u 11 y al menos una
+voz SAPI5 instalada (*Configuración → Hora e idioma → Voz*). Nada más: el `.exe`
+ya trae todo dentro.
+
+**Para el código fuente o compilar:** además, [uv](https://docs.astral.sh/uv/).
+uv se ocupa de descargar el Python correcto (3.11+ 64-bit) y las dependencias;
+no hace falta instalar Python por separado.
 
 ---
 
-## Instalación desde código fuente
+## Instalación
+
+### Usar la aplicación (sin programar)
+
+Descomprime el paquete en cualquier carpeta y ejecuta **YTChatTTS.exe**. No
+necesita Python ni instalación. Los archivos `config.ini`, `sounds.ini` y la
+carpeta `sounds/` quedan junto al ejecutable y se editan con el Bloc de notas.
+
+### Desde código fuente (con uv)
 
 ```bash
-# Clonar o descargar el repositorio y entrar en la carpeta
+# uv una sola vez (PowerShell):  irm https://astral.sh/uv/install.ps1 | iex
+# Desde la carpeta del proyecto:
 instalar.bat
 ```
 
-`instalar.bat` hace lo siguiente:
-
-1. Comprueba que Python esté instalado y sea de 64 bits.
-2. Instala las dependencias (`wxPython`, `pytchat`, `pywin32`, `accessible_output2`).
-3. Pregunta si instalar el fork alternativo de pytchat (útil con ciertos directos).
-4. Genera los sonidos de retroalimentación con `sound_gen.py`.
-5. Pregunta si abrir la aplicación ahora.
-
-### Instalación manual (sin `instalar.bat`)
-
-Los scripts `.bat` no se incluyen al clonar desde GitHub. Para instalar a mano,
-con Python 3.11+ de 64 bits:
+`instalar.bat` crea el entorno con uv, instala `requirements.txt` y genera los
+sonidos. Equivale a:
 
 ```bash
-pip install -r requirements.txt
-python sound_gen.py          # genera los WAV del tema por defecto (sounds/themes/default/)
-python main.py               # arranca la aplicación
+uv venv                              # crea .venv con el Python adecuado
+uv pip install -r requirements.txt
+uv run python sound_gen.py           # genera los temas de sonido
+uv run python main.py                # arranca la aplicación
 ```
 
-Para ejecutar directamente en desarrollo:
+Para regenerar los sonidos: `uv run python sound_gen.py --forzar`.
+
+### Crear el ejecutable distribuible
+
+`construir.bat` empaqueta la aplicación con PyInstaller (modo *onedir*) en una
+carpeta lista para comprimir y enviar:
 
 ```bash
-python main.py
+construir.bat
 ```
 
-Para regenerar los sonidos:
+Genera la carpeta `YTChat TTS/` en la raíz del proyecto, que contiene:
 
-```bash
-python sound_gen.py --forzar
-```
+- `YTChatTTS.exe` y la carpeta `_internal/` (dependencias; no tocar).
+- `config.ini`, `sounds.ini` y `sounds/` (editables, junto al `.exe`).
+- `docs/`, `README.md` y `LICENSE`.
+
+Comprime esa carpeta (7-Zip, ZIP…) y envíala. Quien la reciba solo descomprime y
+abre el `.exe`.
 
 ---
 
@@ -304,10 +321,10 @@ Ocurre normalmente con Python 32-bit en Windows 64-bit. Reinstala Python eligien
 Windows las guarda en `Speech_OneCore`, rama del registro que SAPI5 no lee por defecto. La herramienta gratuita *TTSVoicePatcher* (dipisoft) las expone; tras aplicarla aparecen en el selector con su índice normal.
 
 **La URL no conecta o da error**
-La aplicación informa el motivo (URL inválida, directo privado, sin chat, exclusivo para miembros…). Si la URL es correcta pero falla, prueba solo el ID de 11 caracteres tras `v=`. Si el problema persiste, `instalar.bat` ofrece el fork alternativo de pytchat.
+La aplicación informa el motivo (URL inválida, directo privado, sin chat, exclusivo para miembros…). Si la URL es correcta pero falla, prueba solo el ID de 11 caracteres tras `v=`.
 
 **El chat conecta pero no suena nada**
-Comprueba volumen en `config.ini` y que los sonidos no estén silenciados (Alt+M). Si el TTS no suena en absoluto, verifica la voz en *Configuración → Hora e idioma → Voz*.
+Comprueba volumen en `config.ini` y que los sonidos no estén silenciados (F7). Si el TTS no suena en absoluto, verifica la voz en *Configuración → Hora e idioma → Voz*.
 
 **"Could not import comtypes.gen" al arrancar**
 Normal la primera vez; desaparece en arranques posteriores. No afecta al funcionamiento.
@@ -316,7 +333,7 @@ Normal la primera vez; desaparece en arranques posteriores. No afecta al funcion
 Los lectores de pantalla no monitorizan la barra de estado automáticamente. Consulta con Insert+End (NVDA) o Insert+Av Pág (JAWS). Los eventos importantes se anuncian por voz de forma independiente.
 
 **El ejecutable lo marca el antivirus como sospechoso**
-Falso positivo conocido de PyInstaller. Añade `dist\YTChat-TTS\` a las exclusiones del antivirus.
+Falso positivo conocido de PyInstaller. Añade la carpeta `YTChat TTS\` a las exclusiones del antivirus.
 
 ---
 
@@ -334,7 +351,7 @@ de importes de Super Chat y filtros de la cola) está cubierta por una batería
 de tests con `unittest`, sin dependencias externas:
 
 ```bash
-python -m unittest discover -s tests
+uv run python -m unittest discover -s tests
 ```
 
 No requieren `wxPython`, `pytchat` ni un lector de pantalla, así que corren en
@@ -344,8 +361,8 @@ audio MCI y la GUI wx se prueban a mano en Windows.
 Además, `smoke_test.py` hace una verificación más amplia (pensada para Windows):
 
 ```bash
-python smoke_test.py            # importa todo y, si hay pywinauto, revisa accesibilidad
-python smoke_test.py --no-gui   # solo importaciones, sin abrir la ventana
+uv run python smoke_test.py            # importa todo y, si hay pywinauto, revisa accesibilidad
+uv run python smoke_test.py --no-gui   # solo importaciones, sin abrir la ventana
 ```
 
 Importa los módulos de GUI (caza errores que la compilación no ve) y, con

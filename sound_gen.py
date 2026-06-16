@@ -19,13 +19,13 @@ BITS     = 16
 CANALES  = 2         # Estéreo real: permite un leve paneo por evento para que
                      # el oído los ubique sin pensar (útil sin lectura visual).
 AMP      = 0.55      # Margen sobre 1.0 para evitar clipping al sumar ondas.
-# Tema por defecto. Cada evento es un archivo <evento>.wav dentro de la carpeta.
-CARPETA  = Path(__file__).parent / "sounds" / "themes" / "default"
+# Carpeta base de temas. Cada tema es una subcarpeta con un <evento>.wav.
+THEMES_DIR = Path(__file__).parent / "sounds" / "themes"
 
 C4, D4, E4, F4, G4, A4, B4 = 261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88
 C5, D5, E5, F5, G5, A5, B5 = 523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77
 C6, E6 = 1046.50, 1318.51
-A3, E3 = 220.00, 164.81
+A3, F3, E3 = 220.00, 174.61, 164.81
 
 
 # ── Primitivas ────────────────────────────────────────────────────────────────
@@ -293,28 +293,143 @@ def gen_cola_vaciada():
     return _normalizar(_perc(sweep, 0.004, 0.13), 0.55)
 
 
-# Nombre de archivo (= nombre de evento) → generador.
-SONIDOS = {
-    "app_inicio.wav":    gen_app_inicio,
-    "conectando.wav":    gen_conectando,
-    "conectado.wav":     gen_conectado,
-    "desconectado.wav":  gen_desconectado,
-    "mensaje_nuevo.wav": gen_mensaje,
-    "superchat.wav":     gen_superchat,
-    "nuevo_miembro.wav": gen_miembro,
-    "error.wav":         gen_error,
-    "pausa.wav":         gen_pausa,
-    "reanudar.wav":      gen_reanudar,
-    "copiar.wav":        gen_copiar,
-    "voz_cambiada.wav":  gen_voz_cambiada,
-    "enviado.wav":       gen_enviado,
-    "comentario.wav":    gen_comentario,
-    "moderacion.wav":    gen_moderacion,
-    "cola_vaciada.wav":  gen_cola_vaciada,
+# ── Tema "suave": senos cálidos con decaimiento tipo marimba/madera ───────────
+# Más redondo, bajo y mate que el tema por defecto: nada de aristas brillantes
+# ni regusto a videojuego. Mismo lenguaje de gestos (ascendente = abrir, etc.).
+
+def _madera(freq, dur, amp, tau=0.12):
+    # Seno fundamental + un toque de octava: timbre de madera/marimba, suave.
+    base = _suma(_seno(freq, dur, amp), _seno(freq * 2, dur, amp * 0.18))
+    return _perc(base, 0.005, tau)
+
+
+def _seq(*notas):
+    return _normalizar(_concat(*notas), 0.7)
+
+
+def s_app_inicio():
+    # Quinta y octava abiertas C4-G4-C5: cálido, recibe sin estridencia.
+    return _seq(_madera(C4, 0.10, 0.42, 0.10),
+                _madera(G4, 0.10, 0.42, 0.10),
+                _madera(C5, 0.30, 0.46, 0.26))
+
+
+def s_conectando():
+    pulso = _madera(A3, 0.12, 0.40, 0.09)
+    return _concat(pulso, _silencio(0.07), pulso, _silencio(0.02))
+
+
+def s_conectado():
+    # Tercera mayor C5-E5 sostenida y redonda.
+    return _normalizar(_perc(_suma(_seno(C5, 0.30, 0.34), _seno(E5, 0.30, 0.26)),
+                             0.006, 0.24), 0.78)
+
+
+def s_desconectado():
+    return _seq(_madera(E5, 0.12, 0.34, 0.10), _madera(C5, 0.22, 0.32, 0.16))
+
+
+def s_mensaje():
+    # Toque de madera muy breve y bajo: el evento más frecuente, casi un roce.
+    return _normalizar(_madera(C5, 0.08, 0.20, 0.05), 0.40)
+
+
+def s_superchat():
+    # Campana cálida: pocos parciales y mucho seno, registro medio (F5).
+    f = F5
+    partes = [
+        _perc(_seno(f,       0.55, 0.34), 0.003, 0.42),
+        _perc(_seno(f * 2,   0.45, 0.12), 0.003, 0.26),
+        _perc(_seno(f * 3.1, 0.30, 0.05), 0.003, 0.14),
+    ]
+    return _normalizar(_suma(*partes), 0.78)
+
+
+def s_miembro():
+    return _seq(_madera(C5, 0.11, 0.36, 0.10),
+                _madera(E5, 0.11, 0.38, 0.10),
+                _madera(G5, 0.26, 0.42, 0.20))
+
+
+def s_error():
+    # Dos notas graves y mates descendentes A3→F3: "algo no fue", sin aspereza.
+    return _seq(_madera(A3, 0.16, 0.40, 0.13), _madera(F3, 0.24, 0.40, 0.18))
+
+
+def s_pausa():
+    return _seq(_madera(G4, 0.10, 0.34, 0.08), _madera(D4, 0.16, 0.34, 0.12))
+
+
+def s_reanudar():
+    return _seq(_madera(D4, 0.10, 0.34, 0.08), _madera(G4, 0.16, 0.34, 0.12))
+
+
+def s_copiar():
+    return _normalizar(_madera(C6, 0.07, 0.30, 0.04), 0.5)
+
+
+def s_voz_cambiada():
+    return _normalizar(_madera(E5, 0.12, 0.30, 0.08), 0.6)
+
+
+def s_enviado():
+    return _seq(_madera(E5, 0.09, 0.34, 0.07), _madera(A5, 0.16, 0.36, 0.13))
+
+
+def s_comentario():
+    return _seq(_madera(G5, 0.08, 0.30, 0.06), _madera(C6, 0.13, 0.32, 0.10))
+
+
+def s_moderacion():
+    return _seq(_madera(A3, 0.16, 0.42, 0.13), _madera(E3, 0.24, 0.42, 0.20))
+
+
+def s_cola_vaciada():
+    return _normalizar(_perc(_glide(A5, D5, 0.18, 0.28), 0.005, 0.14), 0.5)
+
+
+# Catálogo de temas: nombre → {archivo (= evento) .wav : generador}.
+TEMAS = {
+    "default": {
+        "app_inicio.wav":    gen_app_inicio,
+        "conectando.wav":    gen_conectando,
+        "conectado.wav":     gen_conectado,
+        "desconectado.wav":  gen_desconectado,
+        "mensaje_nuevo.wav": gen_mensaje,
+        "superchat.wav":     gen_superchat,
+        "nuevo_miembro.wav": gen_miembro,
+        "error.wav":         gen_error,
+        "pausa.wav":         gen_pausa,
+        "reanudar.wav":      gen_reanudar,
+        "copiar.wav":        gen_copiar,
+        "voz_cambiada.wav":  gen_voz_cambiada,
+        "enviado.wav":       gen_enviado,
+        "comentario.wav":    gen_comentario,
+        "moderacion.wav":    gen_moderacion,
+        "cola_vaciada.wav":  gen_cola_vaciada,
+    },
+    "suave": {
+        "app_inicio.wav":    s_app_inicio,
+        "conectando.wav":    s_conectando,
+        "conectado.wav":     s_conectado,
+        "desconectado.wav":  s_desconectado,
+        "mensaje_nuevo.wav": s_mensaje,
+        "superchat.wav":     s_superchat,
+        "nuevo_miembro.wav": s_miembro,
+        "error.wav":         s_error,
+        "pausa.wav":         s_pausa,
+        "reanudar.wav":      s_reanudar,
+        "copiar.wav":        s_copiar,
+        "voz_cambiada.wav":  s_voz_cambiada,
+        "enviado.wav":       s_enviado,
+        "comentario.wav":    s_comentario,
+        "moderacion.wav":    s_moderacion,
+        "cola_vaciada.wav":  s_cola_vaciada,
+    },
 }
 
 # Paneo estéreo por evento, en [-1, 1] (0 = centro). Muy sutil y solo donde
-# ayuda a diferenciar; el resto va centrado. Editable sin tocar nada más.
+# ayuda a diferenciar; el resto va centrado. Compartido por todos los temas.
 PANEO = {
     "nuevo_miembro.wav": 0.25,    # llega alguien → ligeramente a la derecha
     "enviado.wav":       0.20,    # acción saliente → derecha
@@ -325,17 +440,19 @@ PANEO = {
 
 # ── Entrada ───────────────────────────────────────────────────────────────────
 
-def generar_todos(destino: Path = CARPETA, sobreescribir: bool = False) -> int:
+def generar_tema(tema: str, destino: Path | None = None,
+                 sobreescribir: bool = False) -> int:
+    sonidos = TEMAS[tema]
+    destino = destino or (THEMES_DIR / tema)
     destino.mkdir(parents=True, exist_ok=True)
     n = 0
-    for nombre, fn in SONIDOS.items():
+    for nombre, fn in sonidos.items():
         ruta = destino / nombre
         if ruta.exists() and not sobreescribir:
             print(f"  [saltar]  {nombre}  (ya existe)")
             continue
-        muestras = fn()
-        _escribir_wav(ruta, muestras, pan=PANEO.get(nombre, 0.0))
-        print(f"  [crear ]  {nombre:20s}  {len(muestras):6d} muestras  {ruta.stat().st_size:6d} bytes")
+        _escribir_wav(ruta, fn(), pan=PANEO.get(nombre, 0.0))
+        print(f"  [crear ]  {nombre:20s}  {ruta.stat().st_size:6d} bytes")
         n += 1
     return n
 
@@ -343,17 +460,29 @@ def generar_todos(destino: Path = CARPETA, sobreescribir: bool = False) -> int:
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="Genera los WAV de retroalimentación.")
-    ap.add_argument("-f", "--forzar",  action="store_true", help="Sobreescribir existentes")
-    ap.add_argument("-d", "--destino", default=str(CARPETA))
+    ap.add_argument("-f", "--forzar", action="store_true", help="Sobreescribir existentes")
+    ap.add_argument("-t", "--tema", default="all",
+                    help=f"Tema a generar: {', '.join(TEMAS)} o 'all' (por defecto)")
+    ap.add_argument("-d", "--destino", default=None,
+                    help="Carpeta de salida (por defecto sounds/themes/<tema>)")
     args = ap.parse_args()
 
-    print(f"\n  Generando sonidos en: {args.destino}")
-    print("-" * 60)
-    n = generar_todos(Path(args.destino), sobreescribir=args.forzar)
-    print("-" * 60)
-    print(f"  {n} creado(s). {len(SONIDOS) - n} saltado(s).\n")
-    if not args.forzar and n < len(SONIDOS):
-        print("  Usa --forzar para regenerar los existentes.\n")
+    temas = list(TEMAS) if args.tema == "all" else [args.tema]
+    if any(t not in TEMAS for t in temas):
+        ap.error(f"tema desconocido. Opciones: {', '.join(TEMAS)}, all")
+
+    total = 0
+    for t in temas:
+        destino = Path(args.destino) if args.destino else (THEMES_DIR / t)
+        print(f"\n  Tema '{t}' → {destino}")
+        print("-" * 60)
+        n = generar_tema(t, destino, sobreescribir=args.forzar)
+        total += n
+        print("-" * 60)
+        print(f"  {n} creado(s). {len(TEMAS[t]) - n} saltado(s).")
+    if not args.forzar and total < sum(len(TEMAS[t]) for t in temas):
+        print("\n  Usa --forzar para regenerar los existentes.")
+    print()
 
 
 if __name__ == "__main__":
