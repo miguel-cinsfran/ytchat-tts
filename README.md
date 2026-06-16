@@ -3,7 +3,7 @@
 > Lector de chat de YouTube Live con voces SAPI5 de Windows.
 > Pensado para streamers ciegos o con baja visión.
 
-**Versión 0.5 · Windows 10/11 · Python 3.11+ 64-bit**
+**Versión 0.6 · Windows 10/11 · Python 3.11+ 64-bit**
 
 ---
 
@@ -59,11 +59,40 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 - Reproducción simultánea sin bloqueo vía `winmm.dll` (MCI): los sonidos se solapan.
 - Sustituibles por WAV propios manteniendo el nombre de archivo.
 
+**Funciones online (opcionales, API de YouTube)**
+
+- Leer y navegar los comentarios de cualquier vídeo (no solo directos), con TTS.
+- Moderar el chat en vivo: expulsar (timeout) o banear usuarios, con confirmación.
+- Enviar mensajes al chat del directo.
+- Publicar y responder comentarios.
+- Se gestionan desde el botón **Configuración** dentro de la app; las claves se
+  guardan en `credenciales.json` (local, nunca en el repositorio).
+- Si las dependencias de Google no están instaladas, estas funciones se
+  desactivan solas y el resto de la aplicación funciona igual.
+
 **Otras**
 
 - Reconexión automática configurable.
 - Mutex de instancia única (`CreateMutexW`).
 - Log a `ytchat.log` solo para warnings/errores; vacío en operación normal.
+
+---
+
+## Funciones online (API de YouTube)
+
+Leer comentarios, moderar el chat en vivo, enviar mensajes al directo y
+publicar/responder comentarios usan la **YouTube Data API v3 oficial**. Son
+opcionales y vienen desactivadas: requieren instalar las dependencias de Google
+(ver `requirements.txt`) y crear tus credenciales una sola vez.
+
+Todo se configura desde el botón **Configuración** de la aplicación, sin editar
+archivos. La guía paso a paso (pensada para lectores de pantalla) está en
+**[docs/CONFIGURACION_API.md](docs/CONFIGURACION_API.md)**.
+
+Resumen: leer comentarios solo necesita una **API key**; moderar y comentar
+necesitan además **iniciar sesión** (OAuth). Cada usuario usa sus propias
+credenciales, así que dispone de su cuota diaria completa y no requiere
+verificación de Google.
 
 ---
 
@@ -74,6 +103,7 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 | GUI          | wxPython 4.2+, tema Catppuccin Mocha            |
 | TTS          | win32com / SAPI5 (pywin32), hilo COM/STA propio |
 | Chat         | pytchat (InnerTube API de YouTube)              |
+| Online       | YouTube Data API v3 (OAuth2, google-api-python-client; opcional) |
 | Accesibilidad| accessible_output2 (NVDA/JAWS, opcional)        |
 | Audio        | ctypes + winmm.dll (MCI), sin pygame/numpy      |
 | Empaquetado  | PyInstaller + `build.bat`                       |
@@ -84,19 +114,24 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 
 ```
 ytchat-tts/
-├── main.py          # Entrada, orquestación, captura de chat
-├── gui.py           # Ventana wxPython, eventos, persistencia runtime
-├── tts_worker.py    # Hilo TTS (COM/STA), sanitización, volumen
-├── config.py        # Constantes, logging, INI, atajos, guardar_opcion()
-├── montos.py        # Parseo del importe de Super Chats (locale-aware)
-├── sound_player.py  # Reproductor asíncrono vía winmm.dll
-├── sound_gen.py     # Generador de WAV stdlib (setup / regenerar)
-├── config.ini       # Configuración de usuario (editable)
-├── sounds.ini       # Configuración de sonidos (editable)
-├── sounds/          # Archivos WAV de retroalimentación
-├── tests/           # Pruebas de la lógica pura (unittest, sin Windows)
+├── main.py            # Entrada, orquestación, captura de chat
+├── gui.py             # Ventana wxPython, eventos, persistencia runtime
+├── gui_config.py      # Diálogo de Configuración (API key + OAuth)
+├── gui_comentarios.py # Ventana de comentarios de vídeos
+├── tts_worker.py      # Hilo TTS (COM/STA), sanitización, volumen
+├── config.py          # Constantes, logging, INI, atajos, guardar_opcion()
+├── montos.py          # Parseo del importe de Super Chats (locale-aware)
+├── youtube_api.py     # YouTube Data API v3 (comentarios, OAuth, moderación)
+├── credenciales.py    # Almacén de claves/token (credenciales.json, gitignored)
+├── sound_player.py    # Reproductor asíncrono vía winmm.dll
+├── sound_gen.py       # Generador de WAV stdlib (setup / regenerar)
+├── config.ini         # Configuración de usuario (editable)
+├── sounds.ini         # Configuración de sonidos (editable)
+├── sounds/            # Archivos WAV de retroalimentación
+├── tests/             # Pruebas de la lógica pura (unittest, sin Windows)
+├── docs/              # Documentación (guía de la API de YouTube)
 ├── requirements.txt
-└── instalar.bat     # Instalador de dependencias + generación de sonidos
+└── instalar.bat       # Instalador de dependencias + generación de sonidos
 ```
 
 ---

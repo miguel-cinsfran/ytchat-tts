@@ -14,7 +14,7 @@ from pathlib import Path
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
 APP_NAME    = "YTChat TTS"
-APP_VERSION = "0.5"
+APP_VERSION = "0.6"
 
 # ── Tipos de mensaje ──────────────────────────────────────────────────────────
 

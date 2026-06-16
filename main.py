@@ -116,6 +116,29 @@ def obtener_titulo(video_id: str, timeout: float = 8.0) -> str:
     return ""
 
 
+def _resolver_live_chat_id(video_id: str) -> None:
+    """Si hay API key, resuelve el id del chat en vivo y se lo pasa al GUI.
+
+    Es totalmente opcional: cualquier fallo se ignora y la captura del chat
+    (que va por pytchat, sin API) sigue funcionando igual.
+    """
+    try:
+        import credenciales
+        import youtube_api
+        if not (youtube_api.google_disponible() and credenciales.hay_lectura()):
+            return
+        cli = youtube_api.ClienteYouTube(credenciales.cargar())
+        lcid = cli.resolver_live_chat_id(video_id)
+        if not lcid:
+            return
+        import wx
+        import gui as _gm
+        if _gm._gui_frame and _gm._gui_frame._alive:
+            wx.CallAfter(_gm._gui_frame.set_live_chat_id, lcid)
+    except Exception as exc:
+        logger.debug("resolver_live_chat_id: %s", exc)
+
+
 # ── Estadísticas ─────────────────────────────────────────────────────────────
 
 class Stats:
@@ -240,7 +263,9 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
                     if not _nuevo(c, inicio):
                         stats.inc("filtrados_nuevo"); continue
 
-                    autor    = _str(getattr(c, "author", None) and c.author.name, "Usuario")
+                    autor_obj = getattr(c, "author", None)
+                    autor    = _str(autor_obj and autor_obj.name, "Usuario")
+                    canal_id = _str(autor_obj and getattr(autor_obj, "channelId", None), "")
                     mensaje  = _str(getattr(c, "message", None), "")
                     tipo_raw = _str(getattr(c, "type", None), "textMessage")
                     tipo     = _TIPO_MAP.get(tipo_raw, None)
@@ -272,7 +297,7 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
 
                     hora = datetime.now().strftime('%H:%M:%S')
                     if on_message:
-                        on_message(autor, mensaje, hora, tipo, monto)
+                        on_message(autor, mensaje, hora, tipo, monto, canal_id)
 
                     if debe_leer_tts(autor, config):
                         encolar(cola, {"texto_tts": tts_text}, config, stats)
@@ -411,10 +436,10 @@ def main():
         ps  = threading.Event()
         _estado["parada_sesion"] = ps
 
-        def _on_msg(autor, mensaje, hora, tipo=TIPO_TEXTO, monto=""):
+        def _on_msg(autor, mensaje, hora, tipo=TIPO_TEXTO, monto="", canal_id=""):
             if _gm._gui_frame and _gm._gui_frame._alive:
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
-                             autor, mensaje, hora, tipo, monto)
+                             autor, mensaje, hora, tipo, monto, canal_id)
 
         def _on_estado(tipo_estado, texto):
             if not _gm._gui_frame or not _gm._gui_frame._alive:
@@ -432,6 +457,10 @@ def main():
             titulo = obtener_titulo(vid)
             if _gm._gui_frame and titulo:
                 wx.CallAfter(_gm._gui_frame.set_titulo_stream, titulo)
+            # Resolver el id del chat en vivo (para moderar/enviar) en paralelo:
+            # es una llamada de red opcional que nunca debe frenar la captura.
+            threading.Thread(target=_resolver_live_chat_id, args=(vid,),
+                             daemon=True, name="LiveChatId").start()
             captura_con_reconexion(vid, cola, config, ps, stats,
                                    on_message=_on_msg, on_estado=_on_estado)
             if _gm._gui_frame and not parada.is_set():

@@ -10,6 +10,9 @@ __pycache__/
 # Logs
 ytchat.log
 
+# Secretos de la API de YouTube (los gestiona la app desde Configuración)
+credenciales.json
+
 # Historial de sesión (opción guardar_historial en config.ini)
 historial.csv
 historial.txt
@@ -19,7 +22,7 @@ historial.txt
 .claudeignore
 CLAUDE.md
 claude.md
-docs/
+INFORME_CLAUDE.md
 *.bat
 
 # Editor / OS

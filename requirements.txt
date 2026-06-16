@@ -18,3 +18,12 @@ wxPython>=4.2.2
 # Opcional: si no está instalado o no hay lector activo, el programa
 # funciona igualmente pero sin anuncios hablados complementarios.
 accessible_output2>=0.17
+
+# ── Funciones online (OPCIONAL): YouTube Data API v3 ──────────────────────────
+# Necesarias solo para leer comentarios de vídeos, moderar el chat en vivo,
+# enviar mensajes al directo y publicar/responder comentarios. Si no se
+# instalan, esas funciones quedan desactivadas y el resto de la app funciona
+# igual. Ver docs/CONFIGURACION_API.md para activarlas.
+google-api-python-client>=2.100
+google-auth-oauthlib>=1.2
+google-auth>=2.30

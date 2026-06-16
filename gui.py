@@ -16,6 +16,8 @@ from config import (
 )
 from config import parsear_atajos, atajos_a_tuplas_wx, ATAJOS_DEFAULTS, app_dir, guardar_opcion
 import sound_player as _snd
+import credenciales
+import youtube_api
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -133,6 +135,11 @@ class YTChatFrame(wx.Frame):
         # Totales acumulados por divisa (el amountString varía: €, $, ...).
         self._sc_totales: dict[str, float] = {}
 
+        # Funciones online (API oficial). channelId por autor para moderar y
+        # el id del chat en vivo del directo actual (se resuelve al conectar).
+        self._canal_por_autor: dict[str, str] = {}
+        self._live_chat_id = ""
+
         self.on_conectar_cb    = None
         self.on_desconectar_cb = None
 
@@ -204,6 +211,18 @@ class YTChatFrame(wx.Frame):
         row.Add(self.cho_filtro, 0, wx.ALIGN_CENTER_VERTICAL)
         vs.Add(row, 0, wx.EXPAND | wx.ALL, 10)
 
+        # ── Funciones online (API oficial) ──
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_comentarios = wx.Button(panel, label="Co&mentarios", name="Comentarios")
+        self.btn_enviar_live = wx.Button(panel, label="&Enviar al chat", name="EnviarAlChat")
+        self.btn_config      = wx.Button(panel, label="Confi&guración", name="Configuracion")
+        self.btn_enviar_live.Disable()
+        for b in (self.btn_comentarios, self.btn_enviar_live, self.btn_config):
+            b.SetBackgroundColour(_T.btn)
+            b.SetForegroundColour(_T.btn_t)
+            row.Add(b, 0, wx.RIGHT, 6)
+        vs.Add(row, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
         # ── Lista de chat ──
         lbl = wx.StaticText(panel, label="Chat:", name="EtiquetaChat")
         lbl.SetForegroundColour(_T.accent)
@@ -240,6 +259,9 @@ class YTChatFrame(wx.Frame):
         self.btn_salir.Bind(wx.EVT_BUTTON,       lambda e: self.Close())
         self.txt_url.Bind(wx.EVT_TEXT_ENTER,     self._on_conectar)
         self.btn_aplicar_voz.Bind(wx.EVT_BUTTON, self._on_aplicar_voz)
+        self.btn_comentarios.Bind(wx.EVT_BUTTON, self._on_comentarios)
+        self.btn_enviar_live.Bind(wx.EVT_BUTTON, self._on_enviar_live)
+        self.btn_config.Bind(wx.EVT_BUTTON,      self._on_config)
         self.cho_filtro.Bind(wx.EVT_CHOICE,      self._on_filtro)
         self.lb_chat.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._copiar_mensaje())
         self.lb_chat.Bind(wx.EVT_KEY_DOWN,       self._on_chat_key)
@@ -338,6 +360,95 @@ class YTChatFrame(wx.Frame):
                        _NOMBRES_FILTRO[sel] if sel < len(_NOMBRES_FILTRO) else "todos")
         anunciar(f"Filtro: {FILTROS[sel][0]}. {self.lb_chat.GetCount()} mensajes")
 
+    # ── Funciones online (API oficial) ───────────────────────────────────────
+
+    def _on_comentarios(self, event):
+        try:
+            from gui_comentarios import abrir_comentarios
+            abrir_comentarios(self, self._cola, self._config)
+        except Exception as exc:
+            logger.warning("No se pudo abrir comentarios: %s", exc)
+            wx.MessageBox(f"No se pudo abrir la ventana de comentarios:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
+
+    def _on_config(self, event):
+        try:
+            from gui_config import abrir_configuracion
+            abrir_configuracion(self)
+        except Exception as exc:
+            logger.warning("No se pudo abrir configuración: %s", exc)
+            wx.MessageBox(f"No se pudo abrir la configuración:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
+        self._actualizar_estado_online()
+
+    def _on_enviar_live(self, event):
+        if not self._puede_escribir_live():
+            return
+        dlg = wx.TextEntryDialog(self, "Mensaje a enviar al chat del directo:",
+                                 "Enviar al chat")
+        if dlg.ShowModal() == wx.ID_OK:
+            texto = dlg.GetValue().strip()
+            if texto:
+                lcid = self._live_chat_id
+                self._accion_api(lambda cli: cli.enviar_mensaje_live(lcid, texto),
+                                 "Mensaje enviado al chat")
+        dlg.Destroy()
+
+    def _puede_escribir_live(self) -> bool:
+        if not (youtube_api.google_disponible() and credenciales.hay_sesion()):
+            anunciar("Inicia sesión en Configuración para usar esta función")
+            return False
+        if not self._live_chat_id:
+            anunciar("No hay un chat en vivo activo en este directo")
+            return False
+        return True
+
+    def _accion_api(self, accion, mensaje_ok: str) -> None:
+        """Ejecuta una acción de escritura en un hilo y persiste el token si se refresca."""
+        anunciar("Enviando")
+
+        def _run():
+            try:
+                cli = youtube_api.ClienteYouTube(credenciales.cargar())
+                accion(cli)
+                if cli.token_actualizado():
+                    credenciales.guardar_campo("token", cli.token_actualizado())
+                wx.CallAfter(self._api_ok, mensaje_ok)
+            except Exception as exc:
+                logger.warning("acción API: %s", exc)
+                wx.CallAfter(self._api_err, exc)
+
+        import threading
+        threading.Thread(target=_run, daemon=True, name="AccionAPI").start()
+
+    def _api_ok(self, mensaje):
+        _snd.reproducir("voz_cambiada")
+        anunciar(mensaje)
+
+    def _api_err(self, exc):
+        _snd.reproducir("error")
+        msg = youtube_api.mensaje_error_api(exc)
+        anunciar(msg)
+        wx.MessageBox(msg, "Error de la API", wx.OK | wx.ICON_ERROR, self)
+
+    def _actualizar_estado_online(self):
+        """Habilita/inhabilita el envío al chat según sesión y chat en vivo."""
+        puede = bool(self._conectado and self._live_chat_id
+                     and youtube_api.google_disponible() and credenciales.hay_sesion())
+        try:    self.btn_enviar_live.Enable(puede)
+        except Exception: pass
+
+    def _moderar(self, autor: str, canal_id: str, segundos: int | None) -> None:
+        accion = "expulsar 5 minutos a" if segundos else "banear permanentemente a"
+        if wx.MessageBox(f"¿Seguro que quieres {accion} {autor}?",
+                         "Confirmar moderación",
+                         wx.YES_NO | wx.ICON_QUESTION, self) != wx.YES:
+            return
+        lcid = self._live_chat_id
+        ok = f"{autor} expulsado 5 minutos" if segundos else f"{autor} baneado del directo"
+        self._accion_api(
+            lambda cli: cli.banear_usuario(lcid, canal_id, segundos), ok)
+
     def _ajustar_rate(self, delta):
         self._worker.cambiar_rate(delta)
         r = max(-10, min(10, self._worker.get_rate() + delta))
@@ -432,6 +543,21 @@ class YTChatFrame(wx.Frame):
             else:
                 menu.Append(id_sil_tts,  f"Silenciar a {autor} (solo TTS)")
                 menu.Append(id_sil_full, f"Silenciar a {autor} (ocultar y TTS)")
+
+        # Moderación real (API oficial): solo si hay sesión, chat en vivo y
+        # conocemos el channelId del autor. Es local a este equipo y reversible
+        # solo desde YouTube, así que se confirma antes de actuar.
+        id_ban     = wx.NewIdRef()
+        id_timeout = wx.NewIdRef()
+        canal_autor = self._canal_por_autor.get(autor.lower().strip(), "")
+        moderable = bool(autor and canal_autor and self._live_chat_id
+                         and youtube_api.google_disponible() and credenciales.hay_sesion())
+        if moderable:
+            menu.AppendSeparator()
+            menu.Append(id_timeout, f"Expulsar 5 min a {autor} (timeout)")
+            menu.Append(id_ban,     f"Banear a {autor} del directo (permanente)")
+            self.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, 300), id=id_timeout)
+            self.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, None), id=id_ban)
 
         self.Bind(wx.EVT_MENU, lambda e: self._copiar_mensaje(), id=id_copiar)
         self.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(),    id=id_copiar2)
@@ -599,9 +725,12 @@ class YTChatFrame(wx.Frame):
     # ── API pública (main.py la invoca vía wx.CallAfter) ─────────────────────
 
     def agregar_mensaje_chat(self, autor: str, mensaje: str, hora: str,
-                             tipo: str = TIPO_TEXTO, monto: str = "") -> None:
+                             tipo: str = TIPO_TEXTO, monto: str = "",
+                             canal_id: str = "") -> None:
         if not self._alive:
             return
+        if canal_id:
+            self._canal_por_autor[autor.lower().strip()] = canal_id
         if self._autor_esta_oculto(autor):
             return
 
@@ -636,7 +765,17 @@ class YTChatFrame(wx.Frame):
     def set_conectado(self, conectado: bool) -> None:
         if not self._alive:
             return
+        if not conectado:
+            self._live_chat_id = ""
+            self._canal_por_autor.clear()
         self._set_botones(conectado)
+        self._actualizar_estado_online()
+
+    def set_live_chat_id(self, live_chat_id: str) -> None:
+        if not self._alive:
+            return
+        self._live_chat_id = live_chat_id or ""
+        self._actualizar_estado_online()
 
     def set_url(self, url: str) -> None:
         self.txt_url.SetValue(url)
