@@ -163,13 +163,32 @@ def _tipo_desde_ytdlp(info: dict) -> str:
     return deteccion.DESCONOCIDO
 
 
-def obtener_info_video(video_id: str) -> tuple[str, str]:
-    """Devuelve (titulo, tipo). tipo: live/upcoming/vod/desconocido.
+def _metadatos_desde_ytdlp(info: dict) -> dict:
+    """Saca del dict de yt-dlp los metadatos que muestra el panel de información.
+    La extracción `process=False` ya los trae (canal, vistas, descripción…), así
+    que no cuesta ninguna petición extra. Campos ausentes quedan en None/"" y el
+    panel los omite."""
+    return {
+        "titulo":      (info.get("title") or "").strip(),
+        "canal":       (info.get("uploader") or info.get("channel") or "").strip(),
+        "vistas":      info.get("view_count"),
+        "me_gusta":    info.get("like_count"),
+        "comentarios": info.get("comment_count"),
+        "fecha":       (info.get("upload_date") or "").strip(),   # YYYYMMDD
+        "duracion":    info.get("duration"),                      # segundos
+        "en_vivo":     bool(info.get("is_live")),
+        "descripcion": (info.get("description") or "").strip(),
+    }
+
+
+def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
+    """Devuelve (titulo, tipo, metadatos). tipo: live/upcoming/vod/desconocido.
 
     Se usa yt-dlp (process=False, ~1 s): es robusto ante la página de
-    consentimiento que YouTube sirve al scraping directo, y ya trae `title` y
-    `live_status`. Si no está yt-dlp, se cae al scraping (que puede no funcionar).
-    """
+    consentimiento que YouTube sirve al scraping directo, y ya trae `title`,
+    `live_status` y la metadata del panel de información (canal, vistas,
+    descripción…). Si no está yt-dlp, se cae al scraping (que puede no funcionar
+    y deja la metadata vacía, con solo el título si se pudo sacar)."""
     try:
         import yt_dlp
         # socket_timeout: que una red lenta no cuelgue indefinidamente la
@@ -182,7 +201,7 @@ def obtener_info_video(video_id: str) -> tuple[str, str]:
         titulo = (info.get("title") or "").strip()
         tipo = _tipo_desde_ytdlp(info)
         if titulo or tipo != deteccion.DESCONOCIDO:
-            return titulo, tipo
+            return titulo, tipo, _metadatos_desde_ytdlp(info)
     except Exception as exc:
         logger.debug("obtener_info_video (yt-dlp): %s", exc)
 
@@ -191,7 +210,7 @@ def obtener_info_video(video_id: str) -> tuple[str, str]:
     tipo = deteccion.clasificar_desde_html(html)
     if tipo == deteccion.DESCONOCIDO:
         tipo = _clasificar_por_api(video_id)
-    return titulo, tipo
+    return titulo, tipo, {"titulo": titulo}
 
 
 def _resolver_live_chat_id(video_id: str) -> None:
@@ -561,8 +580,8 @@ def main():
             wx.CallAfter(anunciar, texto)
 
         def _run():
-            # Una sola descarga del watch para sacar título y tipo de vídeo.
-            titulo, tipo = obtener_info_video(vid)
+            # Una sola descarga del watch para sacar título, tipo y metadatos.
+            titulo, tipo, metadatos = obtener_info_video(vid)
             # Si mientras buscábamos info se desconectó o se conectó a otro vídeo,
             # esta sesión ya no vale: no tocar la GUI (si no, pisaríamos la nueva).
             if gen != _estado["gen"]:
@@ -572,6 +591,7 @@ def main():
                 if titulo:
                     wx.CallAfter(frame.set_titulo_stream, titulo)
                 wx.CallAfter(frame.set_tipo_video, tipo, vid)
+                wx.CallAfter(frame.set_metadatos, metadatos)
 
             if deteccion.tiene_chat_en_vivo(tipo):
                 # Directo (o tipo no determinado): capturamos el chat con pytchat.

@@ -225,7 +225,7 @@ _DEF = {
     "tamanio_fuente_chat": "12", "mostrar_total_superchats": "true",
     "guardar_historial": "no", "autoplay_reproductor": "true",
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
-    "mostrar_botones_reproductor": "false",
+    "mostrar_botones_reproductor": "false", "mostrar_metadatos": "true",
 }
 
 _CONFIG_FALLBACK = """\
@@ -279,6 +279,7 @@ autoplay_reproductor = true
 filtro_activo = todos
 silenciar_sonidos = false
 mostrar_botones_reproductor = false
+mostrar_metadatos = true
 [sesion]
 guardar_historial = no
 silenciar_lectura = false
@@ -426,6 +427,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "ui", "autoplay_reproductor", "true")
     if not p.has_option("ui", "mostrar_botones_reproductor"):
         guardar_opcion(ruta, "ui", "mostrar_botones_reproductor", "false")
+    if not p.has_option("ui", "mostrar_metadatos"):
+        guardar_opcion(ruta, "ui", "mostrar_metadatos", "true")
     if not p.has_option("sesion", "silenciar_lectura"):
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
 
@@ -453,6 +456,7 @@ def cargar_configuracion() -> dict:
         "mostrar_total_superchats": _pb(p, "ui", "mostrar_total_superchats"),
         "autoplay_reproductor": _pb(p, "ui", "autoplay_reproductor"),
         "mostrar_botones_reproductor": _pb(p, "ui", "mostrar_botones_reproductor"),
+        "mostrar_metadatos": _pb(p, "ui", "mostrar_metadatos"),
         "filtro_activo": filtro_activo,
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),
         "guardar_historial": guardar,

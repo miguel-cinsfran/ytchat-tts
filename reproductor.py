@@ -140,12 +140,20 @@ def _alturas_disponibles(info: dict) -> list[int]:
 
 
 def _mejor_audio(info: dict) -> str:
-    for f in sorted(info.get("formats", []) or [],
-                    key=lambda x: x.get("abr") or 0, reverse=True):
-        if (f.get("acodec") not in (None, "none")
-                and f.get("vcodec") in (None, "none") and f.get("url")):
-            return f["url"]
-    return ""
+    # Preferimos la pista ORIGINAL antes que la de mayor bitrate: cada vez más
+    # vídeos traen doblajes y yt-dlp marca la original/«default» con
+    # language_preference alto (10). Sin esto, entre dos bitrates parecidos
+    # podríamos reproducir el doblaje en vez del audio original. A igualdad de
+    # idioma, gana el bitrate (como antes), así que un vídeo de una sola pista
+    # se comporta igual que siempre.
+    auds = [f for f in info.get("formats", []) or []
+            if f.get("acodec") not in (None, "none")
+            and f.get("vcodec") in (None, "none") and f.get("url")]
+    if not auds:
+        return ""
+    mejor = max(auds, key=lambda x: ((x.get("language_preference") or 0),
+                                     (x.get("abr") or 0)))
+    return mejor["url"]
 
 
 def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:

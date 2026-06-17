@@ -21,6 +21,7 @@ from config import (
 )
 from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
 import deteccion
+import metadatos
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -377,6 +378,15 @@ class YTChatFrame(wx.Frame):
         self._com_panel = ComentariosPanel(self.nb, self._cola, self._config)
         self.nb.AddPage(self._pag_chat, "Chat en vivo")
         self.nb.AddPage(self._com_panel, "Comentarios")
+        # Pestaña de información del vídeo (solo lectura). Se añade SIEMPRE al
+        # final, para no alterar los índices de Chat/Comentarios, y se puede
+        # ocultar por preferencia. La rellena set_metadatos con lo de yt-dlp.
+        self._pag_info = self._build_pagina_info(self.nb)
+        self._metadatos = {}
+        if bool(self._config.get("mostrar_metadatos", True)):
+            self.nb.AddPage(self._pag_info, "Información")
+        else:
+            self._pag_info.Hide()
         # Piso para que la lista del chat no quede aplastada por el reproductor
         # en ventanas bajas.
         self.nb.SetMinSize((-1, 170))
@@ -438,6 +448,45 @@ class YTChatFrame(wx.Frame):
 
         pag.SetSizer(vs)
         return pag
+
+    def _build_pagina_info(self, parent) -> wx.Panel:
+        pag = wx.Panel(parent, name="PaginaInfo")
+        pag.SetBackgroundColour(_T.bg)
+        pag.SetForegroundColour(_T.text)
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        lbl = wx.StaticText(pag, label="Información del vídeo:", name="EtiquetaInfo")
+        _titulo(lbl)
+        vs.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 8)
+
+        # Solo lectura y multilínea. TE_AUTO_URL (con TE_RICH2, necesario en
+        # Windows) hace clicables los enlaces de la descripción SIN romper la
+        # lectura con NVDA, que recorre el cuadro como texto normal (flechas,
+        # selección, copiar). Es la opción accesible frente a un wx.html.
+        self.txt_info = wx.TextCtrl(
+            pag, value="", name="Información del vídeo",
+            style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_AUTO_URL | wx.TE_RICH2)
+        _tc(self.txt_info)
+        self.txt_info.SetToolTip(
+            "Datos del vídeo: canal, vistas, descripción. Solo lectura. Los "
+            "enlaces se abren con clic o se copian y pegan en el navegador.")
+        vs.Add(self.txt_info, 1, wx.EXPAND | wx.ALL, 8)
+
+        pag.SetSizer(vs)
+        self.txt_info.Bind(wx.EVT_TEXT_URL, self._on_info_url)
+        return pag
+
+    def _on_info_url(self, event):
+        # TE_AUTO_URL dispara este evento para CADA movimiento del ratón sobre el
+        # enlace; abrir solo al soltar el botón izquierdo (si no, abriría a cada
+        # paso del cursor).
+        mouse = event.GetMouseEvent()
+        if mouse.LeftUp():
+            url = self.txt_info.GetRange(event.GetURLStart(), event.GetURLEnd())
+            if url:
+                webbrowser.open(url)
+        else:
+            event.Skip()
 
     # ── Enlaces de eventos ───────────────────────────────────────────────────
 
@@ -511,6 +560,8 @@ class YTChatFrame(wx.Frame):
             self.lb_chat.SetFocus()
         elif pag is self._com_panel:
             self._com_panel.anclar_foco()
+        elif pag is self._pag_info:
+            self.txt_info.SetFocus()
         else:
             self.nb.SetFocus()
 
@@ -623,6 +674,18 @@ class YTChatFrame(wx.Frame):
             pt = int(self._config.get("tamanio_fuente_chat", 12))
             self.lb_chat.SetFont(wx.Font(pt, wx.FONTFAMILY_DEFAULT,
                                          wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
+        except Exception:
+            pass
+        # Panel de información del vídeo: mostrar u ocultar la pestaña.
+        try:
+            self.set_metadatos_visible(bool(self._config.get("mostrar_metadatos", True)))
+        except Exception:
+            pass
+        # Botones del reproductor: aplicar la preferencia al panel (que a su vez
+        # sincroniza la casilla del menú vía on_botones_toggle).
+        try:
+            self._rep_panel.set_botones_visibles(
+                bool(self._config.get("mostrar_botones_reproductor", False)))
         except Exception:
             pass
         anunciar("Preferencias aplicadas")
@@ -1101,6 +1164,10 @@ class YTChatFrame(wx.Frame):
         except Exception: pass
         # Super Chats acumulados de la sesión.
         self._sc_totales.clear()
+        # Panel de información del vídeo.
+        self._metadatos = {}
+        try:    self.txt_info.SetValue("")
+        except Exception: pass
         # Reproductor y panel de comentarios.
         try:    self._rep_panel.detener_todo()
         except Exception: pass
@@ -1172,6 +1239,38 @@ class YTChatFrame(wx.Frame):
 
     def set_url(self, url: str) -> None:
         self.txt_url.SetValue(url)
+
+    def set_metadatos(self, meta: dict) -> None:
+        """Rellena el panel de información con lo que trae yt-dlp. Se llama desde
+        el hilo de conexión vía wx.CallAfter; el panel puede estar oculto por
+        preferencia (igual guardamos el texto, para que aparezca ya hecho si lo
+        muestran)."""
+        if not self._alive:
+            return
+        self._metadatos = meta or {}
+        try:
+            self.txt_info.SetValue(metadatos.formatear(self._metadatos))
+            self.txt_info.SetInsertionPoint(0)   # que el lector empiece arriba
+        except Exception as exc:
+            logger.debug("set_metadatos: %s", exc)
+
+    def _idx_pag_info(self) -> int:
+        for i in range(self.nb.GetPageCount()):
+            if self.nb.GetPage(i) is self._pag_info:
+                return i
+        return -1
+
+    def set_metadatos_visible(self, visible: bool) -> None:
+        """Añade o quita la pestaña de Información según la preferencia. Al
+        ocultarla NO se destruye el panel, así reaparece con su contenido."""
+        idx = self._idx_pag_info()
+        if visible and idx == -1:
+            self.nb.AddPage(self._pag_info, "Información")
+            self._pag_info.Show()
+        elif not visible and idx != -1:
+            self.nb.RemovePage(idx)
+            self._pag_info.Hide()
+        self._zona.Layout()
 
     def set_titulo_stream(self, titulo: str) -> None:
         if not self._alive:

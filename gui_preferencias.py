@@ -135,6 +135,18 @@ class PreferenciasDialog(wx.Dialog):
         self.chk_autoplay.SetValue(bool(self._config.get("autoplay_reproductor", True)))
         vs.Add(self.chk_autoplay, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
+        self.chk_metadatos = wx.CheckBox(p, label="Mostrar la pestaña de &información del vídeo (canal, vistas, descripción)",
+                                         name="MostrarMetadatos")
+        self.chk_metadatos.SetForegroundColour(_T.text)
+        self.chk_metadatos.SetValue(bool(self._config.get("mostrar_metadatos", True)))
+        vs.Add(self.chk_metadatos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.chk_botones_rep = wx.CheckBox(p, label="Mostrar los &botones del reproductor (también con su interruptor y el menú Reproductor)",
+                                           name="MostrarBotonesReproductor")
+        self.chk_botones_rep.SetForegroundColour(_T.text)
+        self.chk_botones_rep.SetValue(bool(self._config.get("mostrar_botones_reproductor", False)))
+        vs.Add(self.chk_botones_rep, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         p.SetSizer(vs)
         return p
 
@@ -430,6 +442,14 @@ class PreferenciasDialog(wx.Dialog):
         autoplay = self.chk_autoplay.GetValue()
         self._set("ui", "autoplay_reproductor", "true" if autoplay else "false")
         c["autoplay_reproductor"] = autoplay
+
+        metadatos = self.chk_metadatos.GetValue()
+        self._set("ui", "mostrar_metadatos", "true" if metadatos else "false")
+        c["mostrar_metadatos"] = metadatos
+
+        botones_rep = self.chk_botones_rep.GetValue()
+        self._set("ui", "mostrar_botones_reproductor", "true" if botones_rep else "false")
+        c["mostrar_botones_reproductor"] = botones_rep
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():
