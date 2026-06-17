@@ -19,9 +19,25 @@ import config as cfg
 import sound_player as _snd
 import credenciales
 import youtube_api
-from gui import anunciar, _T, _tc
+from gui import anunciar
 
 logger = logging.getLogger(__name__)
+
+
+# El diálogo de Preferencias usa apariencia NATIVA (sin el tema oscuro de la
+# ventana principal). Motivo de accesibilidad: en Windows, poner un color
+# personalizado a una casilla o radio la convierte en un control «owner-drawn»
+# que NVDA anuncia como botón y sin su estado (marcada/no marcada). Sombreamos
+# aquí el tema y el helper de color para que TODAS las llamadas existentes
+# dejen los controles con los colores por defecto del sistema.
+
+class _T:
+    bg = surface = field = border = text = dim = accent = gold = green = red = \
+        btn = btn_t = wx.NullColour
+
+
+def _tc(w, bg=None, fg=None):
+    pass
 
 URL_GUIA = "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"
 

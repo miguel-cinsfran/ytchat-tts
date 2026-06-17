@@ -94,7 +94,6 @@ ATAJOS_DEFAULTS = {
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
     "enviar_chat":       "alt+enter",
-    "ir_url":            "alt+u",
     # Voz / lectura (teclas F)
     "pausa":             "f5",
     "detener_tts":       "f8",
@@ -116,7 +115,7 @@ ATAJOS_GRUPOS = [
      ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
       "rep_vol_menos", "rep_vol_mas"]),
     ("Conexión y chat (Alt)",
-     ["conectar", "desconectar", "enviar_chat", "ir_url"]),
+     ["conectar", "desconectar", "enviar_chat"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",
@@ -263,7 +262,6 @@ rep_vol_mas = ctrl+up
 conectar = alt+c
 desconectar = alt+d
 enviar_chat = alt+enter
-ir_url = alt+u
 pausa = f5
 detener_tts = f8
 velocidad_menos = f9

@@ -170,12 +170,27 @@ def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:
 
 
 def _fmt_t(ms) -> str:
+    """Compacto para la etiqueta visual: H:MM:SS, o M:SS si dura menos de 1 h."""
     s = max(0, int(ms or 0) // 1000)
-    return f"{s // 60}:{s % 60:02d}"
+    h, m, sec = s // 3600, (s % 3600) // 60, s % 60
+    return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
+
+
+def _fmt_hablado(ms) -> str:
+    """Verboso para el lector, estilo YouTube: «2 horas 16 minutos 35 segundos»."""
+    s = max(0, int(ms or 0) // 1000)
+    h, m, sec = s // 3600, (s % 3600) // 60, s % 60
+    partes = []
+    if h:
+        partes.append(f"{h} hora" + ("s" if h != 1 else ""))
+    if h or m:
+        partes.append(f"{m} minuto" + ("s" if m != 1 else ""))
+    partes.append(f"{sec} segundo" + ("s" if sec != 1 else ""))
+    return " ".join(partes)
 
 
 class _PosAccesible(wx.Accessible):
-    """Hace que NVDA lea la posición como tiempo ("1:23 de 45:00")."""
+    """Hace que NVDA lea la posición como tiempo hablado, no el número crudo."""
 
     def __init__(self, panel):
         super().__init__()
@@ -186,7 +201,7 @@ class _PosAccesible(wx.Accessible):
 
     def GetValue(self, childId):
         p = self._panel
-        return (wx.ACC_OK, f"{_fmt_t(p._pos_ms)} de {_fmt_t(p._dur_ms)}")
+        return (wx.ACC_OK, f"{_fmt_hablado(p._pos_ms)} de {_fmt_hablado(p._dur_ms)}")
 
 
 class _PantallaCompleta(wx.Frame):
@@ -220,6 +235,9 @@ class ReproductorPanel(wx.Panel):
         self._pos_ms = 0
         self._dur_ms = 0
         self._vol = 80
+        self._muted = False
+        self._calidad_sel = None
+        self._alturas = []
         self._inst = None
         self._player = None
         self._info = None
@@ -291,15 +309,8 @@ class ReproductorPanel(wx.Panel):
             row.Add(b, 0, wx.RIGHT, 6)
         box.Add(row, 0, wx.ALL, 6)
 
-        # Fila 2: calidad + posición + tiempo.
+        # Fila 2: posición + tiempo. La calidad va en el menú Reproductor.
         row = wx.BoxSizer(wx.HORIZONTAL)
-        lbl = wx.StaticText(self, label="&Calidad:", name="EtiquetaCalidad")
-        lbl.SetForegroundColour(_T.dim)
-        row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.cho_calidad = wx.Choice(self, choices=["Automática"], name="Calidad del vídeo")
-        _tc(self.cho_calidad)
-        self.cho_calidad.SetSelection(0)
-        row.Add(self.cho_calidad, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
         lbl = wx.StaticText(self, label="Posición:", name="EtiquetaPosicion")
         lbl.SetForegroundColour(_T.dim)
         row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
@@ -339,7 +350,6 @@ class ReproductorPanel(wx.Panel):
         self.btn_stop.Bind(wx.EVT_BUTTON, lambda e: self._detener())
         self.btn_mute.Bind(wx.EVT_BUTTON, lambda e: self._toggle_mute())
         self.btn_fs.Bind(wx.EVT_BUTTON, lambda e: self.alternar_pantalla_completa())
-        self.cho_calidad.Bind(wx.EVT_CHOICE, self._on_calidad)
         self.sld_pos.Bind(wx.EVT_SLIDER, self._on_sld_pos)
         self.sld_pos.Bind(wx.EVT_KEY_DOWN, self._on_pos_key)
         self.sld_vol.Bind(wx.EVT_SLIDER, self._on_sld_vol)
@@ -363,8 +373,8 @@ class ReproductorPanel(wx.Panel):
             return
         self._detener(silencioso=True)
         self._info = None
-        self.cho_calidad.Set(["Automática"])
-        self.cho_calidad.SetSelection(0)
+        self._calidad_sel = None
+        self._alturas = []
         if self._video_id and autoplay:
             self.cargar(reproducir=True)
         else:
@@ -404,14 +414,9 @@ class ReproductorPanel(wx.Panel):
             self._cargando = False
             return
         self._info = info
-        # Poblar calidades disponibles.
-        alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
-        etiquetas = ["Automática"] + [f"{a}p" for a in alturas]
-        self._alturas = alturas
-        self.cho_calidad.Set(etiquetas)
-        self.cho_calidad.SetSelection(0)
+        self._alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
         self._cargando = False
-        self._reproducir_calidad(None, reproducir)
+        self._reproducir_calidad(self._calidad_sel, reproducir)
 
     def _reproducir_calidad(self, altura, reproducir):
         if self._info is None or not self._asegurar_player():
@@ -437,6 +442,7 @@ class ReproductorPanel(wx.Panel):
                 media.add_option(f":input-slave={slave}")
             self._player.set_media(media)
             self._player.audio_set_volume(self._vol)
+            self._player.audio_set_mute(self._muted)
             if reproducir:
                 self._player.play()
                 self.btn_play.SetLabel("&Pausa")
@@ -450,11 +456,15 @@ class ReproductorPanel(wx.Panel):
         if reproducir:
             anunciar("Reproduciendo")
 
-    def _on_calidad(self, event):
-        i = self.cho_calidad.GetSelection()
-        altura = None if i <= 0 else self._alturas[i - 1]
-        anunciar(f"Calidad {self.cho_calidad.GetStringSelection()}")
-        self._reproducir_calidad(altura, reproducir=True)
+    def set_calidad(self, altura):
+        """altura=None → automática; si no hay info aún, se aplica al cargar."""
+        self._calidad_sel = altura
+        anunciar("Calidad automática" if altura is None else f"Calidad {altura}p")
+        if self._info is not None:
+            self._reproducir_calidad(altura, reproducir=True)
+
+    def alturas_disponibles(self) -> list[int]:
+        return list(self._alturas)
 
     def _error_carga(self):
         self._cargando = False
@@ -509,10 +519,10 @@ class ReproductorPanel(wx.Panel):
     def _toggle_mute(self):
         if self._player is None:
             return
-        self._player.audio_toggle_mute()
-        mute = self._player.audio_get_mute()
-        self.btn_mute.SetLabel("Activar audio" if mute else "&Silenciar audio")
-        anunciar("Audio silenciado" if mute else "Audio activado")
+        self._muted = not self._muted
+        self._player.audio_set_mute(self._muted)
+        self.btn_mute.SetLabel("&Activar audio" if self._muted else "&Silenciar audio")
+        anunciar("Audio silenciado" if self._muted else "Audio activado")
 
     def ajustar_volumen(self, delta: int):
         self._vol = max(0, min(100, self._vol + delta))
@@ -545,7 +555,7 @@ class ReproductorPanel(wx.Panel):
         if mover_slider and self._dur_ms > 0:
             self.sld_pos.SetValue(int(self._pos_ms / self._dur_ms * 1000))
         if anunciar_t:
-            anunciar(_fmt_t(self._pos_ms))
+            anunciar(_fmt_hablado(self._pos_ms))
 
     def _on_sld_pos(self, event):
         if self._player is None:
@@ -558,10 +568,12 @@ class ReproductorPanel(wx.Panel):
         self._fijar_tiempo(destino, dur, mover_slider=False, anunciar_t=False)
 
     def _on_pos_key(self, event):
+        # Consumimos las cuatro flechas (no Skip) para que el deslizador no
+        # cambie su valor crudo por su cuenta y NVDA no lea porcentajes raros.
         k = event.GetKeyCode()
-        if k == wx.WXK_RIGHT:
+        if k in (wx.WXK_RIGHT, wx.WXK_UP):
             self._buscar_rel(+10_000)
-        elif k == wx.WXK_LEFT:
+        elif k in (wx.WXK_LEFT, wx.WXK_DOWN):
             self._buscar_rel(-10_000)
         else:
             event.Skip()

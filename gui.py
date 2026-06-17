@@ -207,7 +207,7 @@ class YTChatFrame(wx.Frame):
         mi_sig = m.Append(wx.ID_ANY, "Región &siguiente\tF6")
         mi_ant = m.Append(wx.ID_ANY, "Región &anterior\tShift+F6")
         m.AppendSeparator()
-        mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)" + self._accel("ir_url"))
+        mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)")
         mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
         mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
@@ -237,10 +237,10 @@ class YTChatFrame(wx.Frame):
         mi_det = m.Append(wx.ID_ANY, "&Detener voz" + self._accel("detener_tts"))
         mi_vac = m.Append(wx.ID_ANY, "&Vaciar cola")
         m.AppendSeparator()
-        mi_vmenos = m.Append(wx.ID_ANY, "Más &lento" + self._accel("velocidad_menos"))
-        mi_vmas   = m.Append(wx.ID_ANY, "Más &rápido" + self._accel("velocidad_mas"))
-        mi_volm   = m.Append(wx.ID_ANY, "&Bajar volumen" + self._accel("volumen_menos"))
-        mi_volM   = m.Append(wx.ID_ANY, "&Subir volumen" + self._accel("volumen_mas"))
+        mi_vmenos = m.Append(wx.ID_ANY, "Hablar más &lento" + self._accel("velocidad_menos"))
+        mi_vmas   = m.Append(wx.ID_ANY, "Hablar más &rápido" + self._accel("velocidad_mas"))
+        mi_volm   = m.Append(wx.ID_ANY, "&Bajar volumen de la voz" + self._accel("volumen_menos"))
+        mi_volM   = m.Append(wx.ID_ANY, "&Subir volumen de la voz" + self._accel("volumen_mas"))
         m.AppendSeparator()
         self.mi_sil_lectura = m.AppendCheckItem(
             wx.ID_ANY, "Silenciar &lectura TTS" + self._accel("silenciar_lectura"))
@@ -268,6 +268,13 @@ class YTChatFrame(wx.Frame):
         mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción" + self._accel("rep_detener"))
         mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio" + self._accel("rep_mute"))
         mi_rep_fs    = m.Append(wx.ID_ANY, "Pantalla &completa\tCtrl+F")
+        # Submenú de calidad (radio). Se elige la disponible más cercana.
+        sub_cal = wx.Menu()
+        for etiqueta, altura in (("Automática", None), ("1080p", 1080), ("720p", 720),
+                                 ("480p", 480), ("360p", 360), ("240p", 240), ("144p", 144)):
+            it = sub_cal.AppendRadioItem(wx.ID_ANY, etiqueta)
+            self.Bind(wx.EVT_MENU, lambda e, a=altura: self._rep_accion("set_calidad", a), it)
+        m.AppendSubMenu(sub_cal, "Ca&lidad del vídeo")
         m.AppendSeparator()
         mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor" + self._accel("rep_vol_menos"))
         mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
@@ -585,13 +592,13 @@ class YTChatFrame(wx.Frame):
         r = max(-10, min(10, self._worker.get_rate() + delta))
         wpm = max(50, min(500, r * 20 + 180))
         guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
-        anunciar(f"Velocidad: {r:+d}")
+        anunciar(f"Velocidad de la voz: {r:+d}")
 
     def _ajustar_volume(self, delta):
         self._worker.cambiar_volumen(delta)
         v = max(0, min(100, self._worker.get_volume() + delta))
         guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
-        anunciar(f"Volumen: {v}%")
+        anunciar(f"Volumen de la voz: {v}%")
 
     def _toggle_silenciar_sonidos(self):
         nuevo = not _snd.esta_silenciado()
@@ -976,6 +983,12 @@ class YTChatFrame(wx.Frame):
             self._canal_por_autor.clear()
             try:    self._rep_panel.detener_todo()
             except Exception: pass
+            # Al desconectar se corta la lectura: vaciar la cola y detener lo
+            # que se esté leyendo en ese momento.
+            try:
+                self._worker.vaciar_cola()
+                self._worker.detener_actual()
+            except Exception: pass
             # Solo si veníamos de una conexión real: ocultar, sonar y avisar.
             # (Un fallo de conexión nunca llegó a "conectado", así que no suena.)
             if estaba:
@@ -1124,8 +1137,8 @@ class YTChatFrame(wx.Frame):
             estado = f"Desconectado{sin_tts}"
         self.sb.SetStatusText(estado, 0)
 
-        try:    self.sb.SetStatusText(f"Vel: {self._worker.get_rate():+d}", 1)
-        except Exception: self.sb.SetStatusText("Vel: --", 1)
+        try:    self.sb.SetStatusText(f"Voz vel: {self._worker.get_rate():+d}", 1)
+        except Exception: self.sb.SetStatusText("Voz vel: --", 1)
 
         nombre = self._voz_nombre or "—"
         if len(nombre) > 28:
@@ -1137,8 +1150,8 @@ class YTChatFrame(wx.Frame):
         try:    self.sb.SetStatusText(f"Leídos: {self._stats.leidos}", 4)
         except Exception: self.sb.SetStatusText("Leídos: —", 4)
 
-        try:    self.sb.SetStatusText(f"Vol: {self._worker.get_volume()}%", 5)
-        except Exception: self.sb.SetStatusText("Vol: --", 5)
+        try:    self.sb.SetStatusText(f"Voz vol: {self._worker.get_volume()}%", 5)
+        except Exception: self.sb.SetStatusText("Voz vol: --", 5)
 
         if self._config.get("mostrar_total_superchats", True):
             self.sb.SetStatusText(self._formato_total_sc(), 6)
