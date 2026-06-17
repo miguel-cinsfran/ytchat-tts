@@ -75,6 +75,8 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
+        # Anunciar la pestaña al cambiar (Ctrl+Tab no lo verbaliza solo).
+        self.nb.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._on_pestana)
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -88,6 +90,12 @@ class PreferenciasDialog(wx.Dialog):
 
         panel.SetSizer(vs)
         btn_guardar.Bind(wx.EVT_BUTTON, self._on_guardar)
+
+    def _on_pestana(self, event):
+        idx = event.GetSelection()
+        if 0 <= idx < self.nb.GetPageCount():
+            anunciar(self.nb.GetPageText(idx))
+        event.Skip()
 
     def _make_panel(self, parent, name):
         p = wx.Panel(parent, name=name)

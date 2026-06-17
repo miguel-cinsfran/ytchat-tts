@@ -427,11 +427,30 @@ class YTChatFrame(wx.Frame):
 
     def _bind_events(self):
         self.Bind(wx.EVT_CLOSE, self._on_close)
+        self.Bind(wx.EVT_ACTIVATE, self._on_activate)
         self.btn_conectar.Bind(wx.EVT_BUTTON, self._on_conectar)
         self.txt_url.Bind(wx.EVT_TEXT_ENTER,  self._on_conectar)
+        self.nb.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._on_nb_page)
         self.lb_chat.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._copiar_mensaje())
         self.lb_chat.Bind(wx.EVT_KEY_DOWN,       self._on_chat_key)
         self.lb_chat.Bind(wx.EVT_CONTEXT_MENU,   self._on_chat_menu)
+
+    def _on_nb_page(self, event):
+        # No hay anuncio nativo del cambio de pestaña: lo decimos a mano.
+        idx = event.GetSelection()
+        if 0 <= idx < self.nb.GetPageCount():
+            anunciar(self.nb.GetPageText(idx))
+        event.Skip()
+
+    def _on_activate(self, event):
+        # Al volver el foco a la app, llevarlo al contenido (chat/comentarios);
+        # si aún no hay conexión, al campo de URL.
+        if event.GetActive() and self._alive:
+            if self._conectado:
+                wx.CallAfter(self._foco_contenido)
+            else:
+                wx.CallAfter(self.txt_url.SetFocus)
+        event.Skip()
 
     def _init_timer(self):
         self._timer = wx.Timer(self)
