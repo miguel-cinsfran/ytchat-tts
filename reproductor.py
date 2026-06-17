@@ -21,6 +21,7 @@ import threading
 
 import wx
 
+import iconos
 from gui import anunciar, _T, _tc
 
 logger = logging.getLogger(__name__)
@@ -294,18 +295,25 @@ class ReproductorPanel(wx.Panel):
         self._video.SetBackgroundColour(wx.BLACK)
         box.Add(self._video, 1, wx.EXPAND | wx.ALL, 6)
 
-        # Fila 1: transporte.
+        # Fila 1: transporte con iconos (nombre accesible + tooltip).
+        self._ic_play  = iconos.icono("play", _T.text, _T.btn)
+        self._ic_pause = iconos.icono("pause", _T.text, _T.btn)
+        self._ic_mute  = iconos.icono("mute", _T.text, _T.btn)
+        self._ic_sound = iconos.icono("sound", _T.text, _T.btn)
         row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_play  = wx.Button(self, label="&Reproducir", name="ReproducirPausa")
-        self.btn_retro = wx.Button(self, label="&Retroceder 30 s", name="Retroceder")
-        self.btn_avanz = wx.Button(self, label="&Avanzar 30 s", name="Avanzar")
-        self.btn_stop  = wx.Button(self, label="&Detener", name="DetenerReproduccion")
-        self.btn_mute  = wx.Button(self, label="&Silenciar audio", name="SilenciarAudio")
-        self.btn_fs    = wx.Button(self, label="&Pantalla completa", name="PantallaCompleta")
+        self.btn_play  = self._btn_icono(self._ic_play, "Reproducir o pausa", "Reproducir o pausa")
+        self.btn_retro = self._btn_icono(iconos.icono("retro", _T.text, _T.btn),
+                                         "Retroceder 30 segundos", "Retroceder 30 s")
+        self.btn_avanz = self._btn_icono(iconos.icono("avanz", _T.text, _T.btn),
+                                         "Avanzar 30 segundos", "Avanzar 30 s")
+        self.btn_stop  = self._btn_icono(iconos.icono("stop", _T.text, _T.btn),
+                                         "Detener", "Detener")
+        self.btn_mute  = self._btn_icono(self._ic_sound, "Silenciar o activar audio",
+                                         "Silenciar o activar audio")
+        self.btn_fs    = self._btn_icono(iconos.icono("fullscreen", _T.text, _T.btn),
+                                         "Pantalla completa", "Pantalla completa")
         for b in (self.btn_play, self.btn_retro, self.btn_avanz, self.btn_stop,
                   self.btn_mute, self.btn_fs):
-            b.SetBackgroundColour(_T.btn)
-            b.SetForegroundColour(_T.btn_t)
             row.Add(b, 0, wx.RIGHT, 6)
         box.Add(row, 0, wx.ALL, 6)
 
@@ -357,6 +365,14 @@ class ReproductorPanel(wx.Panel):
 
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self._timer)
+
+    def _btn_icono(self, bmp, nombre, tooltip):
+        b = wx.Button(self, label="", name=nombre, size=(40, 32))
+        b.SetBackgroundColour(_T.btn)
+        b.SetForegroundColour(_T.btn_t)
+        b.SetBitmap(bmp)
+        b.SetToolTip(tooltip)
+        return b
 
     # ── API pública (la ventana la llama al conectar) ─────────────────────────
 
@@ -445,7 +461,7 @@ class ReproductorPanel(wx.Panel):
             self._player.audio_set_mute(self._muted)
             if reproducir:
                 self._player.play()
-                self.btn_play.SetLabel("&Pausa")
+                self.btn_play.SetBitmap(self._ic_pause)
                 self._timer.Start(500)
         except Exception as exc:
             logger.warning("reproducir: %s", exc)
@@ -481,12 +497,12 @@ class ReproductorPanel(wx.Panel):
         st = self._player.get_state()
         if st == _vlc.State.Playing:
             self._player.set_pause(1)
-            self.btn_play.SetLabel("&Reproducir")
+            self.btn_play.SetBitmap(self._ic_play)
             self._timer.Stop()
             anunciar("Pausa")
         elif st == _vlc.State.Paused:
             self._player.set_pause(0)
-            self.btn_play.SetLabel("&Pausa")
+            self.btn_play.SetBitmap(self._ic_pause)
             self._timer.Start(500)
             anunciar("Reproduciendo")
         else:
@@ -500,7 +516,7 @@ class ReproductorPanel(wx.Panel):
         if hasattr(self, "_timer"):
             self._timer.Stop()
         if hasattr(self, "btn_play"):
-            self.btn_play.SetLabel("&Reproducir")
+            self.btn_play.SetBitmap(self._ic_play)
             self._fijar_tiempo(0, 0, mover_slider=True, anunciar_t=False)
         if not silencioso:
             anunciar("Detenido")
@@ -521,7 +537,7 @@ class ReproductorPanel(wx.Panel):
             return
         self._muted = not self._muted
         self._player.audio_set_mute(self._muted)
-        self.btn_mute.SetLabel("&Activar audio" if self._muted else "&Silenciar audio")
+        self.btn_mute.SetBitmap(self._ic_mute if self._muted else self._ic_sound)
         anunciar("Audio silenciado" if self._muted else "Audio activado")
 
     def ajustar_volumen(self, delta: int):

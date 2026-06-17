@@ -83,26 +83,39 @@ def anunciar(texto: str) -> None:
         pass
 
 
-# ── Paleta Catppuccin Mocha ──────────────────────────────────────────────────
+# ── Paleta «piedra cálida + terracota» ───────────────────────────────────────
+# Base de carbón CÁLIDO (warm stone), no negro puro ni el típico azul/morado.
+# Un acento terracota con personalidad y un teal secundario; saturación
+# contenida para sesiones largas y buen contraste para quien la ve.
 
 class _T:
-    bg      = wx.Colour(30,  30,  46)
-    surface = wx.Colour(49,  50,  68)
-    field   = wx.Colour(59,  60,  78)
-    border  = wx.Colour(69,  71,  90)
-    text    = wx.Colour(205, 214, 244)
-    dim     = wx.Colour(166, 173, 200)
-    accent  = wx.Colour(137, 180, 250)
-    gold    = wx.Colour(249, 226, 175)
-    green   = wx.Colour(166, 227, 161)
-    red     = wx.Colour(243, 139, 168)
-    btn     = wx.Colour(69,  71,  90)
-    btn_t   = wx.Colour(205, 214, 244)
+    bg      = wx.Colour(28,  25,  23)   # #1C1917  carbón cálido
+    surface = wx.Colour(41,  37,  36)   # #292524  paneles, grupos, pestañas
+    field   = wx.Colour(54,  49,  46)   # #36312E  campos
+    border  = wx.Colour(87,  83,  78)   # #57534E
+    text    = wx.Colour(231, 229, 228)  # #E7E5E4  texto principal
+    dim     = wx.Colour(168, 162, 158)  # #A8A29E  texto secundario
+    accent  = wx.Colour(232, 116, 92)   # #E8745C  terracota (primario)
+    accent2 = wx.Colour(45,  157, 143)  # #2D9D8F  teal (secundario)
+    gold    = wx.Colour(230, 179, 95)   # #E6B35F  Super Chats
+    green   = wx.Colour(138, 176, 120)  # #8AB078  conectado / éxito
+    red     = wx.Colour(224, 122, 108)  # #E07A6C  error
+    btn     = wx.Colour(54,  49,  46)   # botones secundarios
+    btn_t   = wx.Colour(231, 229, 228)
+    # Botón primario (Conectar): fondo acento con texto oscuro para destacar.
+    primary   = wx.Colour(232, 116, 92)
+    primary_t = wx.Colour(28,  25,  23)
 
 
 def _tc(w, bg=None, fg=None):
     w.SetBackgroundColour(bg or _T.field)
     w.SetForegroundColour(fg or _T.text)
+
+
+def _titulo(w, color=None):
+    """Etiqueta de sección: color de acento y seminegrita, para jerarquía."""
+    w.SetForegroundColour(color or _T.accent)
+    w.SetFont(w.GetFont().Bold())
 
 
 _ACCEL_NOMBRES = {
@@ -326,7 +339,7 @@ class YTChatFrame(wx.Frame):
         # ── Barra superior: URL + tipo + Conectar ──
         row = wx.BoxSizer(wx.HORIZONTAL)
         lbl = wx.StaticText(panel, label="&URL/ID:", name="EtiquetaURL")
-        lbl.SetForegroundColour(_T.accent)
+        _titulo(lbl)
         row.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         self.txt_url = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER, name="URL del directo o vídeo")
         _tc(self.txt_url)
@@ -334,10 +347,11 @@ class YTChatFrame(wx.Frame):
             "URL de YouTube o ID de 11 caracteres. Pulsa Enter para conectar.")
         row.Add(self.txt_url, 1, wx.EXPAND | wx.RIGHT, 8)
         self.btn_conectar = wx.Button(panel, label="&Conectar", name="Conectar")
-        self.btn_conectar.SetBackgroundColour(_T.btn)
-        self.btn_conectar.SetForegroundColour(_T.btn_t)
+        self.btn_conectar.SetBackgroundColour(_T.primary)
+        self.btn_conectar.SetForegroundColour(_T.primary_t)
+        self.btn_conectar.SetFont(self.btn_conectar.GetFont().Bold())
         row.Add(self.btn_conectar, 0, wx.ALIGN_CENTER_VERTICAL)
-        vs.Add(row, 0, wx.EXPAND | wx.ALL, 10)
+        vs.Add(row, 0, wx.EXPAND | wx.ALL, 12)
 
         self.lbl_tipo = wx.StaticText(panel, label="Sin conectar. Pega una URL y pulsa Conectar.",
                                       name="TipoVideo")
@@ -392,7 +406,7 @@ class YTChatFrame(wx.Frame):
         vs = wx.BoxSizer(wx.VERTICAL)
 
         lbl = wx.StaticText(pag, label="Mensajes del chat:", name="EtiquetaChat")
-        lbl.SetForegroundColour(_T.accent)
+        _titulo(lbl)
         vs.Add(lbl, 0, wx.LEFT | wx.RIGHT | wx.TOP, 8)
 
         self.lb_chat = wx.ListBox(
