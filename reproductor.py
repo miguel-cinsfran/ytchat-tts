@@ -232,6 +232,10 @@ class ReproductorPanel(wx.Panel):
         self._config = config
         self._video_id = ""
         self._cargando = False
+        # «Generación» de carga: cada stop/desconexión la incrementa, así una
+        # carga de yt-dlp que quedó en vuelo se descarta al volver (si no, al
+        # desconectar mientras cargaba, rearrancaba la reproducción sola).
+        self._gen = 0
         self._listo = disponible()
         self._pos_ms = 0
         self._dur_ms = 0
@@ -240,6 +244,7 @@ class ReproductorPanel(wx.Panel):
         self._calidad_sel = None
         self._alturas = []
         self._inst = None
+        self._inst_lock = threading.Lock()  # crear la instancia VLC sin carreras
         self._player = None
         self._info = None
         self._fs = None        # ventana de pantalla completa, si está activa
@@ -248,22 +253,54 @@ class ReproductorPanel(wx.Panel):
         self.SetForegroundColour(_T.text)
         if self._listo:
             self._build_ui()
+            self._precalentar()
         else:
             self._build_aviso()
 
     # ── Instancia perezosa de VLC ─────────────────────────────────────────────
 
-    def _asegurar_player(self) -> bool:
-        if self._player is not None:
+    def _asegurar_instancia(self) -> bool:
+        """Crea (o reutiliza) la instancia de libVLC. Es la parte LENTA: importar
+        libvlc.dll y escanear todos los plugins (1-2 s la 1ª vez). Va con lock
+        para poder precalentarla en segundo plano sin chocar con el hilo de la
+        GUI si el usuario conecta justo en ese momento."""
+        if self._inst is not None:
             return True
         if not self._listo or not _cargar_vlc():
             return False
+        with self._inst_lock:
+            if self._inst is None:
+                try:
+                    self._inst = _vlc.Instance(*_VLC_ARGS)
+                except Exception as exc:
+                    logger.warning("No se pudo crear la instancia de VLC: %s", exc)
+                    return False
+        return self._inst is not None
+
+    def _precalentar(self) -> None:
+        """Crea la instancia de libVLC en segundo plano apenas se construye el
+        panel, para que el primer «Conectar» no congele la ventana. Nadie espera
+        este hilo: si el usuario conecta antes de que termine, `_asegurar_player`
+        comparte la misma instancia vía lock."""
+        def _run():
+            try:
+                self._asegurar_instancia()
+            except Exception as exc:
+                logger.debug("precalentar VLC: %s", exc)
+        threading.Thread(target=_run, daemon=True, name="ReproductorWarmup").start()
+
+    def _asegurar_player(self) -> bool:
+        # La instancia (lenta) puede venir ya precalentada; el reproductor y el
+        # set_hwnd son rápidos y deben crearse aquí, en el hilo de la GUI.
+        if self._player is not None:
+            return True
+        if not self._asegurar_instancia():
+            return False
         try:
-            self._inst = _vlc.Instance(*_VLC_ARGS)
             self._player = self._inst.media_player_new()
             self._fijar_salida(self._video.GetHandle())
         except Exception as exc:
-            logger.warning("No se pudo crear la instancia de VLC: %s", exc)
+            logger.warning("No se pudo crear el reproductor de VLC: %s", exc)
             return False
         return True
 
@@ -291,7 +328,7 @@ class ReproductorPanel(wx.Panel):
         box = wx.StaticBoxSizer(wx.VERTICAL, self, "Reproductor")
 
         # Superficie de vídeo (VLC dibuja aquí vía set_hwnd).
-        self._video = wx.Window(self, size=(-1, 200), name="Vídeo")
+        self._video = wx.Window(self, size=(-1, 160), name="Vídeo")
         self._video.SetBackgroundColour(wx.BLACK)
         box.Add(self._video, 1, wx.EXPAND | wx.ALL, 6)
 
@@ -421,21 +458,22 @@ class ReproductorPanel(wx.Panel):
         self.lbl_estado.SetLabel("Cargando vídeo…")
         anunciar("Cargando vídeo")
         vid = self._video_id
+        gen = self._gen   # si cambia al volver, esta carga ya no vale
 
         def _run():
             try:
                 info = _info_video(vid)
-                wx.CallAfter(self._info_listo, info, reproducir, vid)
             except Exception as exc:
                 logger.warning("info vídeo: %s", exc)
-                wx.CallAfter(self._error_carga)
+                wx.CallAfter(self._error_carga, gen)
+                return
+            wx.CallAfter(self._info_listo, info, reproducir, vid, gen)
 
         threading.Thread(target=_run, daemon=True, name="ReproductorInfo").start()
 
-    def _info_listo(self, info, reproducir, vid):
-        if vid != self._video_id:
-            self._cargando = False
-            return
+    def _info_listo(self, info, reproducir, vid, gen):
+        if gen != self._gen or vid != self._video_id:
+            return  # se detuvo/desconectó o cambió de vídeo mientras cargaba
         self._info = info
         self._alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
         self._cargando = False
@@ -489,7 +527,9 @@ class ReproductorPanel(wx.Panel):
     def alturas_disponibles(self) -> list[int]:
         return list(self._alturas)
 
-    def _error_carga(self):
+    def _error_carga(self, gen=None):
+        if gen is not None and gen != self._gen:
+            return  # error de una carga ya descartada (stop/desconexión)
         self._cargando = False
         import sound_player as _snd
         _snd.reproducir("error")
@@ -522,6 +562,11 @@ class ReproductorPanel(wx.Panel):
                 self.cargar(reproducir=True)
 
     def _detener(self, silencioso: bool = False):
+        # Invalida cualquier carga en vuelo (yt-dlp) y desbloquea futuras cargas:
+        # sin esto, una carga que termina tras detener/desconectar rearrancaba la
+        # reproducción al volver por wx.CallAfter.
+        self._gen += 1
+        self._cargando = False
         if self._player is not None:
             try:    self._player.stop()
             except Exception: pass

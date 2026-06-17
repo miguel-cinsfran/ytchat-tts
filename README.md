@@ -3,7 +3,7 @@
 > Lector de chat de YouTube Live con voces SAPI5 de Windows.
 > Pensado para streamers ciegos o con baja visión.
 
-**Versión 0.7 · Windows 10/11 · Python 3.11+ 64-bit**
+**Versión 0.8.1 · Windows 10/11 · Python 3.11+ 64-bit**
 
 ---
 

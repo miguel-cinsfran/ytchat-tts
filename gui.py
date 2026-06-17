@@ -33,7 +33,7 @@ _IDX_FILTRO     = {"todos": 0, "texto": 1, "superchat": 2, "miembro": 3}
 MAX_ITEMS_CHAT  = 500
 TIMER_STATUS_MS = 1000
 ANCHO_DEFECTO   = 860
-ALTO_DEFECTO    = 600
+ALTO_DEFECTO    = 700
 RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 
@@ -373,10 +373,17 @@ class YTChatFrame(wx.Frame):
         self._com_panel = ComentariosPanel(self.nb, self._cola, self._config)
         self.nb.AddPage(self._pag_chat, "Chat en vivo")
         self.nb.AddPage(self._com_panel, "Comentarios")
-        zvs.Add(self.nb, 1, wx.EXPAND | wx.BOTTOM, 10)
+        # Piso para que la lista del chat no quede aplastada por el reproductor
+        # en ventanas bajas.
+        self.nb.SetMinSize((-1, 170))
+        zvs.Add(self.nb, 3, wx.EXPAND | wx.BOTTOM, 10)
 
+        # Proporción 3/2 (antes el reproductor iba fijo en 0): chat y reproductor
+        # comparten el alto sobrante con algo más de peso para el chat —que tiene
+        # menos mínimo— para que queden equilibrados; el vídeo crece al agrandar la
+        # ventana en vez de quedar fijo y comerse el espacio del chat.
         self._rep_panel = ReproductorPanel(self._zona, self._config)
-        zvs.Add(self._rep_panel, 0, wx.EXPAND)
+        zvs.Add(self._rep_panel, 2, wx.EXPAND)
 
         self._zona.SetSizer(zvs)
         vs.Add(self._zona, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)

@@ -72,11 +72,12 @@ robocopy "dist\YTChatTTS" "%OUT%" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "sounds" "%OUT%\sounds" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "docs"   "%OUT%\docs"   /E /NFL /NDL /NJH /NJS /NP >nul
 if defined VLCDIR (
-  echo == Empaquetando libVLC junto al exe, solo plugins de audio ==
+  echo == Empaquetando libVLC junto al exe (plugins de audio y video) ==
   robocopy "%VLCDIR%" "%OUT%\vlc" libvlc.dll libvlccore.dll /NFL /NDL /NJH /NJS /NP >nul
-  REM Solo los plugins de audio: HTTP/TLS, demux DASH/HLS, decodificador y
-  REM salida de audio. Quitar el resto -GUI, video, visualizaciones- reduce el
-  REM tamano y acelera el arranque. OJO: sin parentesis en estos REM, romperian
+  REM Plugins necesarios para el reproductor embebido: red (HTTP/TLS), demux
+  REM DASH/HLS, codecs y salida de audio Y video (la imagen va con set_hwnd).
+  REM Se deja fuera lo que no usamos -GUI/skins, visualizaciones- para reducir
+  REM tamano y acelerar el arranque. OJO: sin parentesis en estos REM, romperian
   REM el bloque IF.
   for %%d in (access codec demux audio_output audio_filter audio_mixer packetizer stream_filter stream_extractor misc keystore logger video_output video_chroma video_filter d3d9 d3d11) do (
     robocopy "%VLCDIR%\plugins\%%d" "%OUT%\vlc\plugins\%%d" /E /NFL /NDL /NJH /NJS /NP >nul
