@@ -155,7 +155,8 @@ class PreferenciasDialog(wx.Dialog):
                 break
         vs.Add(self.rb_formato, 0, wx.ALL, 10)
 
-        self.chk_emojis = wx.CheckBox(p, label="&Quitar emojis al leer", name="LimpiarEmojis")
+        self.chk_emojis = wx.CheckBox(p, label="&Quitar emojis (no mostrarlos en la lista ni leerlos)",
+                                      name="LimpiarEmojis")
         self.chk_urls   = wx.CheckBox(p, label="Quitar &URLs al leer", name="EliminarURLs")
         for c in (self.chk_emojis, self.chk_urls):
             c.SetForegroundColour(_T.text)

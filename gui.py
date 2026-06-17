@@ -561,6 +561,8 @@ class YTChatFrame(wx.Frame):
             self.poblar_voces(voces_actuales, self._voz_idx)
         self._marcar_filtro()
         self._sincronizar_checks()
+        # Reconstruir la lista por si cambió "quitar emojis" o el filtro.
+        self._rebuild_listbox()
         # Restaurar estado de los items de conexión y del envío al chat tras
         # reconstruir el menú.
         self._set_conectado_ui(self._conectado)
@@ -1133,6 +1135,11 @@ class YTChatFrame(wx.Frame):
     # ── Formato y helpers ────────────────────────────────────────────────────
 
     def _format_display(self, autor, msg, hora, tipo, monto):
+        # Si "quitar emojis" está activo, también se ocultan en la lista (incluye
+        # los shortcodes :nombre: de YouTube). Los marcadores 💲🎨⭐ se conservan.
+        if self._config.get("limpiar_emojis", True):
+            from tts_worker import quitar_emojis
+            msg = quitar_emojis(msg)
         if tipo == TIPO_SUPERCHAT and monto:
             return f"💲 [{monto}] {autor}: {msg}, {hora}"
         if tipo == TIPO_STICKER and monto:

@@ -300,18 +300,21 @@ class ReproductorPanel(wx.Panel):
         self._ic_pause = iconos.icono("pause", _T.text, _T.btn)
         self._ic_mute  = iconos.icono("mute", _T.text, _T.btn)
         self._ic_sound = iconos.icono("sound", _T.text, _T.btn)
+        # Sin mnemónicos «&» en estos botones: chocaban entre sí (dos con la misma
+        # letra) y el lector los leía como «alt+letra». El control va por los
+        # atajos Ctrl+… y por Tab+Espacio.
         row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_play  = self._btn_icono(self._ic_play, "&Reproducir", "Reproducir o pausa")
+        self.btn_play  = self._btn_icono(self._ic_play, "Reproducir", "Reproducir o pausa")
         self.btn_retro = self._btn_icono(iconos.icono("retro", _T.text, _T.btn),
-                                         "&Retroceder 30 s", "Retroceder 30 segundos")
+                                         "Retroceder 30 s", "Retroceder 30 segundos")
         self.btn_avanz = self._btn_icono(iconos.icono("avanz", _T.text, _T.btn),
-                                         "&Avanzar 30 s", "Avanzar 30 segundos")
+                                         "Avanzar 30 s", "Avanzar 30 segundos")
         self.btn_stop  = self._btn_icono(iconos.icono("stop", _T.text, _T.btn),
-                                         "&Detener", "Detener")
-        self.btn_mute  = self._btn_icono(self._ic_sound, "&Silenciar audio",
+                                         "Detener", "Detener")
+        self.btn_mute  = self._btn_icono(self._ic_sound, "Silenciar audio",
                                          "Silenciar o activar audio")
         self.btn_fs    = self._btn_icono(iconos.icono("fullscreen", _T.text, _T.btn),
-                                         "&Pantalla completa", "Pantalla completa")
+                                         "Pantalla completa", "Pantalla completa")
         for b in (self.btn_play, self.btn_retro, self.btn_avanz, self.btn_stop,
                   self.btn_mute, self.btn_fs):
             row.Add(b, 0, wx.RIGHT, 6)
@@ -361,6 +364,7 @@ class ReproductorPanel(wx.Panel):
         self.sld_pos.Bind(wx.EVT_SLIDER, self._on_sld_pos)
         self.sld_pos.Bind(wx.EVT_KEY_DOWN, self._on_pos_key)
         self.sld_vol.Bind(wx.EVT_SLIDER, self._on_sld_vol)
+        self.sld_vol.Bind(wx.EVT_KEY_DOWN, self._on_vol_key)
         self._video.Bind(wx.EVT_LEFT_DCLICK, lambda e: self.alternar_pantalla_completa())
 
         self._timer = wx.Timer(self)
@@ -497,7 +501,7 @@ class ReproductorPanel(wx.Panel):
     def _mostrar_pausa(self, reproduciendo: bool):
         """Pone icono + texto del botón play/pausa según el estado."""
         self.btn_play.SetBitmap(self._ic_pause if reproduciendo else self._ic_play)
-        self.btn_play.SetLabel("&Pausa" if reproduciendo else "&Reproducir")
+        self.btn_play.SetLabel("Pausa" if reproduciendo else "Reproducir")
 
     def _toggle_play(self):
         if not self._asegurar_player():
@@ -546,7 +550,7 @@ class ReproductorPanel(wx.Panel):
         self._muted = not self._muted
         self._player.audio_set_mute(self._muted)
         self.btn_mute.SetBitmap(self._ic_mute if self._muted else self._ic_sound)
-        self.btn_mute.SetLabel("&Activar audio" if self._muted else "&Silenciar audio")
+        self.btn_mute.SetLabel("Activar audio" if self._muted else "Silenciar audio")
         anunciar("Audio silenciado" if self._muted else "Audio activado")
 
     def ajustar_volumen(self, delta: int):
@@ -602,6 +606,24 @@ class ReproductorPanel(wx.Panel):
             self._buscar_rel(-10_000)
         else:
             event.Skip()
+
+    def _on_vol_key(self, event):
+        # En un trackbar horizontal, Arriba baja y Abajo sube (nativo). Lo
+        # invertimos para que sea intuitivo: Arriba/Derecha sube, Abajo/Izq baja.
+        k = event.GetKeyCode()
+        if k in (wx.WXK_UP, wx.WXK_RIGHT):
+            self._vol_flecha(+1)
+        elif k in (wx.WXK_DOWN, wx.WXK_LEFT):
+            self._vol_flecha(-1)
+        else:
+            event.Skip()
+
+    def _vol_flecha(self, delta):
+        self._vol = max(0, min(100, self._vol + delta))
+        self.sld_vol.SetValue(self._vol)
+        if self._player is not None:
+            self._player.audio_set_volume(self._vol)
+        anunciar(f"Volumen {self._vol}")
 
     def _on_sld_vol(self, event):
         self._vol = self.sld_vol.GetValue()

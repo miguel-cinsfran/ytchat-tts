@@ -34,13 +34,23 @@ _EMOJI = re.compile(
 _URL   = re.compile(r"https?://[^\s<>\"']+|www\.[^\s<>\"']+", re.IGNORECASE)
 _CTRL  = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 _SPACE = re.compile(r"\s+")
+# Emojis personalizados de YouTube que pytchat entrega como texto «:nombre:»
+# (p. ej. :blue_heart:). Sin esto el TTS leería «dos puntos blue heart…».
+_SHORTCODE = re.compile(r":[a-zA-Z0-9_+\-]{2,}:")
+
+
+def quitar_emojis(texto: str) -> str:
+    """Quita emojis Unicode y los shortcodes :nombre: de YouTube."""
+    if not texto:
+        return ""
+    return _SHORTCODE.sub("", _EMOJI.sub("", texto))
 
 
 def sanitizar(texto: str, emojis: bool, urls: bool, maxlen: int) -> str:
     if not texto:
         return ""
     if urls:   texto = _URL.sub("", texto)
-    if emojis: texto = _EMOJI.sub("", texto)
+    if emojis: texto = quitar_emojis(texto)
     texto = _CTRL.sub("", texto)
     texto = _SPACE.sub(" ", texto).strip()
     if maxlen > 0 and len(texto) > maxlen:

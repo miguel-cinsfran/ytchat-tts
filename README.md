@@ -3,7 +3,7 @@
 > Lector de chat de YouTube Live con voces SAPI5 de Windows.
 > Pensado para streamers ciegos o con baja visión.
 
-**Versión 0.6 · Windows 10/11 · Python 3.11+ 64-bit**
+**Versión 0.7 · Windows 10/11 · Python 3.11+ 64-bit**
 
 ---
 
@@ -30,7 +30,9 @@
 
 YTChat TTS se conecta a un directo de YouTube mediante la InnerTube API (pytchat), captura los mensajes conforme van llegando y los lee con una voz SAPI5 del sistema. Muestra los mensajes en una lista navegable por teclado, permite pausar y reanudar la lectura, cambiar de voz al vuelo y ajustar la velocidad sin interrumpir el directo.
 
-Está pensada principalmente para streamers que no pueden estar mirando la pantalla: la interfaz entera es navegable con Tab y flechas, cada control tiene nombre accesible, y los anuncios importantes se envían al lector de pantalla (NVDA/JAWS) en paralelo con un efecto sonoro.
+Al pegar una URL y conectar, la app **detecta sola si es un directo o un vídeo subido** y abre lo que corresponde: el **chat en vivo** y/o los **comentarios**. Además incluye un **reproductor de vídeo** integrado (con calidad y pantalla completa) para ver el contenido sin salir de la aplicación.
+
+Está pensada principalmente para streamers que no pueden estar mirando la pantalla: la interfaz entera es navegable con Tab y flechas, tiene una **barra de menú nativa** que el lector de pantalla recorre con Alt, cada control tiene nombre accesible, y los anuncios importantes se envían al lector (NVDA/JAWS) en paralelo con un efecto sonoro.
 
 ---
 
@@ -42,16 +44,31 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 - Super Chats, stickers y nuevas membresías diferenciados al leer.
 - Cola con estrategia de descarte configurable para directos con mucho tráfico.
 - Cambio de voz y velocidad en tiempo real, sin reconectar.
-- Filtros por palabras y por usuarios en `config.ini`.
+- Filtros por palabras y por usuarios; opción de quitar emojis (incluidos los
+  `:shortcode:` de YouTube) de la lista y de la lectura.
 - Silencio por usuario en sesión (solo TTS o también ocultar de la lista).
-- Alt+X vacía la cola al instante, útil contra spam o mensajes muy largos.
+
+**Reproductor de vídeo**
+
+- Ve el directo o el vídeo subido dentro de la app (imagen embebida con libVLC).
+- Selección de **calidad** (Automática, 1080p, 720p…) desde el menú Reproductor.
+- **Pantalla completa** (Ctrl+F; Escape o F11 para salir).
+- Controles de teclado: reproducir/pausa, retroceder/avanzar, volumen propio,
+  silenciar. La barra de posición anuncia el tiempo como en YouTube.
+- Es opcional y va aparte del TTS: tiene su propio volumen y su botón de
+  silencio. En el `.exe` libVLC ya viene incluido; no hay que instalar nada.
 
 **Accesibilidad**
 
-- Todos los controles tienen etiquetas accesibles y son alcanzables con Tab.
-- Integración con NVDA y JAWS vía `accessible_output2`: anuncios al conectar, cambiar voz, filtrar, copiar.
-- Atajos todos en `Alt+X` para no chocar con Insert (NVDA) ni Ctrl (Windows).
-- Tema oscuro Catppuccin Mocha; tamaño de fuente del chat configurable.
+- Barra de **menú nativa** (Archivo, Ver, Voz, Reproductor, Herramientas, Ayuda)
+  que el lector recorre con Alt y que muestra los atajos.
+- Navegación por **regiones** con F6 / Shift+F6 (conexión, contenido,
+  reproductor) y por **pestañas** (chat/comentarios) con Ctrl+Tab; los cambios
+  se anuncian por voz.
+- Todos los controles tienen nombre accesible y son alcanzables con Tab.
+- Integración con NVDA y JAWS vía `accessible_output2`: anuncios al conectar,
+  cambiar de pestaña, ajustar la voz, copiar, etc.
+- Paleta cálida y sobria; tamaño de fuente del chat configurable.
 
 **Sonidos de retroalimentación**
 
@@ -62,12 +79,13 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 
 **Funciones online (opcionales, API de YouTube)**
 
-- Leer y navegar los comentarios de cualquier vídeo (no solo directos), con TTS.
+- Leer y navegar los comentarios de cualquier vídeo (no solo directos), con TTS,
+  en la pestaña **Comentarios**.
 - Moderar el chat en vivo: expulsar (timeout) o banear usuarios, con confirmación.
 - Enviar mensajes al chat del directo.
 - Publicar y responder comentarios.
-- Se gestionan desde el botón **Configuración** dentro de la app; las claves se
-  guardan en `credenciales.json` (local, nunca en el repositorio).
+- Se gestionan desde **Herramientas → Preferencias → pestaña «API y sesión»**;
+  las claves se guardan en `credenciales.json` (local, nunca en el repositorio).
 - Si las dependencias de Google no están instaladas, estas funciones se
   desactivan solas y el resto de la aplicación funciona igual.
 
@@ -86,8 +104,8 @@ publicar/responder comentarios usan la **YouTube Data API v3 oficial**. Son
 opcionales y vienen desactivadas: requieren instalar las dependencias de Google
 (ver `requirements.txt`) y crear tus credenciales una sola vez.
 
-Todo se configura desde el botón **Configuración** de la aplicación, sin editar
-archivos. La guía paso a paso (pensada para lectores de pantalla) está en
+Todo se configura desde **Herramientas → Preferencias → «API y sesión»**, sin
+editar archivos. La guía paso a paso (pensada para lectores de pantalla) está en
 **[docs/CONFIGURACION_API.md](docs/CONFIGURACION_API.md)**.
 
 Resumen: leer comentarios solo necesita una **API key**; moderar y comentar
@@ -101,9 +119,10 @@ verificación de Google.
 
 | Capa         | Tecnología                                      |
 | ------------ | ----------------------------------------------- |
-| GUI          | wxPython 4.2+, tema Catppuccin Mocha            |
+| GUI          | wxPython 4.2+, menú + pestañas, paleta cálida propia |
 | TTS          | win32com / SAPI5 (pywin32), hilo COM/STA propio |
 | Chat         | pytchat (InnerTube API de YouTube)              |
+| Reproductor  | yt-dlp + libVLC (python-vlc), opcional           |
 | Online       | YouTube Data API v3 (OAuth2, google-api-python-client; opcional) |
 | Accesibilidad| accessible_output2 (NVDA/JAWS, opcional)        |
 | Audio        | ctypes + winmm.dll (MCI), sin pygame/numpy      |
@@ -120,7 +139,8 @@ ytchat-tts/
 ├── gui.py             # Ventana wxPython: menú, regiones, eventos
 ├── gui_preferencias.py# Diálogo de Preferencias por pestañas (incl. API/OAuth)
 ├── gui_comentarios.py # Panel de comentarios de vídeos
-├── reproductor.py     # Reproductor de audio (yt-dlp + libVLC)
+├── reproductor.py     # Reproductor de vídeo/audio (yt-dlp + libVLC)
+├── iconos.py          # Iconos vectoriales del reproductor (dibujados con wx)
 ├── deteccion.py       # Clasificación directo/programado/VOD (puro, testeado)
 ├── tts_worker.py      # Hilo TTS (COM/STA), sanitización, volumen
 ├── config.py          # Constantes, logging, INI, atajos, guardar_opcion()
@@ -140,8 +160,8 @@ ytchat-tts/
 └── construir.bat      # Empaqueta el .exe distribuible con PyInstaller
 ```
 
-> `CLAUDE.md` y `credenciales.json` no se versionan (`.gitignore`): viajan con
-> la copia de la carpeta, no con `git clone`.
+> `CLAUDE.md`, la carpeta `.claude/` y `credenciales.json` no se versionan
+> (`.gitignore`): viajan con la copia de la carpeta, no con `git clone`.
 
 ---
 
@@ -207,50 +227,65 @@ abre el `.exe`.
 
 ## Uso
 
-Abre la aplicación. Pega la URL del directo en el campo de texto y pulsa Enter o el botón Conectar. Acepta URL completa, URL acortada (`youtu.be/…`) o el ID de vídeo de 11 caracteres.
+Abre la aplicación. Pega la URL en el campo de arriba y pulsa Enter o **Conectar** (Alt+C). Acepta URL completa, URL acortada (`youtu.be/…`) o el ID de 11 caracteres. La app detecta sola si es un directo o un vídeo subido: muestra la zona de contenido solo cuando la conexión está lista y la oculta al desconectar.
 
-Una vez conectado, los mensajes aparecen en la lista. Enter sobre uno lo copia al portapapeles. La tecla de menú (o Mayúsculas+F10) abre el menú contextual: copiar línea completa, releer con TTS, abrir enlace del mensaje y silenciar autor. Si has iniciado sesión (ver [Funciones online](#funciones-online-api-de-youtube)), el mismo menú añade **expulsar** (timeout) y **banear** al autor, con confirmación.
+La zona de contenido tiene dos pestañas, **Chat en vivo** y **Comentarios** (Ctrl+Tab para cambiar), y debajo el **Reproductor** siempre visible. Con **F6 / Shift+F6** te mueves entre las tres regiones (conexión, contenido, reproductor) y cada cambio se anuncia.
 
-Los botones de la barra superior cubren el resto: **Conectar/Desconectar**, **Pausa**, **Vaciar cola**, **Detener TTS**, selector de **Voz** y **Filtro**, **Enviar al chat** (escribe un mensaje en el directo), **Comentarios** (abre la ventana de comentarios del vídeo) y **Configuración** (claves de API e inicio de sesión). Los tres últimos solo funcionan tras configurar la API.
+En la lista del chat, Enter copia el mensaje; la tecla de menú (o Mayúsculas+F10) abre el menú contextual: copiar línea completa, releer con TTS, abrir enlace, silenciar autor y —si has iniciado sesión— **expulsar** o **banear**, con confirmación.
+
+Todo lo demás está en la **barra de menú**: **Archivo** (conectar/salir), **Ver** (regiones, filtro, anunciar estado), **Voz** (pausar/detener lectura, velocidad y volumen del TTS, voz, silencios), **Reproductor** (reproducir, buscar, calidad, pantalla completa, volumen del vídeo), **Herramientas** (Preferencias, enviar al chat) y **Ayuda**. Cada acción muestra su atajo al lado.
 
 ---
 
 ## Atajos de teclado
 
-Configurables en `config.ini`, sección `[atajos]`. Los atajos de navegación usan `Alt`; las acciones de control en tiempo real usan teclas de función (sin modificador).
+El **modificador indica el área**, para que sea intuitivo: **Ctrl** = reproductor,
+**Alt** = aplicación (conexión/chat), **teclas F** = voz/lectura. Se ven en la
+barra de menú y se editan en **Preferencias → Atajos** (el editor obliga a
+respetar el modificador de cada área). Las teclas de función **F9–F12** son fijas.
 
-**Navegación**
+**Reproductor (Ctrl)**
 
-| Atajo  | Acción                                       |
-| ------ | -------------------------------------------- |
-| Alt+U  | Saltar al campo URL                          |
-| Alt+C  | Conectar o desconectar                       |
-| Alt+L  | Saltar a la lista del chat                   |
-| Alt+V  | Saltar al selector de voz                    |
-| Alt+F  | Saltar al filtro de mensajes                 |
-| Alt+X  | Vaciar la cola de lectura                    |
-| Alt+S  | Salir                                        |
+| Atajo            | Acción                                  |
+| ---------------- | --------------------------------------- |
+| Ctrl+P           | Reproducir o pausa                      |
+| Ctrl+← / Ctrl+→  | Retroceder / avanzar 30 s               |
+| Ctrl+↑ / Ctrl+↓  | Subir / bajar volumen del reproductor   |
+| Ctrl+D           | Detener                                 |
+| Ctrl+M           | Silenciar o activar el audio            |
+| Ctrl+F           | Pantalla completa (Escape o F11 sale)   |
 
-**Control en tiempo real**
+**Aplicación (Alt)**
 
-| Atajo  | Acción                                       |
-| ------ | -------------------------------------------- |
-| F5     | Pausar o reanudar el TTS                     |
-| F6     | Silenciar o reactivar la lectura TTS         |
-| F7     | Silenciar o reactivar los sonidos WAV        |
-| F8     | Detener mensaje actual y vaciar cola         |
-| F9     | Bajar velocidad del TTS                      |
-| F10    | Subir velocidad del TTS                      |
-| F11    | Bajar volumen del TTS                        |
-| F12    | Subir volumen del TTS                        |
+| Atajo      | Acción                          |
+| ---------- | ------------------------------- |
+| Alt+C      | Conectar                        |
+| Alt+D      | Desconectar                     |
+| Alt+Enter  | Enviar un mensaje al chat       |
 
-Para reasignar: `pausa = alt+j` o `pausa = f3` en `config.ini`. Para desactivar: `pausa = ` (valor vacío). Si dos acciones comparten tecla, la segunda se ignora y se registra en `ytchat.log`.
+**Voz / lectura (teclas F)**
+
+| Atajo  | Acción                                  |
+| ------ | --------------------------------------- |
+| F2     | Anunciar el estado por voz              |
+| F4     | Silenciar o reactivar la lectura TTS    |
+| F5     | Pausar o reanudar la lectura            |
+| F7     | Silenciar o reactivar los sonidos WAV   |
+| F8     | Detener la voz actual                   |
+| F9 / F10 | Bajar / subir velocidad del TTS (fija) |
+| F11 / F12 | Bajar / subir volumen del TTS (fija)  |
+
+**Navegación (no editable):** F6 / Shift+F6 entre regiones; Ctrl+Tab entre
+pestañas. Dentro del deslizador de posición, las flechas buscan ±10 s; en el de
+volumen, ±1.
 
 ---
 
 ## Configuración
 
-Dos archivos editables con el Bloc de notas. Cualquier cambio requiere reiniciar.
+Casi todo se ajusta desde **Herramientas → Preferencias** (pestañas Interfaz,
+Lectura, Filtros, Atajos y API), que aplica los cambios en caliente. Por debajo
+se guardan en dos archivos editables también con el Bloc de notas:
 
 ### config.ini
 
@@ -261,9 +296,9 @@ Dos archivos editables con el Bloc de notas. Cualquier cambio requiere reiniciar
 | `[reconexion]` | Reintentos automáticos, intervalo y máximo (0 = infinito)                   |
 | `[lectura]`    | Formato: `nombre_mensaje`, `solo_mensaje` o `solo_nombre`                   |
 | `[filtros]`    | Palabras prohibidas y usuarios ignorados (separados por coma)               |
-| `[texto]`      | Limpiar emojis/URLs antes de leer; longitud máxima del mensaje              |
-| `[atajos]`     | Teclas de cada acción                                                        |
-| `[ui]`         | Tamaño de fuente del chat; mostrar total de Super Chats en barra de estado  |
+| `[texto]`      | Quitar emojis (lista y lectura) / URLs; longitud máxima del mensaje         |
+| `[atajos]`     | Teclas de cada acción (área por modificador: Ctrl/Alt/F)                    |
+| `[ui]`         | Fuente del chat, total de Super Chats, autoplay del reproductor al conectar |
 
 Si se borra el archivo, se regenera con valores por defecto al arrancar. Un error de sintaxis produce un mensaje claro antes de cerrar.
 
@@ -335,7 +370,10 @@ Comprueba volumen en `config.ini` y que los sonidos no estén silenciados (F7). 
 Normal la primera vez; desaparece en arranques posteriores. No afecta al funcionamiento.
 
 **NVDA no anuncia los cambios de la barra de estado**
-Los lectores de pantalla no monitorizan la barra de estado automáticamente. Consulta con Insert+End (NVDA) o Insert+Av Pág (JAWS). Los eventos importantes se anuncian por voz de forma independiente.
+Los lectores de pantalla no monitorizan la barra de estado automáticamente. Pulsa **F2** para que la app diga el estado por voz, o consúltala con Insert+End (NVDA) / Insert+Av Pág (JAWS). Los eventos importantes se anuncian por voz de forma independiente.
+
+**El reproductor de vídeo no funciona / dice que no está disponible**
+En el `.exe` libVLC ya viene incluido. Desde código fuente necesita VLC instalado (videolan.org) y las dependencias `python-vlc` y `yt-dlp` de `requirements.txt`. Si falta alguna, la pestaña muestra un aviso y el resto de la app funciona igual.
 
 **El ejecutable lo marca el antivirus como sospechoso**
 Falso positivo conocido de PyInstaller. Añade la carpeta `YTChat TTS\` a las exclusiones del antivirus.
