@@ -172,8 +172,10 @@ def obtener_info_video(video_id: str) -> tuple[str, str]:
     """
     try:
         import yt_dlp
+        # socket_timeout: que una red lenta no cuelgue indefinidamente la
+        # detección live/VOD al conectar (sin él yt-dlp puede esperar mucho).
         opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-                "noplaylist": True}
+                "noplaylist": True, "socket_timeout": 20}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}",
                                     download=False, process=False)
@@ -228,6 +230,15 @@ class Stats:
     def inc(self, campo, n=1):
         with self._lock:
             setattr(self, campo, getattr(self, campo) + n)
+
+    def reset(self):
+        """Vuelve los contadores a cero: al desconectar empezamos de limpio,
+        como si la app se acabara de abrir."""
+        with self._lock:
+            self.recibidos = self.leidos = self.filtrados = 0
+            self.descartados = self.reconexiones = self.filtrados_nuevo = 0
+            self.superchats = 0
+            self.inicio = datetime.now()
 
 
 # ── Cola y filtros ───────────────────────────────────────────────────────────
@@ -505,7 +516,11 @@ def main():
             pass
         sys.exit(1)
 
-    _estado = {"parada_sesion": None}
+    # gen: identifica la sesión de conexión activa. Cada conexión nueva lo
+    # incrementa; un hilo de captura anterior que aún siga vivo (bloqueado en una
+    # lectura de red) tendrá un gen distinto y sus mensajes/estados se descartan,
+    # para que no se solapen con el directo nuevo.
+    _estado = {"parada_sesion": None, "gen": 0}
 
     def _cb_conectar(url_raw):
         import gui as _gm
@@ -518,13 +533,19 @@ def main():
             return
         ps  = threading.Event()
         _estado["parada_sesion"] = ps
+        _estado["gen"] += 1
+        gen = _estado["gen"]
 
         def _on_msg(autor, mensaje, hora, tipo=TIPO_TEXTO, monto="", canal_id=""):
+            if gen != _estado["gen"]:
+                return  # mensaje de una sesión anterior: descartar
             if _gm._gui_frame and _gm._gui_frame._alive:
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
                              autor, mensaje, hora, tipo, monto, canal_id)
 
         def _on_estado(tipo_estado, texto):
+            if gen != _estado["gen"]:
+                return  # estado de una sesión anterior: descartar
             if not _gm._gui_frame or not _gm._gui_frame._alive:
                 return
             if tipo_estado == "conectado":
@@ -542,6 +563,10 @@ def main():
         def _run():
             # Una sola descarga del watch para sacar título y tipo de vídeo.
             titulo, tipo = obtener_info_video(vid)
+            # Si mientras buscábamos info se desconectó o se conectó a otro vídeo,
+            # esta sesión ya no vale: no tocar la GUI (si no, pisaríamos la nueva).
+            if gen != _estado["gen"]:
+                return
             frame = _gm._gui_frame
             if frame:
                 if titulo:
@@ -555,13 +580,16 @@ def main():
                                  daemon=True, name="LiveChatId").start()
                 captura_con_reconexion(vid, cola, config, ps, stats,
                                        on_message=_on_msg, on_estado=_on_estado)
-                if frame and not parada.is_set():
+                # Solo refrescar la UI a «desconectado» si seguimos siendo la
+                # sesión activa: un hilo viejo que termina tarde no debe apagar el
+                # directo nuevo.
+                if gen == _estado["gen"] and frame and not parada.is_set():
                     wx.CallAfter(frame.set_conectado, False)
                     wx.CallAfter(frame.set_titulo_stream, "")
             else:
                 # Vídeo subido o directo programado: no hay chat en vivo. No se
                 # arranca pytchat; quedan disponibles comentarios y reproductor.
-                if frame:
+                if gen == _estado["gen"] and frame:
                     wx.CallAfter(frame.set_conectado, True)
                 _snd.reproducir("conectado")
 

@@ -122,8 +122,10 @@ _CALIDADES = [2160, 1440, 1080, 720, 480, 360, 240, 144]
 def _info_video(video_id: str) -> dict:
     """Datos de yt-dlp del vídeo (bloquea; usar en hilo)."""
     import yt_dlp
+    # socket_timeout: sin él, una red lenta deja la app colgada en «Cargando
+    # vídeo…» sin feedback. 20 s es de sobra para la extracción normal (~3-5 s).
     opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-            "noplaylist": True}
+            "noplaylist": True, "socket_timeout": 20}
     url = f"https://www.youtube.com/watch?v={video_id}"
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=False)
@@ -241,6 +243,10 @@ class ReproductorPanel(wx.Panel):
         self._dur_ms = 0
         self._vol = 80
         self._muted = False
+        # Botones de control ocultables (opción minimalista). El estado se guarda
+        # en config; la ventana sincroniza el menú y persiste vía on_botones_toggle.
+        self._botones_visibles = bool(config.get("mostrar_botones_reproductor", False))
+        self.on_botones_toggle = None
         self._calidad_sel = None
         self._alturas = []
         self._inst = None
@@ -340,7 +346,7 @@ class ReproductorPanel(wx.Panel):
         # Sin mnemónicos «&» en estos botones: chocaban entre sí (dos con la misma
         # letra) y el lector los leía como «alt+letra». El control va por los
         # atajos Ctrl+… y por Tab+Espacio.
-        row = wx.BoxSizer(wx.HORIZONTAL)
+        self._fila_botones = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_play  = self._btn_icono(self._ic_play, "Reproducir", "Reproducir o pausa")
         self.btn_retro = self._btn_icono(iconos.icono("retro", _T.text, _T.btn),
                                          "Retroceder 1 min", "Retroceder 1 minuto")
@@ -354,8 +360,8 @@ class ReproductorPanel(wx.Panel):
                                          "Pantalla completa", "Pantalla completa")
         for b in (self.btn_play, self.btn_retro, self.btn_avanz, self.btn_stop,
                   self.btn_mute, self.btn_fs):
-            row.Add(b, 0, wx.RIGHT, 6)
-        box.Add(row, 0, wx.ALL, 6)
+            self._fila_botones.Add(b, 0, wx.RIGHT, 6)
+        box.Add(self._fila_botones, 0, wx.ALL, 6)
 
         # Fila 2: posición + tiempo. La calidad va en el menú Reproductor.
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -390,6 +396,20 @@ class ReproductorPanel(wx.Panel):
         row.Add(self.lbl_estado, 1, wx.ALIGN_CENTER_VERTICAL)
         box.Add(row, 0, wx.EXPAND | wx.ALL, 6)
 
+        # Fila 4: interruptor para mostrar/ocultar los botones de control. Va el
+        # último para no estorbar el recorrido de Tab de los controles de uso;
+        # queda siempre visible aunque la fila de botones esté oculta.
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_toggle_botones = wx.Button(self, name="AlternarBotonesReproductor",
+                                            label=self._etiqueta_toggle())
+        self.btn_toggle_botones.SetBackgroundColour(_T.btn)
+        self.btn_toggle_botones.SetForegroundColour(_T.btn_t)
+        self.btn_toggle_botones.SetToolTip(
+            "Muestra u oculta los botones de control del reproductor. También en "
+            "el menú Reproductor. Los atajos funcionan estén o no visibles.")
+        row.Add(self.btn_toggle_botones, 0)
+        box.Add(row, 0, wx.ALL, 6)
+
         self.SetSizer(box)
 
         self.btn_play.Bind(wx.EVT_BUTTON, lambda e: self._toggle_play())
@@ -403,9 +423,13 @@ class ReproductorPanel(wx.Panel):
         self.sld_vol.Bind(wx.EVT_SLIDER, self._on_sld_vol)
         self.sld_vol.Bind(wx.EVT_KEY_DOWN, self._on_vol_key)
         self._video.Bind(wx.EVT_LEFT_DCLICK, lambda e: self.alternar_pantalla_completa())
+        self.btn_toggle_botones.Bind(wx.EVT_BUTTON, lambda e: self.alternar_botones())
 
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self._timer)
+
+        # Aplicar el estado guardado (por defecto, botones ocultos = minimalista).
+        self._aplicar_visibilidad_botones()
 
     def _btn_icono(self, bmp, etiqueta, tooltip):
         # Icono + TEXTO: el texto es el nombre accesible que lee el lector (un
@@ -421,11 +445,46 @@ class ReproductorPanel(wx.Panel):
     # ── API pública (la ventana la llama al conectar) ─────────────────────────
 
     def anclar_foco(self) -> None:
+        # Llevar el foco a algo útil: si los botones están visibles, a Reproducir;
+        # si no, al deslizador de Posición (primer control navegable del panel).
         try:
             if self._listo:
-                self.btn_play.SetFocus()
+                destino = self.btn_play if self._botones_visibles else self.sld_pos
+                destino.SetFocus()
         except Exception:
             pass
+
+    # ── Botones ocultables (interruptor / menú) ───────────────────────────────
+
+    def _etiqueta_toggle(self) -> str:
+        return ("Ocultar botones del reproductor" if self._botones_visibles
+                else "Mostrar botones del reproductor")
+
+    def botones_visibles(self) -> bool:
+        return self._botones_visibles
+
+    def _aplicar_visibilidad_botones(self) -> None:
+        """Muestra u oculta la fila de botones y reajusta el layout. Ocultos,
+        salen además del recorrido de Tab (wx omite las ventanas no visibles)."""
+        sizer = self.GetSizer()
+        if sizer is None or not hasattr(self, "_fila_botones"):
+            return
+        sizer.Show(self._fila_botones, self._botones_visibles, recursive=True)
+        self.btn_toggle_botones.SetLabel(self._etiqueta_toggle())
+        self.Layout()
+
+    def set_botones_visibles(self, visibles: bool) -> None:
+        """Fija la visibilidad y avisa a la ventana (para el menú y persistir)."""
+        self._botones_visibles = bool(visibles)
+        self._aplicar_visibilidad_botones()
+        if self.on_botones_toggle:
+            try:    self.on_botones_toggle(self._botones_visibles)
+            except Exception: pass
+
+    def alternar_botones(self) -> None:
+        self.set_botones_visibles(not self._botones_visibles)
+        anunciar("Botones del reproductor visibles" if self._botones_visibles
+                 else "Botones del reproductor ocultos")
 
     def set_video(self, video_id: str, autoplay: bool = True) -> None:
         self._video_id = video_id or ""
@@ -441,6 +500,9 @@ class ReproductorPanel(wx.Panel):
             self.lbl_estado.SetLabel("Listo. Pulsa Reproducir.")
 
     def detener_todo(self) -> None:
+        # Olvidar el vídeo actual: al desconectar el reproductor queda en blanco,
+        # como recién abierta la app (sin un id viejo que pudiera relanzarse).
+        self._video_id = ""
         if self._listo:
             if self._fs:
                 self.alternar_pantalla_completa()
@@ -694,6 +756,15 @@ class ReproductorPanel(wx.Panel):
     def _on_timer(self, event):
         if self._player is None:
             return
+        # VLC arranca cada media nueva con SU volumen por defecto e ignora el
+        # audio_set_volume previo cuando la salida de audio aún no existía: por
+        # eso al cambiar de URL el slider quedaba en un valor y el audio sonaba a
+        # otro (incluso slider a 0 % sonando). Reconciliamos aquí, ya en marcha:
+        # el slider (self._vol) manda. Mientras esté en mute no tocamos nada.
+        if not self._muted and self._player.get_state() == _vlc.State.Playing:
+            actual = self._player.audio_get_volume()
+            if actual >= 0 and actual != self._vol:
+                self._player.audio_set_volume(self._vol)
         dur = self._player.get_length()
         pos = self._player.get_time()
         mover = wx.Window.FindFocus() is not self.sld_pos

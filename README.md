@@ -3,7 +3,7 @@
 > Lector de chat de YouTube Live con voces SAPI5 de Windows.
 > Pensado para streamers ciegos o con baja visión.
 
-**Versión 0.8.1 · Windows 10/11 · Python 3.11+ 64-bit**
+**Versión 0.8.2 · Windows 10/11 · Python 3.11+ 64-bit**
 
 ---
 
@@ -55,6 +55,11 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 - **Pantalla completa** (Ctrl+F; Escape o F11 para salir).
 - Controles de teclado: reproducir/pausa, retroceder/avanzar, volumen propio,
   silenciar. La barra de posición anuncia el tiempo como en YouTube.
+- Vista **minimalista por defecto**: solo la imagen y los deslizadores de
+  posición y volumen, sin botones estorbando. Todo se maneja con los atajos
+  (Ctrl+…, funcionan desde cualquier pestaña) y el menú **Reproductor**. Si los
+  quieres, un interruptor (o el menú) **muestra u oculta los botones** en
+  pantalla, y la app recuerda tu elección.
 - Es opcional y va aparte del TTS: tiene su propio volumen y su botón de
   silencio. En el `.exe` libVLC ya viene incluido; no hay que instalar nada.
 
@@ -80,7 +85,9 @@ Está pensada principalmente para streamers que no pueden estar mirando la panta
 **Funciones online (opcionales, API de YouTube)**
 
 - Leer y navegar los comentarios de cualquier vídeo (no solo directos), con TTS,
-  en la pestaña **Comentarios**.
+  en la pestaña **Comentarios**. Como en el chat del live, se manejan con
+  teclado: **Enter** lee, **Ctrl+C** copia y la **tecla Aplicaciones** abre el
+  menú (leer, copiar, responder), sin botones de más.
 - Moderar el chat en vivo: expulsar (timeout) o banear usuarios, con confirmación.
 - Enviar mensajes al chat del directo.
 - Publicar y responder comentarios.

@@ -112,13 +112,18 @@ activan la moderación, el envío al chat y publicar comentarios.
 
 ## Cómo se usan las funciones
 
-- **Leer comentarios:** botón **Comentarios** en la ventana principal. Pega la
-  URL o el ID de un vídeo, elige el orden y pulsa **Cargar**. Navega la lista
-  con las flechas; **Enter** o el botón **Leer** lo lee con la voz; **Cargar
-  más** trae la página siguiente.
-- **Responder / Comentar:** en la ventana de comentarios, con la sesión
-  iniciada, usa **Responder** (sobre un comentario seleccionado) o **Comentar
-  en el vídeo**.
+- **Leer comentarios:** conéctate a un vídeo en la barra superior y abre la
+  pestaña **Comentarios**. Elige el orden y pulsa **Recargar comentarios**.
+  Navega la lista con las flechas; **Enter** lo lee con la voz y **Ctrl+C** lo
+  copia. Para más acciones, abre el menú contextual (tecla **Aplicaciones** o
+  **Mayúsculas+F10**): **Leer con TTS**, **Copiar** y **Responder**. **Cargar
+  más** trae la página siguiente. (Con orden «Más relevantes» YouTube puede
+  devolver páginas repetidas; se descartan y se avisa «No hay comentarios
+  nuevos». «Más recientes» pagina de forma más estable.)
+- **Responder / Comentar:** con la sesión iniciada, **Responder** está en el
+  menú contextual de un comentario seleccionado; **Comentar en el vídeo** es un
+  botón. Nota: la API de YouTube **no permite dar «me gusta» a comentarios**
+  (solo a vídeos), así que esa acción no existe en la app.
 - **Moderar el chat en vivo:** conéctate a un directo del que seas dueño o
   moderador. En la lista del chat, abre el menú contextual de un mensaje (tecla
   Aplicaciones o Mayúsculas+F10): aparecerán **Expulsar 5 minutos** y **Banear

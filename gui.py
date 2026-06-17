@@ -293,6 +293,10 @@ class YTChatFrame(wx.Frame):
         m.AppendSeparator()
         mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor" + self._accel("rep_vol_menos"))
         mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
+        m.AppendSeparator()
+        self.mi_rep_botones = m.AppendCheckItem(wx.ID_ANY, "Mostrar &botones en pantalla")
+        self.mi_rep_botones.Check(bool(self._config.get("mostrar_botones_reproductor", False)))
+        self.Bind(wx.EVT_MENU, lambda e: self._toggle_botones_rep(), self.mi_rep_botones)
         mb.Append(m, "&Reproductor")
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), mi_rep_play)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -60_000), mi_rep_retro)
@@ -383,6 +387,9 @@ class YTChatFrame(wx.Frame):
         # menos mínimo— para que queden equilibrados; el vídeo crece al agrandar la
         # ventana en vez de quedar fijo y comerse el espacio del chat.
         self._rep_panel = ReproductorPanel(self._zona, self._config)
+        # Al alternar los botones del reproductor (desde su interruptor o el menú),
+        # sincronizamos la casilla del menú y persistimos la preferencia.
+        self._rep_panel.on_botones_toggle = self._on_botones_rep_cambio
         zvs.Add(self._rep_panel, 2, wx.EXPAND)
 
         self._zona.SetSizer(zvs)
@@ -520,6 +527,22 @@ class YTChatFrame(wx.Frame):
             getattr(self._rep_panel, metodo)(*args)
         except Exception as exc:
             logger.debug("acción reproductor %s: %s", metodo, exc)
+
+    def _toggle_botones_rep(self):
+        """Desde el menú: alterna los botones del reproductor. El panel avisa de
+        vuelta (on_botones_toggle → _on_botones_rep_cambio) para sincronizar."""
+        try:    self._rep_panel.alternar_botones()
+        except Exception as exc:
+            logger.debug("alternar botones reproductor: %s", exc)
+
+    def _on_botones_rep_cambio(self, visibles: bool):
+        """El panel cambió la visibilidad de los botones (por su interruptor o por
+        el menú): sincronizar la casilla del menú y guardar la preferencia."""
+        try:    self.mi_rep_botones.Check(bool(visibles))
+        except Exception: pass
+        self._config["mostrar_botones_reproductor"] = bool(visibles)
+        guardar_opcion(RUTA_CONFIG, "ui", "mostrar_botones_reproductor",
+                       "true" if visibles else "false")
 
     # ── Handlers de conexión ─────────────────────────────────────────────────
 
@@ -1002,6 +1025,13 @@ class YTChatFrame(wx.Frame):
                              canal_id: str = "") -> None:
         if not self._alive:
             return
+        # Si ya no estamos conectados, descartar: puede ser un mensaje rezagado
+        # de un hilo de captura anterior (bloqueado en una lectura de red) que
+        # llega tras desconectar. Si no, se solaparía con el directo siguiente.
+        # La captura solo emite mensajes tras «conectado», así que en uso normal
+        # esto no descarta nada legítimo.
+        if not self._conectado:
+            return
         if canal_id:
             self._canal_por_autor[autor.lower().strip()] = canal_id
         if self._autor_esta_oculto(autor):
@@ -1044,16 +1074,7 @@ class YTChatFrame(wx.Frame):
                 self._anunciar_conectado()
                 wx.CallAfter(self._foco_contenido)
         else:
-            self._live_chat_id = ""
-            self._canal_por_autor.clear()
-            try:    self._rep_panel.detener_todo()
-            except Exception: pass
-            # Al desconectar se corta la lectura: vaciar la cola y detener lo
-            # que se esté leyendo en ese momento.
-            try:
-                self._worker.vaciar_cola()
-                self._worker.detener_actual()
-            except Exception: pass
+            self._reiniciar_datos_sesion()
             # Solo si veníamos de una conexión real: ocultar, sonar y avisar.
             # (Un fallo de conexión nunca llegó a "conectado", así que no suena.)
             if estaba:
@@ -1064,6 +1085,36 @@ class YTChatFrame(wx.Frame):
                 anunciar("Desconectado")
         self._set_conectado_ui(conectado)
         self._actualizar_estado_online()
+
+    def _reiniciar_datos_sesion(self) -> None:
+        """Borra TODO el estado de la sesión para que volver a conectar sea como
+        recién abierta la app y nada del directo anterior se solape: chat,
+        comentarios, reproductor, cola de lectura, super chats y contadores. NO
+        toca las preferencias del usuario (filtro, voz, sonidos, tema)."""
+        self._live_chat_id = ""
+        self._canal_por_autor.clear()
+        self._tipo_video = deteccion.DESCONOCIDO
+        # Chat: datos y lista visible.
+        self._chat_all.clear()
+        self._chat_vis.clear()
+        try:    self.lb_chat.Clear()
+        except Exception: pass
+        # Super Chats acumulados de la sesión.
+        self._sc_totales.clear()
+        # Reproductor y panel de comentarios.
+        try:    self._rep_panel.detener_todo()
+        except Exception: pass
+        try:    self._com_panel.limpiar()
+        except Exception: pass
+        # Cola de lectura y lo que se esté leyendo ahora mismo.
+        try:
+            self._worker.vaciar_cola()
+            self._worker.detener_actual()
+        except Exception: pass
+        # Contadores a cero.
+        try:    self._stats.reset()
+        except Exception: pass
+        self._actualizar_sb()
 
     def _mostrar_zona(self, mostrar: bool) -> None:
         self._zona.Show(mostrar)
@@ -1091,6 +1142,13 @@ class YTChatFrame(wx.Frame):
         if not self._alive:
             return
         self._tipo_video = tipo
+        # Empezar el chat en limpio en cada conexión: el reset al desconectar ya
+        # lo hace, pero así garantizamos que nunca quede nada del vídeo anterior.
+        self._chat_all.clear()
+        self._chat_vis.clear()
+        self._sc_totales.clear()
+        try:    self.lb_chat.Clear()
+        except Exception: pass
         es_live = deteccion.tiene_chat_en_vivo(tipo)
         autoplay = bool(self._config.get("autoplay_reproductor", True))
         # Comentarios: autocargar solo cuando no hay chat en vivo (en un directo

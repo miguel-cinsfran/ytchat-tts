@@ -14,7 +14,7 @@ from pathlib import Path
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
 APP_NAME    = "YTChat TTS"
-APP_VERSION = "0.8.1"
+APP_VERSION = "0.8.2"
 
 # ── Tipos de mensaje ──────────────────────────────────────────────────────────
 
@@ -225,6 +225,7 @@ _DEF = {
     "tamanio_fuente_chat": "12", "mostrar_total_superchats": "true",
     "guardar_historial": "no", "autoplay_reproductor": "true",
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
+    "mostrar_botones_reproductor": "false",
 }
 
 _CONFIG_FALLBACK = """\
@@ -277,6 +278,7 @@ mostrar_total_superchats = true
 autoplay_reproductor = true
 filtro_activo = todos
 silenciar_sonidos = false
+mostrar_botones_reproductor = false
 [sesion]
 guardar_historial = no
 silenciar_lectura = false
@@ -422,6 +424,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "ui", "silenciar_sonidos", "false")
     if not p.has_option("ui", "autoplay_reproductor"):
         guardar_opcion(ruta, "ui", "autoplay_reproductor", "true")
+    if not p.has_option("ui", "mostrar_botones_reproductor"):
+        guardar_opcion(ruta, "ui", "mostrar_botones_reproductor", "false")
     if not p.has_option("sesion", "silenciar_lectura"):
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
 
@@ -448,6 +452,7 @@ def cargar_configuracion() -> dict:
         "tamanio_fuente_chat": _pi(p, "ui", "tamanio_fuente_chat", lo=8, hi=24),
         "mostrar_total_superchats": _pb(p, "ui", "mostrar_total_superchats"),
         "autoplay_reproductor": _pb(p, "ui", "autoplay_reproductor"),
+        "mostrar_botones_reproductor": _pb(p, "ui", "mostrar_botones_reproductor"),
         "filtro_activo": filtro_activo,
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),
         "guardar_historial": guardar,

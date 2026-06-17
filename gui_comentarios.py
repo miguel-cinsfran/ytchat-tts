@@ -35,6 +35,9 @@ class ComentariosPanel(wx.Panel):
         self._video_id = ""
         self._next_token = ""
         self._cargando = False
+        # ids ya mostrados: con orden «relevancia» YouTube devuelve páginas que se
+        # solapan o se repiten, así que deduplicamos para no contar/añadir repetidos.
+        self._ids_vistos: set[str] = set()
 
         self.SetBackgroundColour(_T.bg)
         self.SetForegroundColour(_T.text)
@@ -73,19 +76,18 @@ class ComentariosPanel(wx.Panel):
         pt = int(self._config.get("tamanio_fuente_chat", 12))
         self.lb.SetFont(wx.Font(pt, wx.FONTFAMILY_DEFAULT,
                                 wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-        self.lb.SetToolTip("Enter lee el comentario con la voz. "
-                           "Ctrl+C copia.")
+        # Leer/copiar/responder van por Enter, Ctrl+C y la tecla Aplicaciones
+        # (menú contextual), igual que el chat del live: no hacen falta botones.
+        self.lb.SetToolTip("Enter lee el comentario con la voz. Ctrl+C copia. "
+                           "Tecla Aplicaciones (o clic derecho) abre el menú.")
         vs.Add(self.lb, 1, wx.EXPAND | wx.ALL, 8)
 
-        # Botones de acción
+        # Botones de acción: solo los que NO dependen del comentario seleccionado
+        # (cargar más páginas y comentar en el vídeo). El resto, en el menú.
         row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_leer  = wx.Button(self, label="&Leer", name="LeerComentario")
-        self.btn_copiar = wx.Button(self, label="Co&piar", name="CopiarComentario")
         self.btn_mas   = wx.Button(self, label="Cargar &más", name="CargarMas")
-        self.btn_responder = wx.Button(self, label="R&esponder", name="ResponderComentario")
         self.btn_comentar  = wx.Button(self, label="Comen&tar en el vídeo", name="ComentarVideo")
-        for b in (self.btn_leer, self.btn_copiar, self.btn_mas,
-                  self.btn_responder, self.btn_comentar):
+        for b in (self.btn_mas, self.btn_comentar):
             _btn(b)
             row.Add(b, 0, wx.RIGHT, 6)
         self.btn_mas.Disable()
@@ -93,19 +95,17 @@ class ComentariosPanel(wx.Panel):
 
         self.SetSizer(vs)
 
-        self.btn_leer.Bind(wx.EVT_BUTTON, lambda e: self._leer())
-        self.btn_copiar.Bind(wx.EVT_BUTTON, lambda e: self._copiar())
         self.btn_mas.Bind(wx.EVT_BUTTON, lambda e: self._cargar_pagina(self._next_token))
-        self.btn_responder.Bind(wx.EVT_BUTTON, lambda e: self._responder())
         self.btn_comentar.Bind(wx.EVT_BUTTON, lambda e: self._comentar())
         self.lb.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._leer())
         self.lb.Bind(wx.EVT_KEY_DOWN, self._on_key)
+        self.lb.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
 
         self._actualizar_botones_sesion()
 
     def _actualizar_botones_sesion(self):
+        # Comentar requiere sesión; Responder se gobierna en el menú contextual.
         hay = credenciales.hay_sesion() and youtube_api.google_disponible()
-        self.btn_responder.Enable(hay)
         self.btn_comentar.Enable(hay)
 
     # ── API pública (la ventana la llama al conectar) ─────────────────────────
@@ -115,6 +115,7 @@ class ComentariosPanel(wx.Panel):
         self._video_id = video_id or ""
         self.lb.Clear()
         self._coms.clear()
+        self._ids_vistos.clear()
         self._next_token = ""
         self.btn_mas.Disable()
         self._actualizar_botones_sesion()
@@ -125,6 +126,7 @@ class ComentariosPanel(wx.Panel):
         self._video_id = ""
         self.lb.Clear()
         self._coms.clear()
+        self._ids_vistos.clear()
         self._next_token = ""
         self.btn_mas.Disable()
 
@@ -179,15 +181,37 @@ class ComentariosPanel(wx.Panel):
         self._cargando = False
         self.btn_recargar.Enable()
         anteriores = self.lb.GetCount()
+        # Deduplicar: con orden «relevancia» las páginas se solapan, así que solo
+        # añadimos lo que no se haya mostrado ya, y contamos hilos y respuestas
+        # por separado (el total por página varía mucho porque cada hilo arrastra
+        # un número distinto de respuestas).
+        n_hilos = n_resp = 0
         for c in coms:
+            if c.comment_id and c.comment_id in self._ids_vistos:
+                continue
+            if c.comment_id:
+                self._ids_vistos.add(c.comment_id)
             self._coms.append(c)
             self.lb.Append(self._formato(c))
+            if c.es_respuesta:
+                n_resp += 1
+            else:
+                n_hilos += 1
         self._next_token = nxt or ""
         self.btn_mas.Enable(bool(self._next_token))
         _snd.reproducir("conectado")
-        if coms:
-            anunciar(f"{len(coms)} comentarios cargados. {len(self._coms)} en total.")
+        nuevos = n_hilos + n_resp
+        if nuevos:
+            partes = []
+            if n_hilos:
+                partes.append(f"{n_hilos} comentario" + ("s" if n_hilos != 1 else ""))
+            if n_resp:
+                partes.append(f"{n_resp} respuesta" + ("s" if n_resp != 1 else ""))
+            anunciar(f"{' y '.join(partes)}. {len(self._coms)} en total.")
             self.lb.SetSelection(min(anteriores, self.lb.GetCount() - 1))
+        elif coms:
+            # La página solo traía repetidos (típico con orden «relevancia»).
+            anunciar("No hay comentarios nuevos.")
         else:
             anunciar("No hay comentarios para mostrar.")
 
@@ -225,8 +249,40 @@ class ComentariosPanel(wx.Panel):
             self._leer()
         elif k == ord('C') and event.ControlDown():
             self._copiar()
+        elif k == wx.WXK_WINDOWS_MENU:
+            self._mostrar_menu()
         else:
             event.Skip()
+
+    def _on_context_menu(self, event):
+        self._mostrar_menu()
+
+    def _mostrar_menu(self):
+        """Menú contextual sobre el comentario seleccionado (tecla Aplicaciones o
+        clic derecho), igual que el chat del live: Leer, Copiar y, con sesión
+        iniciada, Responder a ese comentario en concreto."""
+        c = self._seleccionado()
+        if not c:
+            return
+        menu = wx.Menu()
+        id_leer    = wx.NewIdRef()
+        id_copiar  = wx.NewIdRef()
+        id_copiar2 = wx.NewIdRef()
+        menu.Append(id_leer,    "Leer con TTS")
+        menu.Append(id_copiar,  "Copiar comentario")
+        menu.Append(id_copiar2, "Copiar todo (autor: comentario)")
+        self.Bind(wx.EVT_MENU, lambda e: self._leer(),       id=id_leer)
+        self.Bind(wx.EVT_MENU, lambda e: self._copiar(),     id=id_copiar)
+        self.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(), id=id_copiar2)
+
+        if credenciales.hay_sesion() and youtube_api.google_disponible():
+            menu.AppendSeparator()
+            id_resp = wx.NewIdRef()
+            menu.Append(id_resp, f"Responder a {c.autor}")
+            self.Bind(wx.EVT_MENU, lambda e: self._responder(), id=id_resp)
+
+        self.lb.PopupMenu(menu)
+        menu.Destroy()
 
     def _leer(self):
         c = self._seleccionado()
@@ -249,6 +305,21 @@ class ComentariosPanel(wx.Panel):
                 wx.TheClipboard.Close()
         _snd.reproducir("copiar")
         anunciar("Comentario copiado")
+
+    def _copiar_todo(self):
+        c = self._seleccionado()
+        if not c:
+            anunciar("Sin comentario seleccionado")
+            return
+        linea = f"{c.autor}: {c.texto}"
+        if wx.TheClipboard.Open():
+            try:
+                wx.TheClipboard.SetData(wx.TextDataObject(linea))
+                wx.TheClipboard.Flush()
+            finally:
+                wx.TheClipboard.Close()
+        _snd.reproducir("copiar")
+        anunciar("Línea copiada")
 
     def _responder(self):
         c = self._seleccionado()
