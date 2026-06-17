@@ -64,7 +64,16 @@ call uv run pyinstaller main.py ^
 if errorlevel 1 ( echo ERROR en PyInstaller. & pause & exit /b 1 )
 
 echo == Ensamblando la carpeta distribuible ==
-set "OUT=YTChat TTS"
+REM Version desde config.py (fuente unica): nombra la carpeta y el zip como
+REM "YTChat TTS vX.Y.Z", asi el archivo que se manda y la carpeta al descomprimir
+REM dejan clara la version.
+for /f "delims=" %%v in ('uv run python -c "import config;print(config.APP_VERSION)"') do set "VER=%%v"
+if not defined VER ( echo ERROR: no se pudo leer la version de config.py. & pause & exit /b 1 )
+set "OUT=YTChat TTS v%VER%"
+echo    Version %VER%  ->  "%OUT%"
+REM Limpia builds previos de CUALQUIER version para no acumular carpetas/zips.
+for /d %%d in ("YTChat TTS v*") do rmdir /s /q "%%d"
+if exist "YTChat TTS" rmdir /s /q "YTChat TTS"
 if exist "%OUT%" rmdir /s /q "%OUT%"
 
 REM robocopy devuelve codigos ^>=1 incluso en exito; no encadenamos errorlevel.
@@ -96,7 +105,9 @@ del /q "%OUT%\ytchat.log" 2>nul
 del /q "%OUT%\credenciales.json" 2>nul
 
 echo == Comprimiendo a "%OUT%.zip" ==
-if exist "%OUT%.zip" del /q "%OUT%.zip"
+REM Borra zips de cualquier version anterior (incluido el viejo sin version).
+del /q "YTChat TTS.zip" 2>nul
+del /q "YTChat TTS v*.zip" 2>nul
 powershell -NoProfile -Command "Compress-Archive -Path '%OUT%' -DestinationPath '%OUT%.zip' -Force"
 
 echo.

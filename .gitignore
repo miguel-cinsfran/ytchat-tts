@@ -3,7 +3,9 @@ build/
 dist/
 *.spec
 YTChat TTS/
+YTChat TTS v*/
 YTChat TTS.zip
+YTChat TTS v*.zip
 
 # Python
 __pycache__/
