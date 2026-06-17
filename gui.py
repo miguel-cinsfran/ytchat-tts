@@ -221,6 +221,7 @@ class YTChatFrame(wx.Frame):
         mi_ant = m.Append(wx.ID_ANY, "Región &anterior\tShift+F6")
         m.AppendSeparator()
         mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)")
+        mi_lista = m.Append(wx.ID_ANY, "Ir a la &lista del panel actual\tAlt+L")
         mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
         mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
@@ -239,6 +240,7 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(+1), mi_sig)
         self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(-1), mi_ant)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_CONEXION), mi_conx)
+        self.Bind(wx.EVT_MENU, lambda e: self._ir_lista(), mi_lista)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_CHAT), mi_chat)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_COMENTARIOS), mi_com)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_REPRODUCTOR), mi_rep)
@@ -276,8 +278,8 @@ class YTChatFrame(wx.Frame):
         # Reproductor
         m = wx.Menu()
         mi_rep_play  = m.Append(wx.ID_ANY, "&Reproducir o pausa" + self._accel("rep_play"))
-        mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 30 segundos" + self._accel("rep_retro"))
-        mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 30 segundos" + self._accel("rep_avanz"))
+        mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 1 minuto" + self._accel("rep_retro"))
+        mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 1 minuto" + self._accel("rep_avanz"))
         mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción" + self._accel("rep_detener"))
         mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio" + self._accel("rep_mute"))
         mi_rep_fs    = m.Append(wx.ID_ANY, "Pantalla &completa\tCtrl+F")
@@ -293,8 +295,8 @@ class YTChatFrame(wx.Frame):
         mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
         mb.Append(m, "&Reproductor")
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), mi_rep_play)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -30_000), mi_rep_retro)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +30_000), mi_rep_avanz)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -60_000), mi_rep_retro)
+        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +60_000), mi_rep_avanz)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), mi_rep_stop)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_mute"), mi_rep_mute)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("alternar_pantalla_completa"), mi_rep_fs)
@@ -481,6 +483,14 @@ class YTChatFrame(wx.Frame):
             nombre += f": {self.nb.GetPageText(self.nb.GetSelection())}"
         anunciar(nombre)
 
+    def _ir_lista(self):
+        """Alt+L: foco directo a la lista de la pestaña actual (chat o comentarios)."""
+        if not self._conectado:
+            anunciar("Conéctate primero")
+            return
+        self._region_idx = REG_CONTENIDO
+        self._foco_contenido()
+
     def _foco_contenido(self):
         pag = self.nb.GetCurrentPage()
         if pag is self._pag_chat:
@@ -534,6 +544,17 @@ class YTChatFrame(wx.Frame):
             anunciar("Conectando")
             if self.on_conectar_cb:
                 self.on_conectar_cb(url)
+
+    def url_invalida(self):
+        """La URL/ID no es válida: restaurar la UI y avisar (sin esperas)."""
+        if not self._alive:
+            return
+        _snd.reproducir("error")
+        self._set_conectado_ui(False)
+        anunciar("La URL o el ID de YouTube no es válido")
+        self.txt_url.SetFocus()
+        wx.MessageBox("La URL o el ID de YouTube no es válido. Revisa lo que pegaste.",
+                      "URL no válida", wx.OK | wx.ICON_WARNING, self)
 
     def _on_preferencias(self, event):
         try:
@@ -953,7 +974,9 @@ class YTChatFrame(wx.Frame):
             self._rep_panel.detener_todo()
         except Exception: pass
         try:
-            self._worker.vaciar_cola()
+            # Interrumpir lo que se esté leyendo (purga) antes de parar, para que
+            # el cierre sea inmediato y no termine el mensaje en curso.
+            self._worker.detener_actual()
             self._worker.detener()
         except Exception: pass
         try:    _snd.cerrar()

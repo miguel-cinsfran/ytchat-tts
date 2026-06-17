@@ -306,9 +306,9 @@ class ReproductorPanel(wx.Panel):
         row = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_play  = self._btn_icono(self._ic_play, "Reproducir", "Reproducir o pausa")
         self.btn_retro = self._btn_icono(iconos.icono("retro", _T.text, _T.btn),
-                                         "Retroceder 30 s", "Retroceder 30 segundos")
+                                         "Retroceder 1 min", "Retroceder 1 minuto")
         self.btn_avanz = self._btn_icono(iconos.icono("avanz", _T.text, _T.btn),
-                                         "Avanzar 30 s", "Avanzar 30 segundos")
+                                         "Avanzar 1 min", "Avanzar 1 minuto")
         self.btn_stop  = self._btn_icono(iconos.icono("stop", _T.text, _T.btn),
                                          "Detener", "Detener")
         self.btn_mute  = self._btn_icono(self._ic_sound, "Silenciar audio",
@@ -356,8 +356,8 @@ class ReproductorPanel(wx.Panel):
         self.SetSizer(box)
 
         self.btn_play.Bind(wx.EVT_BUTTON, lambda e: self._toggle_play())
-        self.btn_retro.Bind(wx.EVT_BUTTON, lambda e: self._buscar_rel(-30_000))
-        self.btn_avanz.Bind(wx.EVT_BUTTON, lambda e: self._buscar_rel(+30_000))
+        self.btn_retro.Bind(wx.EVT_BUTTON, lambda e: self._buscar_rel(-60_000))
+        self.btn_avanz.Bind(wx.EVT_BUTTON, lambda e: self._buscar_rel(+60_000))
         self.btn_stop.Bind(wx.EVT_BUTTON, lambda e: self._detener())
         self.btn_mute.Bind(wx.EVT_BUTTON, lambda e: self._toggle_mute())
         self.btn_fs.Bind(wx.EVT_BUTTON, lambda e: self.alternar_pantalla_completa())
@@ -597,15 +597,31 @@ class ReproductorPanel(wx.Panel):
         self._fijar_tiempo(destino, dur, mover_slider=False, anunciar_t=False)
 
     def _on_pos_key(self, event):
-        # Consumimos las cuatro flechas (no Skip) para que el deslizador no
-        # cambie su valor crudo por su cuenta y NVDA no lea porcentajes raros.
+        # Consumimos las flechas (no Skip) para que el deslizador no cambie su
+        # valor crudo por su cuenta. Las teclas 0-9 saltan al porcentaje, como
+        # en YouTube (5 = 50 %).
         k = event.GetKeyCode()
         if k in (wx.WXK_RIGHT, wx.WXK_UP):
             self._buscar_rel(+10_000)
         elif k in (wx.WXK_LEFT, wx.WXK_DOWN):
             self._buscar_rel(-10_000)
+        elif ord("0") <= k <= ord("9"):
+            self._buscar_porcentaje((k - ord("0")) * 10)
+        elif wx.WXK_NUMPAD0 <= k <= wx.WXK_NUMPAD9:
+            self._buscar_porcentaje((k - wx.WXK_NUMPAD0) * 10)
         else:
             event.Skip()
+
+    def _buscar_porcentaje(self, pct):
+        if self._player is None:
+            return
+        dur = self._player.get_length()
+        if dur <= 0:
+            anunciar("No se puede buscar en este flujo")
+            return
+        destino = int(dur * pct / 100)
+        self._player.set_time(destino)
+        self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
 
     def _on_vol_key(self, event):
         # En un trackbar horizontal, Arriba baja y Abajo sube (nativo). Lo

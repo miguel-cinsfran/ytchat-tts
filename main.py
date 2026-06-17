@@ -150,8 +150,40 @@ def _clasificar_por_api(video_id: str) -> str:
         return deteccion.DESCONOCIDO
 
 
+def _tipo_desde_ytdlp(info: dict) -> str:
+    ls = (info.get("live_status") or "").strip()
+    if ls == "is_live":
+        return deteccion.LIVE
+    if ls == "is_upcoming":
+        return deteccion.UPCOMING
+    if ls in ("was_live", "not_live", "post_live"):
+        return deteccion.VOD
+    if info.get("is_live"):
+        return deteccion.LIVE
+    return deteccion.DESCONOCIDO
+
+
 def obtener_info_video(video_id: str) -> tuple[str, str]:
-    """Devuelve (titulo, tipo). tipo: live/upcoming/vod/desconocido."""
+    """Devuelve (titulo, tipo). tipo: live/upcoming/vod/desconocido.
+
+    Se usa yt-dlp (process=False, ~1 s): es robusto ante la página de
+    consentimiento que YouTube sirve al scraping directo, y ya trae `title` y
+    `live_status`. Si no está yt-dlp, se cae al scraping (que puede no funcionar).
+    """
+    try:
+        import yt_dlp
+        opts = {"quiet": True, "no_warnings": True, "skip_download": True,
+                "noplaylist": True}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}",
+                                    download=False, process=False)
+        titulo = (info.get("title") or "").strip()
+        tipo = _tipo_desde_ytdlp(info)
+        if titulo or tipo != deteccion.DESCONOCIDO:
+            return titulo, tipo
+    except Exception as exc:
+        logger.debug("obtener_info_video (yt-dlp): %s", exc)
+
     html = _descargar_watch(video_id)
     titulo = _parsear_titulo(html)
     tipo = deteccion.clasificar_desde_html(html)
@@ -478,6 +510,12 @@ def main():
     def _cb_conectar(url_raw):
         import gui as _gm
         vid = extraer_video_id(url_raw)
+        # Validar el formato ANTES de tocar la red: si no es un ID de 11
+        # caracteres, es basura. Se rechaza al instante (sin esperas ni freeze).
+        if not _ID_RE.match(vid):
+            if _gm._gui_frame:
+                wx.CallAfter(_gm._gui_frame.url_invalida)
+            return
         ps  = threading.Event()
         _estado["parada_sesion"] = ps
 

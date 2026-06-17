@@ -249,7 +249,7 @@ respetar el modificador de cada área). Las teclas de función **F9–F12** son 
 | Atajo            | Acción                                  |
 | ---------------- | --------------------------------------- |
 | Ctrl+P           | Reproducir o pausa                      |
-| Ctrl+← / Ctrl+→  | Retroceder / avanzar 30 s               |
+| Ctrl+← / Ctrl+→  | Retroceder / avanzar 1 minuto           |
 | Ctrl+↑ / Ctrl+↓  | Subir / bajar volumen del reproductor   |
 | Ctrl+D           | Detener                                 |
 | Ctrl+M           | Silenciar o activar el audio            |
@@ -276,8 +276,9 @@ respetar el modificador de cada área). Las teclas de función **F9–F12** son 
 | F11 / F12 | Bajar / subir volumen del TTS (fija)  |
 
 **Navegación (no editable):** F6 / Shift+F6 entre regiones; Ctrl+Tab entre
-pestañas. Dentro del deslizador de posición, las flechas buscan ±10 s; en el de
-volumen, ±1.
+pestañas; **Alt+L** salta a la lista de la pestaña actual. Dentro del deslizador
+de posición, las flechas buscan ±10 s y las teclas **0–9** saltan al porcentaje
+(como en YouTube: 5 = 50 %); en el de volumen, las flechas mueven ±1.
 
 ---
 
