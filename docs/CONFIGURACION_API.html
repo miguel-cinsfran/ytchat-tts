@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>YTChat TTS — Configurar la API de YouTube</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  :root {
+    --fondo: #ffffff; --texto: #1c1917; --tenue: #57534e;
+    --acento: #b8452f; --borde: #e7e5e4; --codigo-fondo: #f5f5f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #1c1917; --texto: #e7e5e4; --tenue: #a8a29e;
+      --acento: #e8745c; --borde: #44403c; --codigo-fondo: #292524;
+    }
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65; color: var(--texto); background: var(--fondo);
+    max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+    font-size: 1.05rem;
+  }
+  h1, h2, h3 { line-height: 1.25; margin-top: 2.2rem; }
+  h1 { font-size: 1.9rem; color: var(--acento); border-bottom: 2px solid var(--borde); padding-bottom: .4rem; }
+  h2 { font-size: 1.4rem; border-bottom: 1px solid var(--borde); padding-bottom: .3rem; }
+  h3 { font-size: 1.15rem; color: var(--tenue); }
+  a { color: var(--acento); }
+  code {
+    background: var(--codigo-fondo); padding: .12em .35em;
+    border-radius: 4px; font-size: .9em;
+  }
+  pre {
+    background: var(--codigo-fondo); padding: 1rem; border-radius: 6px;
+    overflow-x: auto; border: 1px solid var(--borde);
+  }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; overflow-x: auto; display: block; }
+  th, td { border: 1px solid var(--borde); padding: .5rem .7rem; text-align: left; }
+  th { background: var(--codigo-fondo); }
+  blockquote {
+    border-left: 3px solid var(--acento); margin: 1rem 0;
+    padding: .2rem 1rem; color: var(--tenue);
+  }
+  hr { border: none; border-top: 1px solid var(--borde); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+<h1 id="configurar-la-api-de-youtube-en-ytchat-tts">Configurar la API de
+YouTube en YTChat TTS</h1>
+<p>Esta guía explica cómo activar las funciones online de YTChat
+TTS:</p>
+<ul>
+<li><strong>Leer comentarios</strong> de cualquier vídeo (no solo
+directos).</li>
+<li><strong>Moderar</strong> el chat en vivo (expulsar o banear
+usuarios).</li>
+<li><strong>Enviar mensajes</strong> al chat del directo.</li>
+<li><strong>Publicar y responder</strong> comentarios.</li>
+</ul>
+<p>Todo se gestiona desde el botón <strong>Configuración</strong> de la
+aplicación; no hay que editar archivos a mano. Lo único que se hace
+fuera de la app, una sola vez, es crear tus credenciales en Google
+Cloud, y eso es lo que cubre esta guía.</p>
+<blockquote>
+<p><strong>Por qué cada usuario crea sus propias credenciales.</strong>
+YouTube reparte la cuota de uso <em>por proyecto</em>. Si cada persona
+usa las suyas, tiene su propia cuota diaria completa, no necesita que
+Google verifique nada y no comparte límites con nadie. Es la forma más
+sana y privada de usar la API.</p>
+</blockquote>
+<p>La parte de moderar/comentar es opcional. Si solo quieres
+<strong>leer comentarios</strong>, te basta con la <strong>API
+key</strong> (pasos 1 a 3); puedes saltarte el OAuth.</p>
+<hr />
+<h2 id="antes-de-empezar">Antes de empezar</h2>
+<ul>
+<li>Necesitas una <strong>cuenta de Google</strong> (la misma del canal
+de YouTube si vas a moderar tu propio directo).</li>
+<li>Es <strong>gratis</strong>. La API no cuesta dinero dentro de la
+cuota diaria (10.000 unidades, de sobra para uso personal).</li>
+<li>La consola de Google Cloud no es la web más accesible del mundo. Ve
+con calma, usa la búsqueda del navegador (Ctrl+F) para encontrar los
+botones por su texto, y sigue los pasos en orden.</li>
+</ul>
+<hr />
+<h2 id="paso-1--crear-un-proyecto-en-google-cloud">Paso 1 — Crear un
+proyecto en Google Cloud</h2>
+<ol type="1">
+<li>Entra en <a
+href="https://console.cloud.google.com/">https://console.cloud.google.com/</a>.</li>
+<li>Arriba, junto al logo, hay un <strong>selector de proyecto</strong>.
+Ábrelo y elige <strong>Nuevo proyecto</strong> ("New project").</li>
+<li>Ponle un nombre, por ejemplo <code>YTChat TTS</code>, y pulsa
+<strong>Crear</strong> ("Create").</li>
+<li>Espera unos segundos y asegúrate de que ese proyecto queda
+<strong>seleccionado</strong> en el selector de arriba.</li>
+</ol>
+<h2 id="paso-2--activar-la-youtube-data-api-v3">Paso 2 — Activar la
+YouTube Data API v3</h2>
+<ol type="1">
+<li>En el buscador superior de la consola, escribe <strong>YouTube Data
+API v3</strong>.</li>
+<li>Entra en el resultado y pulsa <strong>Habilitar</strong>
+("Enable").</li>
+</ol>
+<h2 id="paso-3--crear-la-api-key-para-leer-comentarios">Paso 3 — Crear
+la API key (para leer comentarios)</h2>
+<ol type="1">
+<li>Ve al menú <strong>APIs y servicios → Credenciales</strong> ("APIs
+&amp; Services → Credentials"). Puedes buscar "Credenciales" en el
+buscador superior.</li>
+<li>Pulsa <strong>Crear credenciales → Clave de API</strong> ("Create
+credentials → API key").</li>
+<li>Se generará una clave larga. <strong>Cópiala.</strong> Esta es tu
+<strong>API key</strong>.</li>
+<li>(Recomendado) Pulsa <strong>Restringir clave</strong> y, en
+restricciones de API, limítala a "YouTube Data API v3". No es
+obligatorio pero es más seguro.</li>
+</ol>
+<p>➡️ Con esto ya puedes <strong>leer comentarios</strong>. Abre YTChat
+TTS, pulsa <strong>Configuración</strong>, pega la clave en el campo
+<strong>API key</strong>, pulsa <strong>Guardar claves</strong> y
+cierra. Si solo quieres leer, has terminado.</p>
+<hr />
+<h2
+id="paso-4--configurar-la-pantalla-de-consentimiento-solo-para-moderarcomentar">Paso
+4 — Configurar la pantalla de consentimiento (solo para
+moderar/comentar)</h2>
+<p>Esto es obligatorio antes de crear el cliente OAuth.</p>
+<ol type="1">
+<li>Ve a <strong>APIs y servicios → Pantalla de consentimiento de
+OAuth</strong> ("OAuth consent screen").</li>
+<li>Elige tipo de usuario <strong>Externo</strong> ("External") y pulsa
+<strong>Crear</strong>.</li>
+<li>Rellena lo mínimo: nombre de la app (por ejemplo
+<code>YTChat TTS</code>), tu correo de asistencia y tu correo de
+contacto. Lo demás puedes dejarlo en blanco. Guarda y continúa hasta el
+final.</li>
+<li>En la sección <strong>Usuarios de prueba</strong> ("Test users"),
+pulsa <strong>Añadir usuarios</strong> y añade <strong>tu propia
+dirección de Gmail</strong>. Guarda.</li>
+</ol>
+<blockquote>
+<p><strong>Importante (la caducidad de 7 días).</strong> Mientras la app
+esté en modo "Prueba" ("Testing"), tu sesión caduca cada <strong>7
+días</strong> y tendrás que volver a pulsar "Iniciar sesión" en
+Configuración. Es un clic, no se pierde nada. Si te molesta, puedes
+pulsar "Publicar app" ("Publish app") en esa misma pantalla: entonces no
+caduca, pero la primera vez verás un aviso de "app no verificada" que
+hay que aceptar manualmente. Cualquiera de las dos opciones sirve.</p>
+</blockquote>
+<h2 id="paso-5--crear-el-cliente-oauth-para-moderarcomentar">Paso 5 —
+Crear el cliente OAuth (para moderar/comentar)</h2>
+<ol type="1">
+<li>Vuelve a <strong>APIs y servicios → Credenciales</strong>.</li>
+<li>Pulsa <strong>Crear credenciales → ID de cliente de OAuth</strong>
+("Create credentials → OAuth client ID").</li>
+<li>En <strong>Tipo de aplicación</strong> ("Application type") elige
+<strong>Aplicación de escritorio</strong> ("Desktop app"). Ponle un
+nombre y pulsa <strong>Crear</strong>.</li>
+<li>Se mostrarán dos datos: el <strong>ID de cliente</strong> ("Client
+ID") y el <strong>Secreto de cliente</strong> ("Client secret").
+<strong>Cópialos los dos.</strong></li>
+</ol>
+<hr />
+<h2 id="paso-6--meter-los-datos-en-la-aplicación">Paso 6 — Meter los
+datos en la aplicación</h2>
+<ol type="1">
+<li>Abre YTChat TTS y pulsa el botón
+<strong>Configuración</strong>.</li>
+<li>Pega:
+<ul>
+<li>La <strong>API key</strong> en su campo (paso 3).</li>
+<li>El <strong>ID de cliente OAuth</strong> y el <strong>Secreto de
+cliente OAuth</strong> (paso 5).</li>
+</ul></li>
+<li>Pulsa <strong>Guardar claves</strong>.</li>
+<li>Pulsa <strong>Iniciar sesión</strong>. Se abrirá el navegador: elige
+tu cuenta de Google, acepta los permisos y vuelve a la aplicación. Oirás
+"Sesión iniciada correctamente".</li>
+</ol>
+<p>A partir de aquí, el estado en Configuración dirá "sesión iniciada" y
+se activan la moderación, el envío al chat y publicar comentarios.</p>
+<hr />
+<h2 id="cómo-se-usan-las-funciones">Cómo se usan las funciones</h2>
+<ul>
+<li><strong>Leer comentarios:</strong> conéctate a un vídeo en la barra
+superior y abre la pestaña <strong>Comentarios</strong>. Elige el orden
+y pulsa <strong>Recargar comentarios</strong>. Navega la lista con las
+flechas; <strong>Enter</strong> lo lee con la voz y
+<strong>Ctrl+C</strong> lo copia. Para más acciones, abre el menú
+contextual (tecla <strong>Aplicaciones</strong> o
+<strong>Mayúsculas+F10</strong>): <strong>Leer con TTS</strong>,
+<strong>Copiar</strong> y <strong>Responder</strong>. <strong>Cargar
+más</strong> trae la página siguiente. (Con orden «Más relevantes»
+YouTube puede devolver páginas repetidas; se descartan y se avisa «No
+hay comentarios nuevos». «Más recientes» pagina de forma más
+estable.)</li>
+<li><strong>Responder / Comentar:</strong> con la sesión iniciada,
+<strong>Responder</strong> está en el menú contextual de un comentario
+seleccionado; <strong>Comentar en el vídeo</strong> es un botón. Nota:
+la API de YouTube <strong>no permite dar «me gusta» a
+comentarios</strong> (solo a vídeos), así que esa acción no existe en la
+app.</li>
+<li><strong>Moderar el chat en vivo:</strong> conéctate a un directo del
+que seas dueño o moderador. En la lista del chat, abre el menú
+contextual de un mensaje (tecla Aplicaciones o Mayúsculas+F10):
+aparecerán <strong>Expulsar 5 minutos</strong> y <strong>Banear del
+directo</strong>. Se pide confirmación antes de actuar.</li>
+<li><strong>Enviar un mensaje al chat del directo:</strong> botón
+<strong>Enviar al chat</strong> (se activa al conectarte a un directo
+con sesión iniciada).</li>
+</ul>
+<hr />
+<h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
+<p><strong>¿Es peligroso para mi cuenta?</strong> El permiso solo cubre
+acciones de YouTube (leer, comentar, moderar como tu canal). No puede
+cambiar tu contraseña, leer tu correo ni borrar tu cuenta. Puedes
+revocarlo cuando quieras desde <a
+href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</p>
+<p><strong>¿Dónde se guardan mis claves?</strong> En un archivo
+<code>credenciales.json</code> junto al programa, solo en tu equipo.
+Nunca se sube a internet ni al repositorio (está excluido por
+<code>.gitignore</code>).</p>
+<p><strong>¿Se nota que escribo desde una aplicación?</strong> Para los
+espectadores, no: tus mensajes y comentarios salen como tu canal, sin
+etiqueta. El único matiz es que YouTube a veces retiene o filtra los
+comentarios publicados por API más que los hechos desde la web.</p>
+<p><strong>Se agotó la cuota.</strong> Cada acción de escritura gasta
+unas 50 unidades y leer comentarios gasta muy poco. Si agotas las 10.000
+del día (uso muy intenso), se renueva al día siguiente.</p>
+<p><strong>Me pide iniciar sesión otra vez.</strong> Normal si dejaste
+la app en modo "Prueba": la sesión caduca a los 7 días. Pulsa "Iniciar
+sesión" de nuevo, o publica la app (paso 4) para que no caduque.</p>
+</body>
+</html>

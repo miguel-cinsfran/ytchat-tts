@@ -1,71 +1,56 @@
-# Changelog de YTChat TTS
+# Novedades de YTChat TTS
 
-Los cambios notables de cada versión. Las versiones siguen el esquema
-mayor.menor.parche; las 0.8.x fueron internas (previas a la primera release
-pública).
+Aquí se resumen los cambios de cada versión, en lenguaje sencillo. La versión
+actual aparece en la ventana «Acerca de» del programa (menú Ayuda).
 
-## Sin publicar (será la 2.0.0)
+## Próxima versión — 2.0 (aún no publicada)
 
-En `main`, pendiente de pulido y de pruebas con NVDA antes de lanzarse.
+Trae la novedad más grande hasta ahora: los directos de TikTok. Todavía se está
+puliendo y probando con lector de pantalla antes de lanzarla.
 
-### Añadido
-- **Directos de TikTok** (solo lectura, sin login): pegando una URL
-  `tiktok.com/@usuario/live` se lee el chat, los regalos (con su valor en
-  diamantes, anunciando el total al final de cada racha) y las suscripciones,
-  y el vídeo del directo se ve en el reproductor integrado (flujo HLS directo
-  en libVLC, sin yt-dlp). Usa la librería no oficial TikTokLive; en TikTok no
-  hay comentarios de vídeo, ni envío al chat, ni moderación.
-- Los anuncios al lector de pantalla ahora van también a la **línea braille**
-  (mismo patrón que TWBlue).
+### Novedades
 
-### Corregido
-- **La pantalla completa ya no es una trampa de teclado.** Antes solo atendía
-  Escape/F11: los atajos Ctrl+… (pausa, volumen, buscar) son aceleradores del
-  menú de la ventana principal y no llegaban a la ventana de pantalla completa,
-  así que quien no ve quedaba sin ningún control. Ahora esa ventana atiende
-  tanto los atajos configurados como las teclas convencionales de reproductor
-  (espacio pausa; flechas buscan ±10 s y ajustan volumen; M silencia; 0-9
-  salta al porcentaje; F o Escape salen). Al salir, el foco vuelve a un control
-  con nombre accesible del panel.
+- **Directos de TikTok.** Pega el enlace de un directo de TikTok
+  (`tiktok.com/@usuario/live`) y la aplicación lee el chat, los regalos y las
+  nuevas suscripciones con la misma voz, además de mostrar el vídeo en el
+  reproductor. De momento es solo para escuchar: en TikTok no se pueden enviar
+  comentarios ni moderar desde la aplicación.
+- **Aviso también por línea braille.** Los mensajes que la aplicación anuncia
+  por voz se envían también a la pantalla braille, para quien la usa.
 
-### Interno
-- Pipeline común de mensajes entrantes (`procesar_entrante`) compartido por
-  YouTube y TikTok: filtros, texto TTS, GUI y cola en un solo sitio.
+### Mejoras
 
-## 1.0.0 — 2026-07-08
+- **La pantalla completa ya se maneja por teclado.** Antes, al poner el vídeo a
+  pantalla completa, solo funcionaba la tecla Escape y no había forma de pausar,
+  cambiar el volumen ni moverse. Ahora responden tanto tus atajos como las
+  teclas de siempre: espacio pausa; las flechas buscan y ajustan el volumen; la
+  M silencia; los números del 0 al 9 saltan a esa parte del vídeo; y Escape o F
+  salen. Al salir, el foco vuelve a los controles del reproductor.
 
-Primera release pública. (Se publicó brevemente con el número 0.1.0 por un
-error de numeración; es la misma versión.)
+## Versión 1.0.0 — 8 de julio de 2026
 
-### Añadido
-- Selector de **voz** también en Preferencias → Lectura (antes solo estaba en
-  el menú Voz → Seleccionar voz).
+Primera versión pública de YTChat TTS.
 
-### Corregido
-- La lista del chat se desalineaba al superar los 500 mensajes: copiar,
-  releer, silenciar o **banear** podían caer sobre el mensaje equivocado, y el
-  último mensaje dejaba de responder. El modelo de la lista ahora vive en un
-  módulo puro con tests (`lista_chat.py`).
-- Alt+F4 en la pantalla completa del reproductor dejaba el vídeo dibujando en
-  una ventana muerta y rompía el siguiente intento de pantalla completa.
-- Un directo o vídeo de una sesión anterior ya no puede colar su sonido de
-  conexión ni lecturas TTS tras desconectar (el token de sesión cubre ahora
-  también la cola de lectura).
-- Ajustar velocidad/volumen del TTS muy rápido podía anunciar y guardar un
-  valor desfasado del real.
-- `construir.bat` creaba un archivo basura por una redirección accidental.
-- Los menús contextuales acumulaban manejadores de eventos con cada apertura.
-- «Cargar más» comentarios quedaba desactivado tras un error transitorio.
-- Etiquetas del editor de atajos: retroceder/avanzar es 1 minuto, no 10 s.
+### Novedades
 
-### Cambiado
-- README reescrito: corto y directo.
-- Los tests ya no ensucian el `ytchat.log` real.
+- Ahora se puede elegir la voz también desde Preferencias, en la pestaña
+  Lectura (antes solo estaba en el menú Voz).
 
-## 0.8.x — junio 2026 (internas)
+### Correcciones
 
-- 0.8.2: comentarios por menú contextual, fix del volumen del reproductor,
-  reset total al desconectar, reproductor minimalista con botones ocultables.
-- 0.8.1: reproductor precalentado, fix de reconexión, layout 3:2.
-- 0.8.0 y anteriores: rediseño a menú + pestañas, reproductor libVLC,
-  moderación por API oficial, panel de información del vídeo, temas de sonido.
+- En chats muy largos (a partir de unos 500 mensajes), algunas acciones del menú
+  del chat —copiar, volver a leer, silenciar o expulsar— podían aplicarse a un
+  mensaje distinto del seleccionado. Ya se corresponden siempre con el correcto.
+- Cerrar el vídeo a pantalla completa con Alt+F4 dejaba la imagen en negro; ya
+  no ocurre.
+- Al desconectarse de un directo y conectarse a otro, algún sonido o alguna
+  lectura del directo anterior podían colarse. Ahora cada sesión empieza limpia.
+- Subir o bajar la velocidad y el volumen de la voz muy rápido podía anunciar un
+  valor que no coincidía con el real.
+- Al recargar comentarios, si fallaba la conexión un momento, el botón «Cargar
+  más» se quedaba desactivado. Ya vuelve a estar disponible.
+
+## Versiones anteriores
+
+Las versiones 0.8 y anteriores fueron compilaciones internas de prueba, previas
+a la primera versión pública.

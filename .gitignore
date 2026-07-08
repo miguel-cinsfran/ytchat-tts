@@ -27,6 +27,8 @@ historial.txt
 CLAUDE.md
 claude.md
 INFORME_*.md
+# Tablero de control interno (estado y pendientes): no se versiona.
+estado.md
 
 # Scripts .bat locales sueltos. Los oficiales del proyecto SÍ se versionan.
 *.bat

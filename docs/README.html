@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>YTChat TTS — Léeme</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <style>
+  :root {
+    --fondo: #ffffff; --texto: #1c1917; --tenue: #57534e;
+    --acento: #b8452f; --borde: #e7e5e4; --codigo-fondo: #f5f5f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #1c1917; --texto: #e7e5e4; --tenue: #a8a29e;
+      --acento: #e8745c; --borde: #44403c; --codigo-fondo: #292524;
+    }
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.65; color: var(--texto); background: var(--fondo);
+    max-width: 46rem; margin: 0 auto; padding: 2rem 1.25rem 4rem;
+    font-size: 1.05rem;
+  }
+  h1, h2, h3 { line-height: 1.25; margin-top: 2.2rem; }
+  h1 { font-size: 1.9rem; color: var(--acento); border-bottom: 2px solid var(--borde); padding-bottom: .4rem; }
+  h2 { font-size: 1.4rem; border-bottom: 1px solid var(--borde); padding-bottom: .3rem; }
+  h3 { font-size: 1.15rem; color: var(--tenue); }
+  a { color: var(--acento); }
+  code {
+    background: var(--codigo-fondo); padding: .12em .35em;
+    border-radius: 4px; font-size: .9em;
+  }
+  pre {
+    background: var(--codigo-fondo); padding: 1rem; border-radius: 6px;
+    overflow-x: auto; border: 1px solid var(--borde);
+  }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; overflow-x: auto; display: block; }
+  th, td { border: 1px solid var(--borde); padding: .5rem .7rem; text-align: left; }
+  th { background: var(--codigo-fondo); }
+  blockquote {
+    border-left: 3px solid var(--acento); margin: 1rem 0;
+    padding: .2rem 1rem; color: var(--tenue);
+  }
+  hr { border: none; border-top: 1px solid var(--borde); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+<h1 id="ytchat-tts">YTChat TTS</h1>
+<p>Lector del chat de YouTube Live con las voces SAPI5 de Windows,
+pensado para streamers ciegos o con baja visión. Toda la interfaz se
+maneja con teclado y está probada con NVDA.</p>
+<p>Versión 1.0.0 · Windows 10/11. Historial de cambios en <a
+href="Novedades.html">CHANGELOG.md</a>.</p>
+<h2 id="qué-hace">Qué hace</h2>
+<p>Pegas la URL de un directo (o de un vídeo normal) y la app se conecta
+sola:</p>
+<ul>
+<li><strong>Chat en vivo</strong>: lee cada mensaje con una voz SAPI5,
+con sonidos distintos para mensajes, Super Chats y membresías. Se puede
+pausar, cambiar de voz y de velocidad al vuelo, filtrar por palabras o
+usuarios, y silenciar a alguien en el momento desde el menú
+contextual.</li>
+<li><strong>Comentarios</strong>: si la URL es un vídeo subido, muestra
+sus comentarios y los lee con la misma voz. Con sesión iniciada se puede
+comentar y responder.</li>
+<li><strong>Reproductor integrado</strong>: ve el directo o el vídeo
+dentro de la app (libVLC), con calidad seleccionable, pantalla completa
+y volumen propio, todo por teclado. Es minimalista por defecto; los
+botones en pantalla son opcionales.</li>
+<li><strong>Moderación</strong> (opcional, con la API oficial de
+YouTube): expulsar o banear usuarios del chat y enviar mensajes al
+directo.</li>
+<li><strong>Pestaña Información</strong>: canal, vistas, fecha y
+descripción del vídeo, con los enlaces clicables.</li>
+<li><strong>Directos de TikTok</strong> (en desarrollo, saldrá en la
+2.0): pega una URL tipo <code>tiktok.com/@usuario/live</code> y lee el
+chat, los regalos y las suscripciones con la misma voz, con el vídeo del
+directo en el reproductor. Solo lectura: en TikTok no se puede comentar
+ni moderar desde la app.</li>
+</ul>
+<p>Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS)
+y cada control tiene nombre accesible. Hay navegación por regiones con
+F6 y una barra de menú nativa donde se ven todos los atajos.</p>
+<h2 id="cómo-usarla">Cómo usarla</h2>
+<p><strong>Con el ejecutable</strong> (lo normal): descomprime el ZIP en
+cualquier carpeta y abre <code>YTChatTTS.exe</code>. No necesita Python
+ni instalación; libVLC ya viene incluido. Solo hace falta tener al menos
+una voz SAPI5 en Windows (<em>Configuración → Hora e idioma →
+Voz</em>).</p>
+<p><strong>Desde el código fuente</strong>: instala <a
+href="https://docs.astral.sh/uv/">uv</a> y ejecuta
+<code>instalar.bat</code> (crea el entorno e instala las dependencias) y
+después <code>ejecutar.bat</code>. Para generar el ZIP distribuible:
+<code>construir.bat</code>.</p>
+<p>Una vez abierta: pega la URL, Enter o el botón
+<strong>Conectar</strong>, y listo. F6 cambia de región (conexión /
+contenido / reproductor), Ctrl+Tab cambia de pestaña, y la tecla
+Aplicaciones abre el menú contextual sobre el chat o los
+comentarios.</p>
+<h2 id="atajos-principales">Atajos principales</h2>
+<p>El modificador indica el área: <strong>Ctrl</strong> para el
+reproductor, <strong>Alt</strong> para la conexión y el chat,
+<strong>teclas F</strong> para la voz. Se editan en Preferencias →
+Atajos.</p>
+<ul>
+<li>Alt+C / Alt+D — conectar / desconectar.</li>
+<li>F5 — pausar o reanudar la lectura. F8 — callar la voz actual.</li>
+<li>F9/F10 y F11/F12 — velocidad y volumen del TTS.</li>
+<li>Ctrl+P — reproducir/pausa. Ctrl+← / Ctrl+→ — retroceder/avanzar 1
+minuto.</li>
+<li>Ctrl+↑ / Ctrl+↓ — volumen del reproductor. Ctrl+F — pantalla
+completa.</li>
+<li>F2 — anunciar el estado por voz.</li>
+</ul>
+<p>La lista completa está en la barra de menú, junto a cada acción.</p>
+<h2 id="configuración">Configuración</h2>
+<p>Casi todo se ajusta en <strong>Herramientas → Preferencias</strong>
+(voz, lectura, filtros, atajos, API) y se aplica al momento. Por debajo
+queda en <code>config.ini</code> y <code>sounds.ini</code>, editables
+con el Bloc de notas; si se borran, se regeneran.</p>
+<p>Las funciones de la API de YouTube (comentarios, moderación, enviar
+al chat) son opcionales y usan credenciales propias de cada usuario. La
+guía paso a paso, pensada para lectores de pantalla, está en <a
+href="docs/CONFIGURACION_API.html">docs/CONFIGURACION_API.md</a>.</p>
+<h2 id="problemas-frecuentes">Problemas frecuentes</h2>
+<ul>
+<li><strong>No hay voces</strong>: añade una en <em>Configuración → Hora
+e idioma → Voz</em>. Las voces neurales de Windows 11 no aparecen en
+SAPI5 por defecto; la herramienta gratuita <em>TTSVoicePatcher</em> las
+expone.</li>
+<li><strong>"Windows protegió tu PC"</strong> al abrir el exe: es
+SmartScreen porque el ejecutable no está firmado. <em>Más información →
+Ejecutar de todos modos</em>.</li>
+<li><strong>El antivirus marca el exe</strong>: falso positivo típico de
+PyInstaller; añade la carpeta a las exclusiones.</li>
+<li><strong>Algo falla</strong>: <code>ytchat.log</code>, junto al
+ejecutable, guarda los errores. En operación normal está vacío.</li>
+</ul>
+<h2 id="pruebas">Pruebas</h2>
+<pre><code>uv run python -m unittest discover -s tests   # lógica pura, corre en cualquier SO
+uv run python smoke_test.py                   # imports de GUI + árbol de accesibilidad (Windows)</code></pre>
+<h2 id="licencia">Licencia</h2>
+<p>MIT — ver <a href="LICENSE">LICENSE</a>.</p>
+</body>
+</html>
