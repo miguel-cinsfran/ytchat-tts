@@ -23,6 +23,10 @@ Pegas la URL de un directo (o de un vídeo normal) y la app se conecta sola:
   usuarios del chat y enviar mensajes al directo.
 - **Pestaña Información**: canal, vistas, fecha y descripción del vídeo, con
   los enlaces clicables.
+- **Directos de TikTok** (experimental): pega una URL tipo
+  `tiktok.com/@usuario/live` y lee el chat, los regalos y las suscripciones
+  con la misma voz, con el vídeo del directo en el reproductor. Solo lectura:
+  en TikTok no se puede comentar ni moderar desde la app.
 
 Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS) y cada
 control tiene nombre accesible. Hay navegación por regiones con F6 y una barra

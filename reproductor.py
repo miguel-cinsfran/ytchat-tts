@@ -248,6 +248,9 @@ class ReproductorPanel(wx.Panel):
         super().__init__(parent, name="PanelReproductor")
         self._config = config
         self._video_id = ""
+        # URL de flujo directa (HLS de TikTok): reproduce sin pasar por yt-dlp.
+        # Excluyente con _video_id: solo una de las dos fuentes está activa.
+        self._url_flujo = ""
         self._cargando = False
         # «Generación» de carga: cada stop/desconexión la incrementa, así una
         # carga de yt-dlp que quedó en vuelo se descarta al volver (si no, al
@@ -503,6 +506,7 @@ class ReproductorPanel(wx.Panel):
 
     def set_video(self, video_id: str, autoplay: bool = True) -> None:
         self._video_id = video_id or ""
+        self._url_flujo = ""
         if not self._listo:
             return
         self._detener(silencioso=True)
@@ -514,10 +518,29 @@ class ReproductorPanel(wx.Panel):
         else:
             self.lbl_estado.SetLabel("Listo. Pulsa Reproducir.")
 
+    def set_flujo(self, url: str, autoplay: bool = True) -> None:
+        """Reproduce una URL de flujo directa (el HLS de un directo de TikTok).
+        Sin yt-dlp ni calidades: la URL ya viene resuelta por quien conecta."""
+        self._video_id = ""
+        self._url_flujo = (url or "").strip()
+        if not self._listo:
+            return
+        self._detener(silencioso=True)
+        self._info = None
+        self._calidad_sel = None
+        self._alturas = []
+        if self._url_flujo and autoplay:
+            self._reproducir_flujo()
+        elif self._url_flujo:
+            self.lbl_estado.SetLabel("Listo. Pulsa Reproducir.")
+        else:
+            self.lbl_estado.SetLabel("Este directo no trae vídeo reproducible.")
+
     def detener_todo(self) -> None:
         # Olvidar el vídeo actual: al desconectar el reproductor queda en blanco,
         # como recién abierta la app (sin un id viejo que pudiera relanzarse).
         self._video_id = ""
+        self._url_flujo = ""
         if self._listo:
             if self._fs:
                 self.alternar_pantalla_completa()
@@ -594,6 +617,32 @@ class ReproductorPanel(wx.Panel):
         if reproducir:
             anunciar("Reproduciendo")
 
+    def _reproducir_flujo(self, reproducir: bool = True):
+        """Arranca la URL de flujo directa en VLC (mismo camino final que
+        _reproducir_calidad, pero sin pasar por la info de yt-dlp)."""
+        if not self._url_flujo or not self._asegurar_player():
+            anunciar("El reproductor no está disponible.")
+            return
+        try:
+            media = self._inst.media_new(self._url_flujo)
+            for opt in _MEDIA_OPTS:
+                media.add_option(opt)
+            self._player.set_media(media)
+            self._player.audio_set_volume(self._vol)
+            self._player.audio_set_mute(self._muted)
+            if reproducir:
+                self._player.play()
+                self._mostrar_pausa(True)
+                self._timer.Start(500)
+        except Exception as exc:
+            logger.warning("reproducir flujo: %s", exc)
+            self._error_carga()
+            return
+        self._pos_ms = self._dur_ms = 0
+        self.lbl_estado.SetLabel("Reproduciendo." if reproducir else "Listo.")
+        if reproducir:
+            anunciar("Reproduciendo")
+
     def set_calidad(self, altura):
         """altura=None → automática; si no hay info aún, se aplica al cargar."""
         self._calidad_sel = altura
@@ -637,6 +686,8 @@ class ReproductorPanel(wx.Panel):
         else:
             if self._video_id:
                 self.cargar(reproducir=True)
+            elif self._url_flujo:
+                self._reproducir_flujo()
 
     def _detener(self, silencioso: bool = False):
         # Invalida cualquier carga en vuelo (yt-dlp) y desbloquea futuras cargas:

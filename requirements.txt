@@ -28,6 +28,16 @@ google-api-python-client>=2.100
 google-auth-oauthlib>=1.2
 google-auth>=2.30
 
+# ── TikTok Live (OPCIONAL): chat y reproductor de directos de TikTok ──────────
+# Librería NO oficial (como pytchat para YouTube). Solo lectura, sin login.
+# betterproto va pineado en su beta porque TikTokLive 6.x lo exige y uv no
+# instala prereleases sin un pin explícito. httpx se limita a <1 para que
+# convivan pytchat y TikTokLive. Sin estas dependencias, la rama TikTok avisa
+# y el resto de la app funciona igual.
+betterproto==2.0.0b7
+httpx>=0.25,<1
+TikTokLive>=6.6,<7
+
 # ── Reproductor de audio (OPCIONAL) ───────────────────────────────────────────
 # Para el reproductor: yt-dlp extrae la URL del flujo de audio y libVLC
 # (python-vlc) lo reproduce. python-vlc necesita VLC instalado en el equipo

@@ -83,6 +83,12 @@ def anunciar(texto: str) -> None:
         _ao2.speak(texto, interrupt=True)
     except Exception:
         pass
+    # También a la línea braille, como hace TWBlue (output.speak): quien usa
+    # pantalla braille sin voz recibe igualmente los anuncios de la app.
+    try:
+        _ao2.braille(texto)
+    except Exception:
+        pass
 
 
 # ── Paleta «piedra cálida + terracota» ───────────────────────────────────────
@@ -1214,6 +1220,25 @@ class YTChatFrame(wx.Frame):
             self.nb.SetSelection(PAG_COMENTARIOS)
         else:
             self.lbl_tipo.SetLabel("Tipo no determinado: intentando leer el chat.")
+
+    def configurar_tiktok(self, usuario: str, url_flujo: str) -> None:
+        """Prepara la ventana para un directo de TikTok: chat en limpio, pestaña
+        de chat al frente, comentarios fuera (TikTok no los tiene aquí) y el
+        reproductor con la URL HLS directa. Lo llama main vía wx.CallAfter."""
+        if not self._alive:
+            return
+        self._tipo_video = deteccion.LIVE
+        self._chat.limpiar()
+        self._sc_totales.clear()
+        try:    self.lb_chat.Clear()
+        except Exception: pass
+        try:    self._com_panel.limpiar()
+        except Exception: pass
+        autoplay = bool(self._config.get("autoplay_reproductor", True))
+        try:    self._rep_panel.set_flujo(url_flujo, autoplay=autoplay)
+        except Exception as exc: logger.debug("reproductor tiktok: %s", exc)
+        self.lbl_tipo.SetLabel(f"Directo de TikTok de @{usuario}: leyendo el chat.")
+        self.nb.SetSelection(PAG_CHAT)
 
     def set_url(self, url: str) -> None:
         self.txt_url.SetValue(url)

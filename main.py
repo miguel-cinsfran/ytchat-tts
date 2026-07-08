@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd
 import deteccion
+import tiktok_captura
 
 
 # Traducción pytchat → tipos internos.
@@ -292,6 +293,48 @@ def debe_leer_tts(autor: str, config: dict) -> bool:
     return autor.lower().strip() not in config.get("silenciados_runtime", set())
 
 
+def procesar_entrante(autor, mensaje, tipo, monto, canal_id, cola, config, stats,
+                      on_message=None, sesion_activa=None,
+                      etiqueta_monto="Super Chat"):
+    """Pipeline común de cada mensaje entrante (YouTube y TikTok): contadores,
+    filtros, texto TTS, aviso a la GUI y encolado de lectura.
+
+    etiqueta_monto: cómo llamar al mensaje con importe al leerlo («Super Chat»
+    en YouTube, «Regalo» en TikTok). sesion_activa() evita que un hilo rezagado
+    cuele lecturas de una sesión anterior; el descarte de GUI lo hace on_message.
+    """
+    stats.inc("recibidos")
+    if tipo in (TIPO_SUPERCHAT, TIPO_STICKER):
+        stats.inc("superchats")
+
+    if not permitido(autor, mensaje, config):
+        stats.inc("filtrados"); return
+
+    ml = sanitizar(mensaje, config["limpiar_emojis"],
+                   config["eliminar_urls"], config["max_longitud_mensaje"])
+    if tipo == TIPO_TEXTO and not ml.strip():
+        stats.inc("filtrados"); return
+
+    umbral = config.get("umbral_solo_nombre", 0)
+    if tipo == TIPO_SUPERCHAT and monto:
+        tts_text = (f"{etiqueta_monto} de {autor}: {monto}. {ml}" if ml
+                    else f"{etiqueta_monto} de {autor}: {monto}")
+    elif tipo == TIPO_MIEMBRO:
+        tts_text = f"Nuevo miembro: {autor}"
+    elif umbral > 0 and cola.qsize() >= umbral:
+        tts_text = sanitizar(autor, config["limpiar_emojis"], False, 50) or "Usuario"
+    else:
+        tts_text = construir_tts(autor, ml or mensaje, config)
+
+    hora = datetime.now().strftime('%H:%M:%S')
+    if on_message:
+        on_message(autor, mensaje, hora, tipo, monto, canal_id)
+
+    if debe_leer_tts(autor, config) and (sesion_activa is None or sesion_activa()):
+        encolar(cola, {"texto_tts": tts_text}, config, stats)
+        stats.inc("leidos")
+
+
 # ── Captura de chat ──────────────────────────────────────────────────────────
 
 _ERRORES_PERMANENTES = (
@@ -363,7 +406,6 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
     logger.info("Conectado al directo.")
 
     inicio = datetime.now(timezone.utc)
-    umbral = config.get("umbral_solo_nombre", 0)
     err_con, MAX_ERR = 0, 5
     ultimo_error = None
 
@@ -382,42 +424,15 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
                     tipo_raw = _str(getattr(c, "type", None), "textMessage")
                     tipo     = _TIPO_MAP.get(tipo_raw, None)
                     if tipo is None: continue
-                    stats.inc("recibidos")
 
                     monto = ""
                     if tipo in (TIPO_SUPERCHAT, TIPO_STICKER):
                         monto = _str(getattr(c, "amountString", None), "")
-                        stats.inc("superchats")
 
-                    if not permitido(autor, mensaje, config):
-                        stats.inc("filtrados"); continue
-
-                    ml = sanitizar(mensaje, config["limpiar_emojis"],
-                                   config["eliminar_urls"], config["max_longitud_mensaje"])
-
-                    if tipo == TIPO_TEXTO and not ml.strip():
-                        stats.inc("filtrados"); continue
-
-                    if tipo == TIPO_SUPERCHAT and monto:
-                        tts_text = f"Super Chat de {autor}: {monto}. {ml}" if ml else f"Super Chat de {autor}: {monto}"
-                    elif tipo == TIPO_MIEMBRO:
-                        tts_text = f"Nuevo miembro: {autor}"
-                    elif umbral > 0 and cola.qsize() >= umbral:
-                        tts_text = sanitizar(autor, config["limpiar_emojis"], False, 50) or "Usuario"
-                    else:
-                        tts_text = construir_tts(autor, ml or mensaje, config)
-
-                    hora = datetime.now().strftime('%H:%M:%S')
-                    if on_message:
-                        on_message(autor, mensaje, hora, tipo, monto, canal_id)
-
-                    # sesion_activa: que un hilo rezagado (bloqueado en red al
-                    # desconectar) no cuele lecturas de la sesión anterior en la
-                    # cola TTS ya vaciada. El descarte de GUI lo hace on_message.
-                    if debe_leer_tts(autor, config) and (
-                            sesion_activa is None or sesion_activa()):
-                        encolar(cola, {"texto_tts": tts_text}, config, stats)
-                        stats.inc("leidos")
+                    procesar_entrante(autor, mensaje, tipo, monto, canal_id,
+                                      cola, config, stats,
+                                      on_message=on_message,
+                                      sesion_activa=sesion_activa)
 
                 err_con = 0
             except Exception as exc:
@@ -557,6 +572,12 @@ def main():
 
     def _cb_conectar(url_raw):
         import gui as _gm
+        # ¿Es una URL de TikTok? Va por su propia rama de captura (fase 1:
+        # chat + reproductor, sin comentarios ni moderación).
+        usuario_tt = tiktok_captura.usuario_de_url(url_raw)
+        if usuario_tt:
+            _conectar_tiktok(usuario_tt)
+            return
         vid = extraer_video_id(url_raw)
         # Validar el formato ANTES de tocar la red: si no es un ID de 11
         # caracteres, es basura. Se rechaza al instante (sin esperas ni freeze).
@@ -631,6 +652,82 @@ def main():
                     _snd.reproducir("conectado")
 
         threading.Thread(target=_run, daemon=True, name="Chat").start()
+
+    def _conectar_tiktok(usuario):
+        """Rama TikTok: mismo esquema de sesión (ps + gen) que YouTube, con la
+        captura de tiktok_captura y el pipeline común procesar_entrante."""
+        import gui as _gm
+        ps = threading.Event()
+        _estado["parada_sesion"] = ps
+        _estado["gen"] += 1
+        gen = _estado["gen"]
+
+        def _on_msg(autor, mensaje, hora, tipo=TIPO_TEXTO, monto="", canal_id=""):
+            if gen != _estado["gen"]:
+                return
+            if _gm._gui_frame and _gm._gui_frame._alive:
+                wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
+                             autor, mensaje, hora, tipo, monto, canal_id)
+
+        def _on_evento(autor, mensaje, tipo, monto, canal_id):
+            if gen != _estado["gen"]:
+                return
+            procesar_entrante(autor, mensaje, tipo, monto, canal_id,
+                              cola, config, stats, on_message=_on_msg,
+                              sesion_activa=lambda: gen == _estado["gen"],
+                              etiqueta_monto="Regalo")
+
+        def _on_estado(tipo_estado, texto):
+            if gen != _estado["gen"]:
+                return
+            frame = _gm._gui_frame
+            if not frame or not frame._alive:
+                return
+            # Los sonidos van aquí (no en tiktok_captura, que queda sin wx ni
+            # audio): mismo mapa de eventos que la captura de YouTube.
+            if tipo_estado in ("conectando", "reintentando"):
+                _snd.reproducir("conectando")
+                if tipo_estado == "reintentando":
+                    stats.inc("reconexiones")
+            elif tipo_estado == "conectado":
+                _snd.reproducir("conectado")
+                wx.CallAfter(frame.set_conectado, True)
+                return  # set_conectado ya anuncia el mensaje adecuado
+            elif tipo_estado in ("error_permanente", "error"):
+                _snd.reproducir("error")
+                wx.CallAfter(frame.set_conectado, False)
+                wx.CallAfter(frame.set_titulo_stream, "")
+            elif tipo_estado == "desconectado":
+                wx.CallAfter(frame.set_conectado, False)
+                wx.CallAfter(frame.set_titulo_stream, "")
+            from gui import anunciar
+            wx.CallAfter(anunciar, texto)
+
+        def _on_info(meta):
+            # Llega al conectar, con título, espectadores y la URL HLS del
+            # directo (clave interna que consume el reproductor, no el panel).
+            if gen != _estado["gen"]:
+                return
+            frame = _gm._gui_frame
+            if not frame or not frame._alive:
+                return
+            url_flujo = meta.pop("_url_flujo", "")
+            titulo = (meta.get("titulo") or "").strip() or f"TikTok de @{usuario}"
+            wx.CallAfter(frame.set_titulo_stream, titulo)
+            wx.CallAfter(frame.configurar_tiktok, usuario, url_flujo)
+            wx.CallAfter(frame.set_metadatos, meta)
+
+        def _run():
+            tiktok_captura.capturar_con_reconexion(
+                usuario, config, ps,
+                on_evento=_on_evento, on_estado=_on_estado, on_info=_on_info)
+            # Igual que en YouTube: solo apagar la UI si seguimos siendo la
+            # sesión activa (un hilo viejo no debe pisar el directo nuevo).
+            if gen == _estado["gen"] and _gm._gui_frame and not parada.is_set():
+                wx.CallAfter(_gm._gui_frame.set_conectado, False)
+                wx.CallAfter(_gm._gui_frame.set_titulo_stream, "")
+
+        threading.Thread(target=_run, daemon=True, name="TikTok").start()
 
     def _cb_desconectar():
         ps = _estado.get("parada_sesion")
