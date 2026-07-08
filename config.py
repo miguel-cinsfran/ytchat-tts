@@ -283,6 +283,18 @@ mostrar_metadatos = true
 [sesion]
 guardar_historial = no
 silenciar_lectura = false
+# Componentes que anuncia F2 (estado de sesion). Editable en
+# Preferencias > Estado (F2). true = se dice; false = no.
+[estado]
+estado = true
+titulo = true
+canal = true
+espectadores = true
+mensajes_leidos = true
+aportes = true
+en_cola = false
+voz = false
+lectura_silenciada = true
 """
 
 _SOUNDS_FALLBACK = """\
@@ -432,6 +444,19 @@ def cargar_configuracion() -> dict:
     if not p.has_option("sesion", "silenciar_lectura"):
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
 
+    # Estado (F2): un booleano por componente. Si falta la sección, se crea con
+    # los valores por defecto (lo relevante activado; lo técnico apagado).
+    from estado_sesion import COMPONENTES as _EST_COMP, ACTIVOS_DEFECTO as _EST_DEF
+    if not p.has_section("estado"):
+        for comp in _EST_COMP:
+            guardar_opcion(ruta, "estado", comp, "true" if comp in _EST_DEF else "false")
+    estado_toggles = set()
+    for comp in _EST_COMP:
+        try:    activo = p.getboolean("estado", comp)
+        except Exception: activo = comp in _EST_DEF
+        if activo:
+            estado_toggles.add(comp)
+
     filtro_activo = _gs(p, "ui", "filtro_activo").lower()
     if filtro_activo not in ("todos", "texto", "superchat", "miembro"):
         filtro_activo = "todos"
@@ -461,6 +486,7 @@ def cargar_configuracion() -> dict:
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),
         "guardar_historial": guardar,
         "silenciar_lectura": _pb(p, "sesion", "silenciar_lectura"),
+        "estado_toggles": estado_toggles,
         "atajos_raw": atajos_raw,
         "ruta_config": ruta,
     }

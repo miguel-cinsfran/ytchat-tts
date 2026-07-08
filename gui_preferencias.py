@@ -16,6 +16,7 @@ import webbrowser
 import wx
 
 import config as cfg
+import estado_sesion
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -72,6 +73,7 @@ class PreferenciasDialog(wx.Dialog):
         _tc(self.nb, bg=_T.surface)
         self.nb.AddPage(self._pag_interfaz(self.nb), "Interfaz")
         self.nb.AddPage(self._pag_lectura(self.nb), "Lectura")
+        self.nb.AddPage(self._pag_estado(self.nb), "Estado (F2)")
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
@@ -200,6 +202,33 @@ class PreferenciasDialog(wx.Dialog):
                                    name="Longitud máxima del mensaje")
         _tc(self.sp_long)
         vs.Add(self.sp_long, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_estado(self, parent):
+        """Una casilla por componente del anuncio de estado (tecla F2). Sin
+        colores en las casillas: en Windows eso rompe su rol accesible."""
+        p = self._make_panel(parent, "PagEstado")
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        nota = wx.StaticText(p, name="NotaEstado", label=(
+            "Elige qué dice la tecla F2 (estado de sesión). Marca lo que quieras "
+            "oír; por defecto, los datos del vídeo y del chat. El orden en que se "
+            "dice es fijo."))
+        nota.SetForegroundColour(_T.dim)
+        nota.Wrap(560)
+        vs.Add(nota, 0, wx.ALL, 10)
+
+        activos = self._config.get("estado_toggles") or estado_sesion.ACTIVOS_DEFECTO
+        self._chk_estado: dict = {}
+        for comp in estado_sesion.COMPONENTES:
+            chk = wx.CheckBox(p, label=estado_sesion.ETIQUETAS.get(comp, comp),
+                              name=f"EstadoComponente_{comp}")
+            chk.SetForegroundColour(_T.text)
+            chk.SetValue(comp in activos)
+            self._chk_estado[comp] = chk
+            vs.Add(chk, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
 
         p.SetSizer(vs)
         return p
@@ -493,6 +522,15 @@ class PreferenciasDialog(wx.Dialog):
         longitud = str(self.sp_long.GetValue())
         self._set("texto", "max_longitud_mensaje", longitud)
         c["max_longitud_mensaje"] = int(longitud)
+
+        # Estado (F2): una clave por componente + el set en memoria.
+        activos = set()
+        for comp, chk in self._chk_estado.items():
+            on = chk.GetValue()
+            self._set("estado", comp, "true" if on else "false")
+            if on:
+                activos.add(comp)
+        c["estado_toggles"] = activos
 
         # Filtros
         palabras = self.txt_palabras.GetValue().strip()

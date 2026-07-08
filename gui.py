@@ -22,6 +22,7 @@ from config import (
 from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
 import deteccion
 import metadatos
+import estado_sesion
 from lista_chat import ListaChat
 import sound_player as _snd
 import credenciales
@@ -218,6 +219,7 @@ class YTChatFrame(wx.Frame):
         self._conectado = False
         self._titulo_stream = ""
         self._tipo_video = deteccion.DESCONOCIDO
+        self._es_tiktok = False   # para que F2 distinga TikTok de YouTube (ambos LIVE)
 
         self._chat = ListaChat(MAX_ITEMS_CHAT)
         self._filtro = None
@@ -828,25 +830,55 @@ class YTChatFrame(wx.Frame):
         guardar_opcion(RUTA_CONFIG, "sesion", "silenciar_lectura", "true" if nuevo else "false")
         anunciar("Lectura TTS silenciada" if nuevo else "Lectura TTS activada")
 
-    def _anunciar_estado(self):
-        partes = []
-        if self._conectado and self._titulo_stream:
-            partes.append(f"Conectado a {self._titulo_stream[:40]}")
-        elif self._conectado:
-            partes.append("Conectado")
+    def _snapshot_sesion(self) -> estado_sesion.SnapshotSesion:
+        """Reúne el estado actual para F2. Los datos del vídeo salen de los
+        metadatos capturados al conectar (título, canal, espectadores)."""
+        # Tipo: hay que distinguir TikTok de YouTube (ambos son LIVE por dentro).
+        if self._conectado and self._es_tiktok:
+            tipo = "live_tiktok"
+        elif self._tipo_video == deteccion.LIVE:
+            tipo = "live_youtube"
+        elif self._tipo_video == deteccion.VOD:
+            tipo = "vod"
+        elif self._tipo_video == deteccion.UPCOMING:
+            tipo = "upcoming"
         else:
-            partes.append("Desconectado")
-        try:    partes.append(f"cola {self._cola.qsize()}")
-        except Exception: pass
-        try:    partes.append(f"leídos {self._stats.leidos}")
-        except Exception: pass
-        try:    partes.append(f"velocidad {self._worker.get_rate():+d}")
-        except Exception: pass
-        try:    partes.append(f"volumen {self._worker.get_volume()} por ciento")
-        except Exception: pass
-        if self._config.get("silenciar_lectura", False):
-            partes.append("lectura silenciada")
-        anunciar(". ".join(partes))
+            tipo = ""
+        meta = self._metadatos or {}
+        espectadores = meta.get("vistas")
+        try:    espectadores = int(espectadores) if espectadores is not None else None
+        except (TypeError, ValueError): espectadores = None
+        def _seguro(fn, defecto):
+            try:    return fn()
+            except Exception: return defecto
+        return estado_sesion.SnapshotSesion(
+            conectado=self._conectado,
+            tipo=tipo,
+            titulo=self._titulo_stream,
+            canal=(meta.get("canal") or "").strip(),
+            espectadores=espectadores,
+            mensajes_leidos=_seguro(lambda: self._stats.leidos, 0),
+            aportes=_seguro(lambda: self._stats.superchats, 0),
+            total_aportes=self._total_aportes_texto(),
+            en_cola=_seguro(lambda: self._cola.qsize(), 0),
+            voz_velocidad=_seguro(lambda: self._worker.get_rate(), 0),
+            voz_volumen=_seguro(lambda: self._worker.get_volume(), 0),
+            lectura_silenciada=bool(self._config.get("silenciar_lectura", False)),
+        )
+
+    def _total_aportes_texto(self) -> str:
+        """Solo el importe acumulado de Super Chats (sin el «SC: n»), para F2."""
+        if not self._sc_totales:
+            return ""
+        if len(self._sc_totales) == 1:
+            d, t = next(iter(self._sc_totales.items()))
+            return f"{d}{t:.2f}"
+        return ", ".join(f"{d}{t:.0f}" for d, t in self._sc_totales.items())
+
+    def _anunciar_estado(self):
+        toggles = self._config.get("estado_toggles") or estado_sesion.ACTIVOS_DEFECTO
+        texto = estado_sesion.formatear_estado(self._snapshot_sesion(), toggles)
+        anunciar(texto or "Sin información de estado.")
 
     # ── Enviar al chat del directo (API oficial) ─────────────────────────────
 
@@ -1184,6 +1216,7 @@ class YTChatFrame(wx.Frame):
         self._live_chat_id = ""
         self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
+        self._es_tiktok = False
         # Chat: datos y lista visible.
         self._chat.limpiar()
         try:    self.lb_chat.Clear()
@@ -1235,6 +1268,7 @@ class YTChatFrame(wx.Frame):
         if not self._alive:
             return
         self._tipo_video = tipo
+        self._es_tiktok = False   # esta ruta es la de YouTube
         # Empezar el chat en limpio en cada conexión: el reset al desconectar ya
         # lo hace, pero así garantizamos que nunca quede nada del vídeo anterior.
         self._chat.limpiar()
@@ -1269,6 +1303,7 @@ class YTChatFrame(wx.Frame):
         if not self._alive:
             return
         self._tipo_video = deteccion.LIVE
+        self._es_tiktok = True
         self._chat.limpiar()
         self._sc_totales.clear()
         try:    self.lb_chat.Clear()
