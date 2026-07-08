@@ -664,7 +664,10 @@ class ReproductorPanel(wx.Panel):
         if self._listo:
             if self._fs:
                 self.alternar_pantalla_completa()
-            self._detener(silencioso=True)
+            # Parada en segundo plano: stop() de un flujo en vivo puede tardar
+            # varios segundos y, al llamarse desde el hilo de la GUI (desconexión),
+            # congelaba la ventana hasta que terminaba.
+            self._detener(silencioso=True, en_segundo_plano=True)
 
     # ── Carga / reproducción ──────────────────────────────────────────────────
 
@@ -809,15 +812,28 @@ class ReproductorPanel(wx.Panel):
             elif self._url_flujo:
                 self._reproducir_flujo()
 
-    def _detener(self, silencioso: bool = False):
+    def _detener(self, silencioso: bool = False, en_segundo_plano: bool = False):
         # Invalida cualquier carga en vuelo (yt-dlp) y desbloquea futuras cargas:
         # sin esto, una carga que termina tras detener/desconectar rearrancaba la
         # reproducción al volver por wx.CallAfter.
         self._gen += 1
         self._cargando = False
         if self._player is not None:
-            try:    self._player.stop()
-            except Exception: pass
+            if en_segundo_plano:
+                # Soltar el player en un hilo: stop()+release() de un flujo en
+                # vivo puede bloquear segundos. Lo dejamos en None para que el
+                # siguiente uso cree uno nuevo (sin carreras con el que se cierra).
+                player = self._player
+                self._player = None
+                def _cerrar():
+                    try:    player.stop()
+                    except Exception: pass
+                    try:    player.release()
+                    except Exception: pass
+                threading.Thread(target=_cerrar, daemon=True, name="ReproductorStop").start()
+            else:
+                try:    self._player.stop()
+                except Exception: pass
         if hasattr(self, "_timer"):
             self._timer.Stop()
         if hasattr(self, "btn_play"):

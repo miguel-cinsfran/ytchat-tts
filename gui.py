@@ -37,6 +37,13 @@ MAX_ITEMS_CHAT  = 500
 TIMER_STATUS_MS = 1000
 ANCHO_DEFECTO   = 860
 ALTO_DEFECTO    = 700
+
+# Mensaje bajo la barra de URL cuando no hay conexión. Breve pero completo:
+# qué se puede pegar y cómo conectar.
+MENSAJE_INICIAL = ("Sin conectar. Pega un enlace de YouTube (directo o vídeo) o "
+                   "de un directo de TikTok y pulsa Conectar (Alt+C). En YouTube "
+                   "podrás leer el chat y los comentarios; en TikTok, el chat del "
+                   "directo.")
 RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 
@@ -50,6 +57,10 @@ REG_CONEXION = 0
 REG_CONTENIDO = 1
 REG_REPRODUCTOR = 2
 _NOMBRE_REGION = ("Conexión", "Contenido", "Reproductor")
+
+# Posición del menú «Reproductor» en la barra (Archivo, Ver, Voz, Reproductor,
+# Herramientas, Ayuda). Se deshabilita entero cuando no hay conexión.
+POS_MENU_REPRODUCTOR = 3
 
 logger = logging.getLogger(__name__)
 
@@ -282,7 +293,7 @@ class YTChatFrame(wx.Frame):
             it = sub_f.AppendRadioItem(wx.ID_ANY, nombre)
             self.fi_items.append(it)
             self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_filtro(idx), it)
-        m.AppendSubMenu(sub_f, "&Filtro de mensajes")
+        self._mi_filtro_sub = m.AppendSubMenu(sub_f, "&Filtro de mensajes")
         m.AppendSeparator()
         mi_estado = m.Append(wx.ID_ANY, "&Anunciar estado" + self._accel("anunciar_estado"))
         mb.Append(m, "&Ver")
@@ -294,12 +305,18 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_COMENTARIOS), mi_com)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_REPRODUCTOR), mi_rep)
         self.Bind(wx.EVT_MENU, lambda e: self._anunciar_estado(), mi_estado)
+        # De «Ver», solo tiene sentido con conexión la navegación por paneles;
+        # «Ir a conexión (URL)» y «Anunciar estado» quedan siempre disponibles.
+        self._mi_ver_conexion = [mi_sig, mi_ant, mi_lista, mi_chat, mi_com, mi_rep]
 
         # Voz (TTS)
         m = wx.Menu()
         self.mi_pausa = m.Append(wx.ID_ANY, "&Pausar lectura" + self._accel("pausa"))
         mi_det = m.Append(wx.ID_ANY, "&Detener voz" + self._accel("detener_tts"))
         mi_vac = m.Append(wx.ID_ANY, "&Vaciar cola")
+        # Estas tres actúan sobre una lectura en curso: sin conexión no hay nada
+        # que pausar/detener/vaciar. Los ajustes de voz de abajo sí quedan libres.
+        self._mi_voz_conexion = [self.mi_pausa, mi_det, mi_vac]
         m.AppendSeparator()
         mi_vmenos = m.Append(wx.ID_ANY, "Hablar más &lento" + self._accel("velocidad_menos"))
         mi_vmas   = m.Append(wx.ID_ANY, "Hablar más &rápido" + self._accel("velocidad_mas"))
@@ -361,7 +378,8 @@ class YTChatFrame(wx.Frame):
         mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
         m.AppendSeparator()
         self.mi_enviar_live = m.Append(
-            wx.ID_ANY, "&Enviar mensaje al chat del directo…" + self._accel("enviar_chat"))
+            wx.ID_ANY,
+            "&Enviar mensaje al chat del directo (solo YouTube)…" + self._accel("enviar_chat"))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
@@ -399,7 +417,9 @@ class YTChatFrame(wx.Frame):
         self.txt_url = wx.TextCtrl(panel, style=wx.TE_PROCESS_ENTER, name="URL del directo o vídeo")
         _tc(self.txt_url)
         self.txt_url.SetToolTip(
-            "URL de YouTube o ID de 11 caracteres. Pulsa Enter para conectar.")
+            "Enlace de YouTube (directo o vídeo) o de un directo de TikTok "
+            "(tiktok.com/@usuario/live). También vale el ID de 11 caracteres de "
+            "YouTube. Pulsa Enter para conectar.")
         row.Add(self.txt_url, 1, wx.EXPAND | wx.RIGHT, 8)
         self.btn_conectar = wx.Button(panel, label="&Conectar", name="Conectar")
         self.btn_conectar.SetBackgroundColour(_T.primary)
@@ -408,8 +428,7 @@ class YTChatFrame(wx.Frame):
         row.Add(self.btn_conectar, 0, wx.ALIGN_CENTER_VERTICAL)
         vs.Add(row, 0, wx.EXPAND | wx.ALL, 12)
 
-        self.lbl_tipo = wx.StaticText(panel, label="Sin conectar. Pega una URL y pulsa Conectar.",
-                                      name="TipoVideo")
+        self.lbl_tipo = wx.StaticText(panel, label=MENSAJE_INICIAL, name="TipoVideo")
         self.lbl_tipo.SetForegroundColour(_T.dim)
         vs.Add(self.lbl_tipo, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
@@ -1202,7 +1221,7 @@ class YTChatFrame(wx.Frame):
             if estaba:
                 self._mostrar_zona(False)
                 self.set_titulo_stream("")
-                self.lbl_tipo.SetLabel("Sin conectar. Pega una URL y pulsa Conectar.")
+                self.lbl_tipo.SetLabel(MENSAJE_INICIAL)
                 _snd.reproducir("desconectado")
                 anunciar("Desconectado")
         self._set_conectado_ui(conectado)
@@ -1439,6 +1458,27 @@ class YTChatFrame(wx.Frame):
         self.mi_conectar.Enable(not conectado)
         self.mi_desconectar.Enable(conectado)
         self.txt_url.Enable(not conectado)
+        self._actualizar_menus_por_conexion()
+
+    def _actualizar_menus_por_conexion(self) -> None:
+        """Deshabilita en la barra de menú lo que solo aplica con una conexión
+        activa: navegar por paneles, el filtro, todo el menú Reproductor y las
+        acciones de voz sobre una lectura en curso. Así el usuario no llega por
+        el menú a paneles que no existen aún. Los ajustes de voz y «Ir a URL» /
+        «Anunciar estado» quedan siempre disponibles."""
+        con = bool(self._conectado)
+        mb = self.GetMenuBar()
+        if mb is not None:
+            try:    mb.EnableTop(POS_MENU_REPRODUCTOR, con)
+            except Exception: pass
+        for it in getattr(self, "_mi_ver_conexion", []):
+            try:    it.Enable(con)
+            except Exception: pass
+        try:    self._mi_filtro_sub.Enable(con)
+        except Exception: pass
+        for it in getattr(self, "_mi_voz_conexion", []):
+            try:    it.Enable(con)
+            except Exception: pass
 
     def _actualizar_sb(self) -> None:
         sin_tts = " [sin TTS]" if self._config.get("silenciar_lectura", False) else ""
