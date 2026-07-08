@@ -91,6 +91,46 @@ def anunciar(texto: str) -> None:
         pass
 
 
+# ── Nombre accesible reforzado (MSAA) ─────────────────────────────────────────
+# Patrón tomado de eleven-tts-studio: en Windows, `SetName` por sí solo no
+# siempre lo anuncian NVDA/JAWS de forma fiable (sobre todo en deslizadores y en
+# ventanas genéricas como la superficie de vídeo). Reforzamos con un
+# `wx.Accessible` explícito que expone el nombre por MSAA. Solo se usa en los
+# controles donde el nombre flojea; los estándar (botones, casillas) ya se leen
+# bien con `name=` y no hace falta.
+
+class _NombreAccesible(wx.Accessible):
+    """Expone el nombre del control por MSAA. Solo nombra el control en sí
+    (childId 0); las filas/hijos (p. ej. cada línea de una lista) las deja al
+    proveedor por defecto, o todas se anunciarían con el nombre de la lista."""
+
+    def __init__(self, nombre: str):
+        super().__init__()
+        self._nombre = nombre
+
+    def GetName(self, childId):
+        if childId == 0:
+            return (wx.ACC_OK, self._nombre)
+        return (wx.ACC_NOT_IMPLEMENTED, "")
+
+
+def nombre_accesible(ctrl, nombre: str) -> None:
+    """Refuerza el nombre accesible de un control. Mantiene los tooltips ricos
+    que ya tengamos (solo pone uno si falta) y no altera el rol ni el valor: el
+    `wx.Accessible` solo sobrescribe el nombre y delega el resto."""
+    ctrl.SetName(nombre)
+    if not ctrl.GetToolTip():
+        ctrl.SetToolTip(nombre)
+    try:    ctrl.SetHelpText(nombre)   # JAWS lee el help text en algunos controles
+    except Exception: pass
+    try:
+        acc = _NombreAccesible(nombre)
+        ctrl.SetAccessible(acc)
+        ctrl._nombre_accesible = acc   # evita que el GC se lo lleve
+    except Exception:
+        pass  # fuera de Windows o sin MSAA: el name/tooltip siguen aplicando
+
+
 # ── Paleta «piedra cálida + terracota» ───────────────────────────────────────
 # Base de carbón CÁLIDO (warm stone), no negro puro ni el típico azul/morado.
 # Un acento terracota con personalidad y un teal secundario; saturación
@@ -450,6 +490,7 @@ class YTChatFrame(wx.Frame):
         self.lb_chat.SetToolTip(
             "Mensajes del chat. Enter copia el mensaje. "
             "Tecla aplicaciones abre el menú contextual.")
+        nombre_accesible(self.lb_chat, "Chat en vivo")
         vs.Add(self.lb_chat, 1, wx.EXPAND | wx.ALL, 8)
 
         pag.SetSizer(vs)
@@ -1232,7 +1273,8 @@ class YTChatFrame(wx.Frame):
         self._sc_totales.clear()
         try:    self.lb_chat.Clear()
         except Exception: pass
-        try:    self._com_panel.limpiar()
+        try:    self._com_panel.mostrar_no_disponible(
+                    "Los comentarios no están disponibles en los directos de TikTok.")
         except Exception: pass
         autoplay = bool(self._config.get("autoplay_reproductor", True))
         try:    self._rep_panel.set_flujo(url_flujo, autoplay=autoplay)

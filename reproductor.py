@@ -24,7 +24,7 @@ import wx
 
 import config as _cfg
 import iconos
-from gui import anunciar, _T, _tc
+from gui import anunciar, nombre_accesible, _T, _tc
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +246,9 @@ class _PosAccesible(wx.Accessible):
 
     def GetValue(self, childId):
         p = self._panel
-        return (wx.ACC_OK, f"{_fmt_hablado(p._pos_ms)} de {_fmt_hablado(p._dur_ms)}")
+        if p._dur_ms > 0:
+            return (wx.ACC_OK, f"{_fmt_hablado(p._pos_ms)} de {_fmt_hablado(p._dur_ms)}")
+        return (wx.ACC_OK, "En directo")   # un live no tiene duración que anunciar
 
 
 class _PantallaCompleta(wx.Frame):
@@ -268,6 +270,10 @@ class _PantallaCompleta(wx.Frame):
         self.SetBackgroundColour(wx.BLACK)
         self.video = wx.Window(self, name="VideoPantallaCompleta")
         self.video.SetBackgroundColour(wx.BLACK)
+        nombre_accesible(
+            self.video,
+            "Vídeo a pantalla completa. Espacio pausa, flechas buscan y ajustan "
+            "volumen, Escape sale.")
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
         self.Bind(wx.EVT_CLOSE, self._on_close)
         self.video.Bind(wx.EVT_LEFT_DCLICK,
@@ -426,9 +432,12 @@ class ReproductorPanel(wx.Panel):
     def _build_ui(self):
         box = wx.StaticBoxSizer(wx.VERTICAL, self, "Reproductor")
 
-        # Superficie de vídeo (VLC dibuja aquí vía set_hwnd).
+        # Superficie de vídeo (VLC dibuja aquí vía set_hwnd). Es una ventana
+        # genérica: sin nombre accesible reforzado, el lector no dice nada útil
+        # al llegar aquí (p. ej. con doble clic para pantalla completa).
         self._video = wx.Window(self, size=(-1, 160), name="Vídeo")
         self._video.SetBackgroundColour(wx.BLACK)
+        nombre_accesible(self._video, "Vídeo. Doble clic para pantalla completa.")
         box.Add(self._video, 1, wx.EXPAND | wx.ALL, 6)
 
         # Fila 1: transporte con iconos (nombre accesible + tooltip).
@@ -483,6 +492,8 @@ class ReproductorPanel(wx.Panel):
         self.sld_vol.SetLineSize(1)
         self.sld_vol.SetToolTip("Flecha arriba sube, flecha abajo baja el volumen de 1 en 1.")
         self.sld_vol.SetMinSize((160, -1))
+        # Los deslizadores son justo el caso donde SetName no basta en Windows.
+        nombre_accesible(self.sld_vol, "Volumen del reproductor")
         row.Add(self.sld_vol, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
         self.lbl_estado = wx.StaticText(self, label="Sin reproducir.", name="EstadoReproductor")
         self.lbl_estado.SetForegroundColour(_T.accent)
@@ -865,7 +876,12 @@ class ReproductorPanel(wx.Panel):
     def _fijar_tiempo(self, pos_ms, dur_ms, mover_slider, anunciar_t):
         self._pos_ms = int(pos_ms or 0)
         self._dur_ms = int(dur_ms or 0)
-        self.lbl_tiempo.SetLabel(f"{_fmt_t(self._pos_ms)} / {_fmt_t(self._dur_ms)}")
+        # Un directo (TikTok/YouTube live) no tiene duración: mostrar «En
+        # directo» en vez de un engañoso «5:23 / 0:00».
+        if self._dur_ms > 0:
+            self.lbl_tiempo.SetLabel(f"{_fmt_t(self._pos_ms)} / {_fmt_t(self._dur_ms)}")
+        else:
+            self.lbl_tiempo.SetLabel("En directo")
         if mover_slider and self._dur_ms > 0:
             self.sld_pos.SetValue(int(self._pos_ms / self._dur_ms * 1000))
         if anunciar_t:

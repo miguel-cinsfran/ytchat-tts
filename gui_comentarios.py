@@ -17,7 +17,7 @@ import wx
 import credenciales
 import youtube_api
 import sound_player as _snd
-from gui import anunciar, copiar_al_portapapeles, _T, _tc
+from gui import anunciar, copiar_al_portapapeles, nombre_accesible, _T, _tc
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,7 @@ class ComentariosPanel(wx.Panel):
         # (menú contextual), igual que el chat del live: no hacen falta botones.
         self.lb.SetToolTip("Enter lee el comentario con la voz. Ctrl+C copia. "
                            "Tecla Aplicaciones (o clic derecho) abre el menú.")
+        nombre_accesible(self.lb, "Lista de comentarios")
         vs.Add(self.lb, 1, wx.EXPAND | wx.ALL, 8)
 
         # Botones de acción: solo los que NO dependen del comentario seleccionado
@@ -129,6 +130,15 @@ class ComentariosPanel(wx.Panel):
         self._ids_vistos.clear()
         self._next_token = ""
         self.btn_mas.Disable()
+
+    def mostrar_no_disponible(self, texto: str) -> None:
+        """Deja la lista con un único aviso, para que quien llegue a esta pestaña
+        (p. ej. en un directo de TikTok, que no tiene comentarios aquí) entienda
+        por qué está vacía en vez de creer que falla. El aviso no es un
+        comentario real: leer o copiar sobre él no hacen nada."""
+        self.limpiar()
+        self.lb.Append(texto)
+        self.btn_comentar.Disable()
 
     def anclar_foco(self) -> None:
         try:    self.lb.SetFocus()
