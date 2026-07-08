@@ -18,6 +18,16 @@ En `main`, pendiente de pulido y de pruebas con NVDA antes de lanzarse.
 - Los anuncios al lector de pantalla ahora van también a la **línea braille**
   (mismo patrón que TWBlue).
 
+### Corregido
+- **La pantalla completa ya no es una trampa de teclado.** Antes solo atendía
+  Escape/F11: los atajos Ctrl+… (pausa, volumen, buscar) son aceleradores del
+  menú de la ventana principal y no llegaban a la ventana de pantalla completa,
+  así que quien no ve quedaba sin ningún control. Ahora esa ventana atiende
+  tanto los atajos configurados como las teclas convencionales de reproductor
+  (espacio pausa; flechas buscan ±10 s y ajustan volumen; M silencia; 0-9
+  salta al porcentaje; F o Escape salen). Al salir, el foco vuelve a un control
+  con nombre accesible del panel.
+
 ### Interno
 - Pipeline común de mensajes entrantes (`procesar_entrante`) compartido por
   YouTube y TikTok: filtros, texto TTS, GUI y cola en un solo sitio.
