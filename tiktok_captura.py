@@ -45,6 +45,46 @@ def usuario_de_url(entrada: str) -> str:
     return m.group(1) if m else ""
 
 
+def _parchear_extended_user() -> None:
+    """Arregla un choque entre TikTokLive 6.6.5 y betterproto 2.0.0b7.
+
+    `ExtendedUser.from_user` hace `ExtendedUser(**user.to_pydict())`, y en esta
+    betterproto `to_pydict()` devuelve claves camelCase (p. ej. «nickName») que
+    el constructor no acepta → lanza TypeError (que el fallback de la librería
+    NO captura, solo AttributeError). Resultado: leer `evento.user` revienta y se
+    pierden comentarios/regalos según qué campos traiga cada usuario.
+
+    Lo reemplazamos por una copia campo a campo en snake_case (lo que la propia
+    librería ya hace como respaldo). Idempotente y con guardas: si la librería
+    cambia, no rompe nada.
+    """
+    try:
+        from TikTokLive.proto.custom_proto import ExtendedUser
+    except Exception:
+        return
+    if getattr(ExtendedUser, "_from_user_parcheado", False):
+        return
+
+    def _from_user(cls, user, **kwargs):
+        if isinstance(user, cls):
+            return user
+        datos = {}
+        for campo in user.__class__.__dataclass_fields__:
+            try:
+                datos[campo] = getattr(user, campo)
+            except AttributeError as exc:
+                bajo = f"_{campo}"
+                datos[campo] = (getattr(user, bajo, None)
+                                if "is set to None" in str(exc) else None)
+        return cls(**datos)
+
+    try:
+        ExtendedUser.from_user = classmethod(_from_user)
+        ExtendedUser._from_user_parcheado = True
+    except Exception as exc:
+        logger.debug("no se pudo parchear ExtendedUser: %s", exc)
+
+
 def disponible() -> bool:
     """¿Está instalada TikTokLive? Sin importarla, para no frenar el arranque."""
     if getattr(sys, "frozen", False):
@@ -105,6 +145,7 @@ async def _vigilar_parada(client, parada) -> None:
 def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
     """Una conexión completa (bloquea hasta desconectar). Devuelve la excepción
     de conexión si la hubo, o None si terminó con normalidad."""
+    _parchear_extended_user()   # antes de tocar ningún evento (ver la función)
     from TikTokLive import TikTokLiveClient
     from TikTokLive.events import (ConnectEvent, CommentEvent, GiftEvent,
                                    SubscribeEvent, DisconnectEvent, LiveEndEvent,
@@ -113,12 +154,31 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
     client = TikTokLiveClient(unique_id=usuario)
     error: list = [None]
 
+    def _g(obj, nombre_attr) -> str:
+        # getattr a prueba de betterproto: sus alias no siempre existen y pueden
+        # lanzar en vez de devolver defecto; devolvemos "" ante cualquier fallo.
+        try:    return str(getattr(obj, nombre_attr, "") or "")
+        except Exception: return ""
+
     def _autor(evento) -> tuple[str, str]:
-        u = getattr(evento, "user", None)
-        nombre = (getattr(u, "nickname", "") or getattr(u, "username", "")
-                  or "Usuario").strip() or "Usuario"
-        canal_id = str(getattr(u, "id", "") or "")
-        return nombre, canal_id
+        # En eventos reales el usuario llega como `User` plano: el nombre está en
+        # el campo REAL `nick_name` (no en el alias `nickname`, que es de
+        # ExtendedUser). Probamos ambos y varios respaldos. `user_info` es el
+        # proto crudo (comentarios); para regalos/suscripciones cae a `.user`
+        # (ya sin crash gracias al parche). Nunca lanza: mejor «Usuario» que
+        # perder el evento.
+        u = getattr(evento, "user_info", None)
+        if u is None:
+            try:    u = evento.user
+            except Exception as exc:
+                logger.debug("autor: no se pudo leer user: %s", exc)
+                u = None
+        if u is None:
+            return "Usuario", ""
+        nombre = (_g(u, "nick_name") or _g(u, "nickname") or _g(u, "unique_id")
+                  or _g(u, "username") or _g(u, "display_id") or "Usuario").strip()
+        canal_id = (_g(u, "id") or _g(u, "unique_id") or _g(u, "username"))
+        return (nombre or "Usuario"), canal_id
 
     @client.on(ConnectEvent)
     async def _on_connect(evento):
