@@ -20,6 +20,8 @@ credenciales.json
 # Historial de sesión (opción guardar_historial en config.ini)
 historial.csv
 historial.txt
+# Historial de directos vistos (ventana Historial)
+historial_lives.json
 
 # Claude Code y notas/informes ajenos al proyecto
 .claude/

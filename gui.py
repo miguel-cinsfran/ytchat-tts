@@ -23,6 +23,7 @@ from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
 import deteccion
 import metadatos
 import estado_sesion
+import historial
 from lista_chat import ListaChat
 import sound_player as _snd
 import credenciales
@@ -269,10 +270,13 @@ class YTChatFrame(wx.Frame):
         self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar" + self._accel("conectar"))
         self.mi_desconectar = m.Append(wx.ID_ANY, "&Desconectar" + self._accel("desconectar"))
         m.AppendSeparator()
+        mi_historial = m.Append(wx.ID_ANY, "&Historial de directos…")
+        m.AppendSeparator()
         mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
         mb.Append(m, "&Archivo")
         self.Bind(wx.EVT_MENU, lambda e: self._conectar_si_procede(), self.mi_conectar)
         self.Bind(wx.EVT_MENU, lambda e: self._desconectar_si_procede(), self.mi_desconectar)
+        self.Bind(wx.EVT_MENU, lambda e: self._on_historial(), mi_historial)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
 
         # Ver
@@ -662,6 +666,43 @@ class YTChatFrame(wx.Frame):
         self._config["mostrar_botones_reproductor"] = bool(visibles)
         guardar_opcion(RUTA_CONFIG, "ui", "mostrar_botones_reproductor",
                        "true" if visibles else "false")
+
+    # ── Historial de directos ────────────────────────────────────────────────
+
+    def _ruta_historial(self):
+        return app_dir() / "historial_lives.json"
+
+    def registrar_historial(self, plataforma: str, clave: str, url: str,
+                            titulo: str, canal: str) -> None:
+        """Guarda (o actualiza) una entrada del historial al conectar con éxito.
+        Lo llama main vía wx.CallAfter cuando ya tiene título y canal."""
+        if not self._alive or not clave:
+            return
+        try:
+            ruta = self._ruta_historial()
+            lista = historial.upsert(historial.cargar(ruta), plataforma, clave,
+                                     url, titulo, canal)
+            historial.guardar(ruta, lista)
+        except Exception as exc:
+            logger.debug("registrar historial: %s", exc)
+
+    def _on_historial(self):
+        from gui_historial import abrir_historial
+        abrir_historial(self, self._ruta_historial(),
+                        self._reconectar_desde_historial)
+
+    def _reconectar_desde_historial(self, url: str) -> None:
+        """Desde el historial: si hay una sesión, desconecta; luego pone la URL
+        elegida y conecta."""
+        if not url:
+            return
+        if self._conectado:
+            if self.on_desconectar_cb:
+                try:    self.on_desconectar_cb()
+                except Exception: pass
+            self.set_conectado(False)
+        self.txt_url.SetValue(url)
+        wx.CallAfter(self._on_conectar, None)
 
     # ── Handlers de conexión ─────────────────────────────────────────────────
 

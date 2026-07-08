@@ -35,7 +35,8 @@ _INTERACTIVOS = {"Button", "Edit", "ComboBox", "List", "CheckBox", "RadioButton"
 
 _MODULOS_PUROS = ["config", "tts_worker", "montos", "sound_player",
                   "credenciales", "youtube_api", "deteccion", "main"]
-_MODULOS_GUI = ["gui", "iconos", "gui_comentarios", "gui_preferencias", "reproductor"]
+_MODULOS_GUI = ["gui", "iconos", "gui_comentarios", "gui_preferencias",
+                "gui_historial", "reproductor"]
 
 
 def _titulo(texto):
