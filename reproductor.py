@@ -802,10 +802,16 @@ class ReproductorPanel(wx.Panel):
             self._timer.Stop()
             anunciar("Pausa")
         elif st == _vlc.State.Paused:
-            self._player.set_pause(0)
-            self._mostrar_pausa(True)
-            self._timer.Start(500)
-            anunciar("Reproduciendo")
+            # En un directo de TikTok (flujo en vivo, sin línea de tiempo)
+            # «reanudar» dejaría el vídeo retrasado; recargamos para volver al
+            # momento actual del directo.
+            if self._url_flujo:
+                self._reproducir_flujo()
+            else:
+                self._player.set_pause(0)
+                self._mostrar_pausa(True)
+                self._timer.Start(500)
+                anunciar("Reproduciendo")
         else:
             if self._video_id:
                 self.cargar(reproducir=True)

@@ -1224,6 +1224,10 @@ class YTChatFrame(wx.Frame):
                 self.lbl_tipo.SetLabel(MENSAJE_INICIAL)
                 _snd.reproducir("desconectado")
                 anunciar("Desconectado")
+                # Sacar el foco del panel del reproductor ANTES de que quede
+                # oculto: si el foco sigue dentro, wx tarda en repintar y el
+                # panel «se queda» visible hasta que tabulas. Al campo URL.
+                wx.CallAfter(self.txt_url.SetFocus)
         self._set_conectado_ui(conectado)
         self._actualizar_estado_online()
 
