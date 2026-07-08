@@ -26,7 +26,7 @@ historial.txt
 .claudeignore
 CLAUDE.md
 claude.md
-INFORME_CLAUDE.md
+INFORME_*.md
 
 # Scripts .bat locales sueltos. Los oficiales del proyecto SÍ se versionan.
 *.bat
