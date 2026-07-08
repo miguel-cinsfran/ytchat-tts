@@ -1,11 +1,14 @@
 #!/usr/bin/env python
-"""Genera las versiones HTML de la documentación (README y novedades) con pandoc.
+"""Genera las versiones HTML de la documentación (README y guía de la API) con pandoc.
 
 Los .md son cómodos para editar y se leen bien en GitHub, pero el amigo que usa
 la aplicación no tiene por qué saber abrir un Markdown. Este script convierte
 los documentos de cara al usuario a HTML autocontenido (con el estilo dentro del
 propio archivo, sin depender de nada externo), fácil de abrir con doble clic y
 de leer con lector de pantalla.
+
+El historial de versiones vive en la sección «Novedades» del propio README (no
+hay un CHANGELOG aparte).
 
 Uso:
     uv run python generar_docs.py
@@ -30,7 +33,6 @@ DOCS = AQUI / "docs"
 # lee el lector de pantalla al abrir y lo que sale en la pestaña del navegador.
 DOCUMENTOS = [
     (AQUI / "README.md",              "README.html",            "YTChat TTS — Léeme"),
-    (AQUI / "CHANGELOG.md",           "Novedades.html",         "YTChat TTS — Novedades"),
     (DOCS / "CONFIGURACION_API.md",   "CONFIGURACION_API.html", "YTChat TTS — Configurar la API de YouTube"),
 ]
 
@@ -84,9 +86,8 @@ hr { border: none; border-top: 1px solid var(--borde); margin: 2rem 0; }
 # Los .md se enlazan entre sí por su nombre .md (para que funcionen en GitHub).
 # En el HTML esos enlaces deben apuntar al HTML equivalente. Los enlaces se
 # calculan desde la RAÍZ del paquete, que es donde el usuario abre «Léeme.html»
-# (README) y «Novedades.html»; la guía de la API queda en la subcarpeta docs/.
+# (README); la guía de la API queda en la subcarpeta docs/.
 _REESCRITURA_ENLACES = {
-    'href="CHANGELOG.md"':              'href="Novedades.html"',
     'href="README.md"':                'href="README.html"',
     'href="docs/CONFIGURACION_API.md"': 'href="docs/CONFIGURACION_API.html"',
 }

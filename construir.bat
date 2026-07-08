@@ -46,7 +46,7 @@ REM Ruta absoluta: PyInstaller resuelve --icon relativo a --specpath (build).
 set "ICONO="
 if exist "app.ico" set "ICONO=--icon "%~dp0app.ico""
 
-echo == Generando documentacion HTML (Leeme y Novedades) ==
+echo == Generando documentacion HTML (Leeme) ==
 REM No fatal: si pandoc no esta, se usan los HTML ya versionados en docs/.
 call uv run python generar_docs.py || echo    AVISO: no se pudo regenerar; se usara la copia versionada en docs/.
 
@@ -105,10 +105,10 @@ copy /y "config.ini" "%OUT%\" >nul
 copy /y "sounds.ini" "%OUT%\" >nul
 copy /y "LICENSE"    "%OUT%\" >nul
 REM Documentacion de cara al usuario en HTML (se abre con doble clic; el amigo
-REM no tiene por que saber abrir un Markdown). Se generan con generar_docs.py y
-REM viajan tambien dentro de docs/. Los dejamos ademas en la raiz, a la vista.
-copy /y "docs\README.html"    "%OUT%\Leeme.html"     >nul
-copy /y "docs\Novedades.html" "%OUT%\Novedades.html" >nul
+REM no tiene por que saber abrir un Markdown). Se genera con generar_docs.py y
+REM viaja tambien dentro de docs/. La dejamos ademas en la raiz, a la vista. El
+REM historial de versiones esta en la seccion "Novedades" del propio Leeme.
+copy /y "docs\README.html" "%OUT%\Leeme.html" >nul
 
 REM Por higiene: nada de log ni credenciales en el paquete que se envia.
 del /q "%OUT%\ytchat.log" 2>nul

@@ -4,7 +4,7 @@ Lector del chat de YouTube Live con las voces SAPI5 de Windows, pensado para
 streamers ciegos o con baja visión. Toda la interfaz se maneja con teclado y
 está probada con NVDA.
 
-Versión 1.0.0 · Windows 10/11. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).
+Versión 1.0.0 · Windows 10/11.
 
 ## Qué hace
 
@@ -23,10 +23,10 @@ Pegas la URL de un directo (o de un vídeo normal) y la app se conecta sola:
   usuarios del chat y enviar mensajes al directo.
 - **Pestaña Información**: canal, vistas, fecha y descripción del vídeo, con
   los enlaces clicables.
-- **Directos de TikTok** (en desarrollo, saldrá en la 2.0): pega una URL tipo
-  `tiktok.com/@usuario/live` y lee el chat, los regalos y las suscripciones
-  con la misma voz, con el vídeo del directo en el reproductor. Solo lectura:
-  en TikTok no se puede comentar ni moderar desde la app.
+- **Directos de TikTok**: pega una URL tipo `tiktok.com/@usuario/live` y lee el
+  chat, los regalos y las suscripciones con la misma voz, con el vídeo del
+  directo en el reproductor. Solo lectura: en TikTok no se puede comentar ni
+  moderar desde la app.
 
 Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS) y cada
 control tiene nombre accesible. Hay navegación por regiones con F6 y una barra
@@ -90,6 +90,14 @@ paso, pensada para lectores de pantalla, está en
 uv run python -m unittest discover -s tests   # lógica pura, corre en cualquier SO
 uv run python smoke_test.py                   # imports de GUI + árbol de accesibilidad (Windows)
 ```
+
+## Novedades
+
+**1.0.0** — Primera versión. Lectura del chat de YouTube Live con voces SAPI5;
+comentarios de vídeos con lectura, respuesta y publicación; reproductor de vídeo
+integrado con pantalla completa manejable por teclado; moderación y envío al
+chat con la API oficial; pestaña de información del vídeo; y directos de TikTok
+(solo lectura). Interfaz navegable por teclado, con anuncios por voz y braille.
 
 ## Licencia
 

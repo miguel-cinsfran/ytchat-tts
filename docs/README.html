@@ -221,8 +221,7 @@
 <p>Lector del chat de YouTube Live con las voces SAPI5 de Windows,
 pensado para streamers ciegos o con baja visión. Toda la interfaz se
 maneja con teclado y está probada con NVDA.</p>
-<p>Versión 1.0.0 · Windows 10/11. Historial de cambios en <a
-href="Novedades.html">CHANGELOG.md</a>.</p>
+<p>Versión 1.0.0 · Windows 10/11.</p>
 <h2 id="qué-hace">Qué hace</h2>
 <p>Pegas la URL de un directo (o de un vídeo normal) y la app se conecta
 sola:</p>
@@ -244,11 +243,11 @@ YouTube): expulsar o banear usuarios del chat y enviar mensajes al
 directo.</li>
 <li><strong>Pestaña Información</strong>: canal, vistas, fecha y
 descripción del vídeo, con los enlaces clicables.</li>
-<li><strong>Directos de TikTok</strong> (en desarrollo, saldrá en la
-2.0): pega una URL tipo <code>tiktok.com/@usuario/live</code> y lee el
-chat, los regalos y las suscripciones con la misma voz, con el vídeo del
-directo en el reproductor. Solo lectura: en TikTok no se puede comentar
-ni moderar desde la app.</li>
+<li><strong>Directos de TikTok</strong>: pega una URL tipo
+<code>tiktok.com/@usuario/live</code> y lee el chat, los regalos y las
+suscripciones con la misma voz, con el vídeo del directo en el
+reproductor. Solo lectura: en TikTok no se puede comentar ni moderar
+desde la app.</li>
 </ul>
 <p>Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS)
 y cada control tiene nombre accesible. Hay navegación por regiones con
@@ -311,6 +310,13 @@ ejecutable, guarda los errores. En operación normal está vacío.</li>
 <h2 id="pruebas">Pruebas</h2>
 <pre><code>uv run python -m unittest discover -s tests   # lógica pura, corre en cualquier SO
 uv run python smoke_test.py                   # imports de GUI + árbol de accesibilidad (Windows)</code></pre>
+<h2 id="novedades">Novedades</h2>
+<p><strong>1.0.0</strong> — Primera versión. Lectura del chat de YouTube
+Live con voces SAPI5; comentarios de vídeos con lectura, respuesta y
+publicación; reproductor de vídeo integrado con pantalla completa
+manejable por teclado; moderación y envío al chat con la API oficial;
+pestaña de información del vídeo; y directos de TikTok (solo lectura).
+Interfaz navegable por teclado, con anuncios por voz y braille.</p>
 <h2 id="licencia">Licencia</h2>
 <p>MIT — ver <a href="LICENSE">LICENSE</a>.</p>
 </body>
