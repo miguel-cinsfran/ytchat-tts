@@ -2,7 +2,8 @@
 
 import unittest
 
-from tiktok_captura import usuario_de_url, _mensaje_error, _es_error_permanente
+from tiktok_captura import (usuario_de_url, _mensaje_error, _es_error_permanente,
+                            _mejor_flujo)
 
 
 class TestUsuarioDeUrl(unittest.TestCase):
@@ -67,6 +68,31 @@ class TestMensajesDeError(unittest.TestCase):
         exc = self._exc("SignAPIError", "sign server unavailable")
         self.assertFalse(_es_error_permanente(exc))
         self.assertIn("firmas", _mensaje_error(exc))
+
+
+class TestMejorFlujo(unittest.TestCase):
+    """Se prefiere el FLV: el HLS de TikTok suele dar timeout en el reproductor."""
+
+    def test_prefiere_flv_hd_sobre_sd_y_hls(self):
+        stream = {"flv_pull_url": {"HD1": "http://x/hd.flv", "SD1": "http://x/sd.flv"},
+                  "hls_pull_url": "http://x/i.m3u8"}
+        self.assertEqual(_mejor_flujo(stream), "http://x/hd.flv")
+
+    def test_cae_a_sd_si_no_hay_hd(self):
+        self.assertEqual(_mejor_flujo({"flv_pull_url": {"SD1": "http://x/sd.flv"}}),
+                         "http://x/sd.flv")
+
+    def test_cae_a_hls_si_no_hay_flv(self):
+        self.assertEqual(_mejor_flujo({"hls_pull_url": "http://x/i.m3u8"}),
+                         "http://x/i.m3u8")
+
+    def test_rtmp_como_ultimo_recurso(self):
+        self.assertEqual(_mejor_flujo({"rtmp_pull_url": "http://x/s.flv"}),
+                         "http://x/s.flv")
+
+    def test_vacio_si_no_hay_nada(self):
+        self.assertEqual(_mejor_flujo({}), "")
+        self.assertEqual(_mejor_flujo({"flv_pull_url": {}}), "")
 
 
 if __name__ == "__main__":

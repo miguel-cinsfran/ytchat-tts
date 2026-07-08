@@ -264,7 +264,15 @@ class _PantallaCompleta(wx.Frame):
     """
 
     def __init__(self, panel):
-        super().__init__(None, title="Reproductor", name="PantallaCompleta")
+        # Título = el de la ventana principal (el del vídeo, p. ej. «… — YTChat
+        # TTS»), no un genérico «Reproductor»: es lo que anuncia el lector y lo
+        # que sale en Alt+Tab al entrar a pantalla completa.
+        try:
+            principal = wx.GetApp().GetTopWindow()
+            titulo = (principal.GetTitle() if principal else "") or _cfg.APP_NAME
+        except Exception:
+            titulo = _cfg.APP_NAME
+        super().__init__(None, title=titulo, name="PantallaCompleta")
         self._panel = panel
         self._atajos = panel._mapa_atajos_fs()
         self.SetBackgroundColour(wx.BLACK)

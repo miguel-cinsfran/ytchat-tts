@@ -58,9 +58,26 @@ def disponible() -> bool:
 
 # ── Sesión de captura ─────────────────────────────────────────────────────────
 
+def _mejor_flujo(stream: dict) -> str:
+    """URL de vídeo reproducible del directo. Se PREFIERE el FLV: el HLS que da
+    TikTok (`hls_pull_url`) suele no responder (timeout) en el reproductor,
+    mientras que el FLV sobre HTTP va directo y trae audio. HD mejor que SD; si
+    no hay FLV, se cae al HLS o al RTMP como último recurso."""
+    flv = stream.get("flv_pull_url") or {}
+    if isinstance(flv, dict):
+        for clave in ("FULL_HD1", "ORIGION", "HD1", "SD2", "SD1"):
+            if flv.get(clave):
+                return flv[clave].strip()
+        for v in flv.values():          # cualquier calidad presente
+            if v:
+                return str(v).strip()
+    return (stream.get("hls_pull_url") or stream.get("rtmp_pull_url") or "").strip()
+
+
 def _info_de_sala(client) -> dict:
-    """Metadatos de la sala en el formato del panel de información + la URL HLS
-    del directo (clave interna `_url_flujo`, la consume el reproductor)."""
+    """Metadatos de la sala en el formato del panel de información + la URL del
+    flujo de vídeo del directo (clave interna `_url_flujo`, la consume el
+    reproductor)."""
     info = client.room_info or {}
     stream = info.get("stream_url") or {}
     owner = info.get("owner") or {}
@@ -69,7 +86,7 @@ def _info_de_sala(client) -> dict:
         "canal":       (owner.get("nickname") or "").strip(),
         "vistas":      info.get("user_count"),   # espectadores actuales
         "en_vivo":     True,
-        "_url_flujo":  (stream.get("hls_pull_url") or "").strip(),
+        "_url_flujo":  _mejor_flujo(stream),
     }
 
 
