@@ -140,8 +140,12 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info):
 
     @client.on(LiveEndEvent)
     async def _on_live_end(evento):
-        if on_estado and not parada.is_set():
-            on_estado("desconectado", "El directo de TikTok ha terminado.")
+        # El directo acabó: desconectamos para que connect() retorne y sea el
+        # bucle (capturar_con_reconexion) quien anuncie el fin UNA sola vez y no
+        # reintente. Si anunciáramos aquí, saldría el aviso por duplicado.
+        try:    await client.disconnect()
+        except Exception as exc:
+            logger.debug("disconnect en LiveEnd: %s", exc)
 
     @client.on(DisconnectEvent)
     async def _on_disconnect(evento):

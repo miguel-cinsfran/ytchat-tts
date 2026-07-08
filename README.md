@@ -61,6 +61,18 @@ conexión y el chat, **teclas F** para la voz. Se editan en Preferencias → Ata
 
 La lista completa está en la barra de menú, junto a cada acción.
 
+## Accesibilidad
+
+Es la prioridad del proyecto, no un añadido. En concreto:
+
+- Todos los controles tienen nombre y son alcanzables con Tab y flechas.
+- Barra de menú nativa (Alt), con el atajo de cada acción escrito al lado.
+- Navegación por regiones con F6 / Shift+F6 y por pestañas con Ctrl+Tab; cada
+  cambio se anuncia.
+- Los avisos importantes se envían al lector de pantalla (NVDA/JAWS) por voz y
+  por línea braille, en paralelo con un sonido.
+- Probada de verdad con NVDA en Windows 10 y 11.
+
 ## Configuración
 
 Casi todo se ajusta en **Herramientas → Preferencias** (voz, lectura, filtros,
