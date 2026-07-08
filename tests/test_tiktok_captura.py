@@ -3,7 +3,7 @@
 import unittest
 
 from tiktok_captura import (usuario_de_url, _mensaje_error, _es_error_permanente,
-                            _mejor_flujo)
+                            _mejor_flujo, autor_de_evento)
 
 
 class TestUsuarioDeUrl(unittest.TestCase):
@@ -93,6 +93,51 @@ class TestMejorFlujo(unittest.TestCase):
     def test_vacio_si_no_hay_nada(self):
         self.assertEqual(_mejor_flujo({}), "")
         self.assertEqual(_mejor_flujo({"flv_pull_url": {}}), "")
+
+
+class TestAutorDeEvento(unittest.TestCase):
+    """Regresión del bug del wrapper .user: el autor debe leerse del proto crudo
+    por su campo REAL (nick_name), sin depender del alias `nickname` ni de .user
+    (que crashea con betterproto 2.0.0b7)."""
+
+    class _UserInfoPlano:
+        # Simula el `User` plano de un evento real: solo el campo real nick_name.
+        def __init__(self, nick_name="", username="", ident=0):
+            self.nick_name = nick_name
+            self.username = username
+            self.id = ident
+        def __getattr__(self, n):
+            # El alias `nickname` (y otros) no existe en un User plano: lanza,
+            # como hace betterproto.
+            raise AttributeError(n)
+
+    class _EventoComentario:
+        def __init__(self, user_info):
+            self.user_info = user_info
+
+    class _EventoUserCrash:
+        # Regalo/suscripción sin user_info y con .user que revienta.
+        user_info = None
+        @property
+        def user(self):
+            raise TypeError("User.__init__() got an unexpected keyword argument 'nickName'")
+
+    def test_lee_nick_name_real(self):
+        ev = self._EventoComentario(self._UserInfoPlano(nick_name="María José", ident=7))
+        nombre, ident = autor_de_evento(ev)
+        self.assertEqual(nombre, "María José")
+        self.assertEqual(ident, "7")
+
+    def test_respaldo_username_si_no_hay_nick(self):
+        ev = self._EventoComentario(self._UserInfoPlano(username="mariaj"))
+        nombre, _ = autor_de_evento(ev)
+        self.assertEqual(nombre, "mariaj")
+
+    def test_user_que_crashea_no_tira_el_evento(self):
+        # Antes esto reventaba y se perdía el evento; ahora cae a «Usuario».
+        nombre, ident = autor_de_evento(self._EventoUserCrash())
+        self.assertEqual(nombre, "Usuario")
+        self.assertEqual(ident, "")
 
 
 if __name__ == "__main__":

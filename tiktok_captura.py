@@ -114,6 +114,37 @@ def _mejor_flujo(stream: dict) -> str:
     return (stream.get("hls_pull_url") or stream.get("rtmp_pull_url") or "").strip()
 
 
+def _g(obj, nombre_attr) -> str:
+    """getattr a prueba de betterproto: sus alias no siempre existen y pueden
+    lanzar en vez de devolver el defecto; devolvemos "" ante cualquier fallo."""
+    try:    return str(getattr(obj, nombre_attr, "") or "")
+    except Exception: return ""
+
+
+def autor_de_evento(evento) -> tuple[str, str]:
+    """(nombre, id) del autor de un evento de TikTok, sin usar el wrapper
+    `.user` cuando se puede (crashea con betterproto 2.0.0b7).
+
+    En eventos reales el usuario llega como `User` plano: el nombre está en el
+    campo REAL `nick_name`, no en el alias `nickname` (que es de ExtendedUser).
+    Probamos ambos y varios respaldos. Para comentarios está `user_info` (proto
+    crudo); regalos/suscripciones caen a `.user` (ya sin crash por el parche).
+    Nunca lanza: mejor «Usuario» que perder el evento.
+    """
+    u = getattr(evento, "user_info", None)
+    if u is None:
+        try:    u = evento.user
+        except Exception as exc:
+            logger.debug("autor: no se pudo leer user: %s", exc)
+            u = None
+    if u is None:
+        return "Usuario", ""
+    nombre = (_g(u, "nick_name") or _g(u, "nickname") or _g(u, "unique_id")
+              or _g(u, "username") or _g(u, "display_id") or "Usuario").strip()
+    canal_id = (_g(u, "id") or _g(u, "unique_id") or _g(u, "username"))
+    return (nombre or "Usuario"), canal_id
+
+
 def _info_de_sala(client) -> dict:
     """Metadatos de la sala en el formato del panel de información + la URL del
     flujo de vídeo del directo (clave interna `_url_flujo`, la consume el
@@ -153,32 +184,7 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
 
     client = TikTokLiveClient(unique_id=usuario)
     error: list = [None]
-
-    def _g(obj, nombre_attr) -> str:
-        # getattr a prueba de betterproto: sus alias no siempre existen y pueden
-        # lanzar en vez de devolver defecto; devolvemos "" ante cualquier fallo.
-        try:    return str(getattr(obj, nombre_attr, "") or "")
-        except Exception: return ""
-
-    def _autor(evento) -> tuple[str, str]:
-        # En eventos reales el usuario llega como `User` plano: el nombre está en
-        # el campo REAL `nick_name` (no en el alias `nickname`, que es de
-        # ExtendedUser). Probamos ambos y varios respaldos. `user_info` es el
-        # proto crudo (comentarios); para regalos/suscripciones cae a `.user`
-        # (ya sin crash gracias al parche). Nunca lanza: mejor «Usuario» que
-        # perder el evento.
-        u = getattr(evento, "user_info", None)
-        if u is None:
-            try:    u = evento.user
-            except Exception as exc:
-                logger.debug("autor: no se pudo leer user: %s", exc)
-                u = None
-        if u is None:
-            return "Usuario", ""
-        nombre = (_g(u, "nick_name") or _g(u, "nickname") or _g(u, "unique_id")
-                  or _g(u, "username") or _g(u, "display_id") or "Usuario").strip()
-        canal_id = (_g(u, "id") or _g(u, "unique_id") or _g(u, "username"))
-        return (nombre or "Usuario"), canal_id
+    _autor = autor_de_evento
 
     @client.on(ConnectEvent)
     async def _on_connect(evento):
