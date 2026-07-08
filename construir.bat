@@ -70,7 +70,8 @@ REM dejan clara la version.
 for /f "delims=" %%v in ('uv run python -c "import config;print(config.APP_VERSION)"') do set "VER=%%v"
 if not defined VER ( echo ERROR: no se pudo leer la version de config.py. & pause & exit /b 1 )
 set "OUT=YTChat TTS v%VER%"
-echo    Version %VER%  ->  "%OUT%"
+REM Ojo: "^>" escapado; un ">" literal en echo redirige y crea un archivo basura.
+echo    Version %VER%  -^>  "%OUT%"
 REM Limpia builds previos de CUALQUIER version para no acumular carpetas/zips.
 for /d %%d in ("YTChat TTS v*") do rmdir /s /q "%%d"
 if exist "YTChat TTS" rmdir /s /q "YTChat TTS"

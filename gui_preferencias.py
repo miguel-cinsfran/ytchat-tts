@@ -154,6 +154,22 @@ class PreferenciasDialog(wx.Dialog):
         p = self._make_panel(parent, "PagLectura")
         vs = wx.BoxSizer(wx.VERTICAL)
 
+        # Voz SAPI5. También está en el menú Voz → Seleccionar voz; aquí queda
+        # junto al resto de ajustes de lectura para encontrarla más fácil.
+        vs.Add(self._fila_label(p, "&Voz de lectura:"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        from gui import _listar_voces_sapi5, _resolver_idx_voz
+        self._voces = _listar_voces_sapi5()
+        self.cho_voz = wx.Choice(p, choices=self._voces or ["(no hay voces disponibles)"],
+                                 name="Voz de lectura")
+        _tc(self.cho_voz)
+        if self._voces:
+            self.cho_voz.SetSelection(
+                _resolver_idx_voz(self._config.get("voz", "0"), self._voces))
+        else:
+            self.cho_voz.SetSelection(0)
+            self.cho_voz.Disable()
+        vs.Add(self.cho_voz, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         vs.Add(self._fila_label(p, "Qué leer de cada mensaje:"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         self.rb_formato = wx.RadioBox(
             p, choices=[f[0] for f in _FORMATOS], majorDimension=1,
@@ -459,6 +475,11 @@ class PreferenciasDialog(wx.Dialog):
             self._cambios = True
 
         # Lectura
+        if self._voces:
+            idx_voz = max(0, self.cho_voz.GetSelection())
+            self._set("voz", "voz", str(idx_voz))
+            c["voz"] = str(idx_voz)
+
         formato = _FORMATOS[self.rb_formato.GetSelection()][1]
         self._set("lectura", "formato_prefijo", formato)
         c["formato_prefijo"] = formato
@@ -501,8 +522,8 @@ class PreferenciasDialog(wx.Dialog):
 _ETIQUETAS_ATAJO = {
     # Reproductor
     "rep_play":          "Reproducir o pausa",
-    "rep_retro":         "Retroceder 10 segundos",
-    "rep_avanz":         "Avanzar 10 segundos",
+    "rep_retro":         "Retroceder 1 minuto",
+    "rep_avanz":         "Avanzar 1 minuto",
     "rep_detener":       "Detener vídeo",
     "rep_mute":          "Silenciar o activar audio",
     "rep_vol_menos":     "Bajar volumen del reproductor",

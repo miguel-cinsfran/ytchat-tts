@@ -17,7 +17,7 @@ import wx
 import credenciales
 import youtube_api
 import sound_player as _snd
-from gui import anunciar, _T, _tc
+from gui import anunciar, copiar_al_portapapeles, _T, _tc
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +218,9 @@ class ComentariosPanel(wx.Panel):
     def _pagina_err(self, exc):
         self._cargando = False
         self.btn_recargar.Enable()
+        # Si había más páginas pendientes, que un error transitorio no deje
+        # «Cargar más» apagado (obligaba a recargar todo).
+        self.btn_mas.Enable(bool(self._next_token))
         _snd.reproducir("error")
         msg = youtube_api.mensaje_error_api(exc)
         anunciar(msg)
@@ -271,15 +274,17 @@ class ComentariosPanel(wx.Panel):
         menu.Append(id_leer,    "Leer con TTS")
         menu.Append(id_copiar,  "Copiar comentario")
         menu.Append(id_copiar2, "Copiar todo (autor: comentario)")
-        self.Bind(wx.EVT_MENU, lambda e: self._leer(),       id=id_leer)
-        self.Bind(wx.EVT_MENU, lambda e: self._copiar(),     id=id_copiar)
-        self.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(), id=id_copiar2)
+        # Handlers sobre el propio menú: mueren con él y no se acumulan
+        # bindings en el panel con cada apertura.
+        menu.Bind(wx.EVT_MENU, lambda e: self._leer(),       id=id_leer)
+        menu.Bind(wx.EVT_MENU, lambda e: self._copiar(),     id=id_copiar)
+        menu.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(), id=id_copiar2)
 
         if credenciales.hay_sesion() and youtube_api.google_disponible():
             menu.AppendSeparator()
             id_resp = wx.NewIdRef()
             menu.Append(id_resp, f"Responder a {c.autor}")
-            self.Bind(wx.EVT_MENU, lambda e: self._responder(), id=id_resp)
+            menu.Bind(wx.EVT_MENU, lambda e: self._responder(), id=id_resp)
 
         self.lb.PopupMenu(menu)
         menu.Destroy()
@@ -297,12 +302,7 @@ class ComentariosPanel(wx.Panel):
         if not c:
             anunciar("Sin comentario seleccionado")
             return
-        if wx.TheClipboard.Open():
-            try:
-                wx.TheClipboard.SetData(wx.TextDataObject(c.texto))
-                wx.TheClipboard.Flush()
-            finally:
-                wx.TheClipboard.Close()
+        copiar_al_portapapeles(c.texto)
         _snd.reproducir("copiar")
         anunciar("Comentario copiado")
 
@@ -311,13 +311,7 @@ class ComentariosPanel(wx.Panel):
         if not c:
             anunciar("Sin comentario seleccionado")
             return
-        linea = f"{c.autor}: {c.texto}"
-        if wx.TheClipboard.Open():
-            try:
-                wx.TheClipboard.SetData(wx.TextDataObject(linea))
-                wx.TheClipboard.Flush()
-            finally:
-                wx.TheClipboard.Close()
+        copiar_al_portapapeles(f"{c.autor}: {c.texto}")
         _snd.reproducir("copiar")
         anunciar("Línea copiada")
 

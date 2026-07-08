@@ -25,7 +25,6 @@ from config import (
     TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO,
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
-configurar_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +53,11 @@ def _verificar_instancia_unica() -> bool:
     global _mutex_handle
     try:
         import ctypes
-        _mutex_handle = ctypes.windll.kernel32.CreateMutexW(None, False, "YTChatTTS_SingleInstance_Mutex")
-        if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        # use_last_error + get_last_error: leer GetLastError «a mano» tras una
+        # llamada ctypes no es fiable (el propio ctypes puede pisarlo entre medias).
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        _mutex_handle = kernel32.CreateMutexW(None, False, "YTChatTTS_SingleInstance_Mutex")
+        if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
             return False
     except Exception:
         pass  # fuera de Windows, dejamos que arranque igualmente
@@ -303,11 +305,14 @@ def _es_error_permanente(exc):
 
 
 def captura_con_reconexion(video_id, cola, config, parada, stats, on_message=None,
-                           on_estado=None):
-    """on_estado(tipo, texto) informa al GUI de cambios de estado."""
+                           on_estado=None, sesion_activa=None):
+    """on_estado(tipo, texto) informa al GUI de cambios de estado.
+    sesion_activa() (opcional) dice si esta sesión sigue siendo la vigente: un
+    hilo viejo que despierta tarde no debe encolar TTS de la sesión anterior."""
     intentos = 0
     while not parada.is_set():
-        err = _captura(video_id, cola, config, parada, stats, on_message, on_estado)
+        err = _captura(video_id, cola, config, parada, stats, on_message, on_estado,
+                       sesion_activa)
         if parada.is_set():
             break
         if not config["reconectar"]:
@@ -332,7 +337,8 @@ def captura_con_reconexion(video_id, cola, config, parada, stats, on_message=Non
         parada.wait(timeout=espera)
 
 
-def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=None):
+def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=None,
+             sesion_activa=None):
     asyncio.set_event_loop(asyncio.new_event_loop())
     try:
         import pytchat
@@ -405,7 +411,11 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
                     if on_message:
                         on_message(autor, mensaje, hora, tipo, monto, canal_id)
 
-                    if debe_leer_tts(autor, config):
+                    # sesion_activa: que un hilo rezagado (bloqueado en red al
+                    # desconectar) no cuele lecturas de la sesión anterior en la
+                    # cola TTS ya vaciada. El descarte de GUI lo hace on_message.
+                    if debe_leer_tts(autor, config) and (
+                            sesion_activa is None or sesion_activa()):
                         encolar(cola, {"texto_tts": tts_text}, config, stats)
                         stats.inc("leidos")
 
@@ -471,6 +481,10 @@ def _mensaje_error_amigable(exc) -> str:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    # Aquí y no al importar el módulo: así los tests y el smoke test pueden
+    # importar main sin crear el handler de ytchat.log (contaminaba el log real).
+    configurar_logging()
+
     if not _verificar_instancia_unica():
         # Ya hay una instancia abierta. Intentamos informar al usuario.
         try:
@@ -599,7 +613,8 @@ def main():
                 threading.Thread(target=_resolver_live_chat_id, args=(vid,),
                                  daemon=True, name="LiveChatId").start()
                 captura_con_reconexion(vid, cola, config, ps, stats,
-                                       on_message=_on_msg, on_estado=_on_estado)
+                                       on_message=_on_msg, on_estado=_on_estado,
+                                       sesion_activa=lambda: gen == _estado["gen"])
                 # Solo refrescar la UI a «desconectado» si seguimos siendo la
                 # sesión activa: un hilo viejo que termina tarde no debe apagar el
                 # directo nuevo.
@@ -609,9 +624,11 @@ def main():
             else:
                 # Vídeo subido o directo programado: no hay chat en vivo. No se
                 # arranca pytchat; quedan disponibles comentarios y reproductor.
+                # El sonido también va tras el guard: una sesión ya descartada
+                # no debe sonar como si conectara.
                 if gen == _estado["gen"] and frame:
                     wx.CallAfter(frame.set_conectado, True)
-                _snd.reproducir("conectado")
+                    _snd.reproducir("conectado")
 
         threading.Thread(target=_run, daemon=True, name="Chat").start()
 

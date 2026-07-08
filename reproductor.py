@@ -225,6 +225,7 @@ class _PantallaCompleta(wx.Frame):
         self.video = wx.Window(self, name="VideoPantallaCompleta")
         self.video.SetBackgroundColour(wx.BLACK)
         self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        self.Bind(wx.EVT_CLOSE, self._on_close)
         self.ShowFullScreen(True)
 
     def _on_key(self, event):
@@ -232,6 +233,12 @@ class _PantallaCompleta(wx.Frame):
             self._panel.alternar_pantalla_completa()
         else:
             event.Skip()
+
+    def _on_close(self, event):
+        # Alt+F4: salir por el mismo camino que Escape/F11. Si se destruyera sin
+        # avisar, el panel seguiría apuntando aquí y el vídeo quedaría dibujando
+        # en una ventana muerta (y el siguiente toggle petaría).
+        self._panel.alternar_pantalla_completa()
 
 
 class ReproductorPanel(wx.Panel):
@@ -668,12 +675,17 @@ class ReproductorPanel(wx.Panel):
         self.btn_mute.SetLabel("Activar audio" if self._muted else "Silenciar audio")
         anunciar("Audio silenciado" if self._muted else "Audio activado")
 
-    def ajustar_volumen(self, delta: int):
+    def _aplicar_volumen(self, delta: int) -> int:
+        """Ajusta el volumen (slider + VLC) y devuelve el valor nuevo. Común al
+        atajo Ctrl+Arriba/Abajo y a las flechas sobre el deslizador."""
         self._vol = max(0, min(100, self._vol + delta))
         self.sld_vol.SetValue(self._vol)
         if self._player is not None:
             self._player.audio_set_volume(self._vol)
-        anunciar(f"Volumen reproductor {self._vol} por ciento")
+        return self._vol
+
+    def ajustar_volumen(self, delta: int):
+        anunciar(f"Volumen reproductor {self._aplicar_volumen(delta)} por ciento")
 
     # ── Pantalla completa ──────────────────────────────────────────────────────
 
@@ -750,11 +762,7 @@ class ReproductorPanel(wx.Panel):
             event.Skip()
 
     def _vol_flecha(self, delta):
-        self._vol = max(0, min(100, self._vol + delta))
-        self.sld_vol.SetValue(self._vol)
-        if self._player is not None:
-            self._player.audio_set_volume(self._vol)
-        anunciar(f"Volumen {self._vol}")
+        anunciar(f"Volumen {self._aplicar_volumen(delta)}")
 
     def _on_sld_vol(self, event):
         self._vol = self.sld_vol.GetValue()

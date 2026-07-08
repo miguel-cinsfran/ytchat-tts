@@ -22,6 +22,7 @@ from config import (
 from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
 import deteccion
 import metadatos
+from lista_chat import ListaChat
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -172,8 +173,7 @@ class YTChatFrame(wx.Frame):
         self._titulo_stream = ""
         self._tipo_video = deteccion.DESCONOCIDO
 
-        self._chat_all: list = []
-        self._chat_vis: list[int] = []
+        self._chat = ListaChat(MAX_ITEMS_CHAT)
         self._filtro = None
 
         self._sc_totales: dict[str, float] = {}
@@ -653,14 +653,25 @@ class YTChatFrame(wx.Frame):
         # Reconstruir atajos y menú por si cambiaron las teclas.
         self._atajos = parsear_atajos(self._config.get("atajos_raw", {}))
         try:
-            voces_actuales = [self.voz_submenu.FindItemByPosition(i).GetItemLabelText()
-                              for i in range(self.voz_submenu.GetMenuItemCount())]
+            # Solo los radio items: si no había voces, el submenú tiene un item
+            # deshabilitado «(no disponible)» que no debe repoblarse como voz.
+            voces_actuales = [it.GetItemLabelText()
+                              for it in self.voz_submenu.GetMenuItems()
+                              if it.GetKind() == wx.ITEM_RADIO]
         except Exception:
             voces_actuales = []
         self._build_menubar()
-        # Restaurar submenú de voz y filtro tras reconstruir.
+        # Restaurar submenú de voz y filtro tras reconstruir (con lista vacía,
+        # poblar_voces repone el item «(no disponible)»).
+        self.poblar_voces(voces_actuales, self._voz_idx)
         if voces_actuales:
-            self.poblar_voces(voces_actuales, self._voz_idx)
+            # Preferencias puede haber cambiado la voz: aplicarla en caliente.
+            try:
+                idx_cfg = _resolver_idx_voz(self._config.get("voz", "0"), voces_actuales)
+                if idx_cfg != self._voz_idx:
+                    self._aplicar_voz(idx_cfg)
+            except Exception as exc:
+                logger.debug("aplicar voz desde preferencias: %s", exc)
         self._marcar_filtro()
         self._sincronizar_checks()
         # Reconstruir la lista por si cambió "quitar emojis" o el filtro.
@@ -720,6 +731,10 @@ class YTChatFrame(wx.Frame):
         self._voz_idx = idx
         try:    self._voz_nombre = self._nombre_voz(idx)
         except Exception: self._voz_nombre = "—"
+        # Marcar el radio del submenú: al clicar lo hace wx solo, pero si
+        # llegamos aquí desde Preferencias hay que marcarlo a mano.
+        try:    self.voz_submenu.FindItemByPosition(idx).Check(True)
+        except Exception: pass
         self._config["voz"] = str(idx)
         guardar_opcion(RUTA_CONFIG, "voz", "voz", str(idx))
         _snd.reproducir("voz_cambiada")
@@ -737,15 +752,17 @@ class YTChatFrame(wx.Frame):
         anunciar(f"Filtro: {FILTROS[idx][0]}. {self.lb_chat.GetCount()} mensajes")
 
     def _ajustar_rate(self, delta):
+        # El worker actualiza su contador al instante (aplica a SAPI en su hilo),
+        # así que get_rate() ya devuelve el valor nuevo sin predecirlo aquí.
         self._worker.cambiar_rate(delta)
-        r = max(-10, min(10, self._worker.get_rate() + delta))
+        r = self._worker.get_rate()
         wpm = max(50, min(500, r * 20 + 180))
         guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
         anunciar(f"Velocidad de la voz: {r:+d}")
 
     def _ajustar_volume(self, delta):
         self._worker.cambiar_volumen(delta)
-        v = max(0, min(100, self._worker.get_volume() + delta))
+        v = self._worker.get_volume()
         guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
         anunciar(f"Volumen de la voz: {v}%")
 
@@ -915,16 +932,18 @@ class YTChatFrame(wx.Frame):
             menu.AppendSeparator()
             menu.Append(id_timeout, f"Expulsar 5 min a {autor} (timeout)")
             menu.Append(id_ban,     f"Banear a {autor} del directo (permanente)")
-            self.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, 300), id=id_timeout)
-            self.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, None), id=id_ban)
+            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, 300), id=id_timeout)
+            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, None), id=id_ban)
 
-        self.Bind(wx.EVT_MENU, lambda e: self._copiar_mensaje(), id=id_copiar)
-        self.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(),    id=id_copiar2)
-        self.Bind(wx.EVT_MENU, lambda e: self._releer_mensaje(), id=id_releer)
-        self.Bind(wx.EVT_MENU, lambda e: self._abrir_enlace(),   id=id_link)
-        self.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=False), id=id_sil_tts)
-        self.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=True),  id=id_sil_full)
-        self.Bind(wx.EVT_MENU, lambda e: self._rehabilitar_autor(autor),              id=id_rehab)
+        # Los handlers van sobre el propio menú (no sobre la ventana): así mueren
+        # con él y no se acumulan bindings en cada apertura del menú contextual.
+        menu.Bind(wx.EVT_MENU, lambda e: self._copiar_mensaje(), id=id_copiar)
+        menu.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(),    id=id_copiar2)
+        menu.Bind(wx.EVT_MENU, lambda e: self._releer_mensaje(), id=id_releer)
+        menu.Bind(wx.EVT_MENU, lambda e: self._abrir_enlace(),   id=id_link)
+        menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=False), id=id_sil_tts)
+        menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=True),  id=id_sil_full)
+        menu.Bind(wx.EVT_MENU, lambda e: self._rehabilitar_autor(autor),              id=id_rehab)
 
         self.lb_chat.PopupMenu(menu)
         menu.Destroy()
@@ -1010,48 +1029,12 @@ class YTChatFrame(wx.Frame):
 
     def _get_selected_data(self):
         idx = self.lb_chat.GetSelection()
-        if idx == wx.NOT_FOUND or idx >= len(self._chat_vis):
+        if idx == wx.NOT_FOUND:
             return None
-        real_idx = self._chat_vis[idx]
-        if real_idx >= len(self._chat_all):
-            return None
-        return self._chat_all[real_idx]
+        return self._chat.dato_en_fila(idx)
 
     def _clipboard_set(self, text: str) -> None:
-        try:
-            if wx.TheClipboard.Open():
-                try:
-                    wx.TheClipboard.SetData(wx.TextDataObject(text))
-                    wx.TheClipboard.Flush()
-                finally:
-                    wx.TheClipboard.Close()
-                return
-        except Exception:
-            pass
-        try:
-            import ctypes
-            k32 = ctypes.windll.kernel32
-            u32 = ctypes.windll.user32
-            if not u32.OpenClipboard(0):
-                return
-            try:
-                u32.EmptyClipboard()
-                encoded = text.encode("utf-16-le") + b"\x00\x00"
-                h = k32.GlobalAlloc(0x0042, len(encoded))
-                if not h:
-                    return
-                p = k32.GlobalLock(h)
-                if not p:
-                    k32.GlobalFree(h)
-                    return
-                ctypes.memmove(p, encoded, len(encoded))
-                k32.GlobalUnlock(h)
-                if not u32.SetClipboardData(13, h):  # CF_UNICODETEXT
-                    k32.GlobalFree(h)
-            finally:
-                u32.CloseClipboard()
-        except Exception:
-            pass
+        copiar_al_portapapeles(text)
 
     # ── Cierre y timer ───────────────────────────────────────────────────────
 
@@ -1100,12 +1083,14 @@ class YTChatFrame(wx.Frame):
         if self._autor_esta_oculto(autor):
             return
 
-        while len(self._chat_all) >= MAX_ITEMS_CHAT:
-            self._chat_all.pop(0)
-            self._chat_vis = [i - 1 for i in self._chat_vis if i > 0]
-
-        idx_all = len(self._chat_all)
-        self._chat_all.append((autor, mensaje, hora, tipo, monto))
+        # El modelo (lista_chat) recorta el historial y nos dice cuántas filas
+        # viejas borrar por arriba, manteniendo fila ↔ mensaje siempre alineados
+        # (antes se descontaba dos veces y, pasados 500 mensajes, copiar o
+        # banear caían sobre el mensaje equivocado).
+        visible = self._filtro is None or tipo == self._filtro
+        borrar = self._chat.agregar((autor, mensaje, hora, tipo, monto), visible)
+        for _ in range(borrar):
+            self.lb_chat.Delete(0)
 
         if tipo in (TIPO_SUPERCHAT, TIPO_STICKER):
             _snd.reproducir("superchat")
@@ -1115,13 +1100,8 @@ class YTChatFrame(wx.Frame):
         else:
             _snd.reproducir("mensaje_nuevo")
 
-        if self._filtro is None or tipo == self._filtro:
-            self._chat_vis.append(idx_all)
+        if visible:
             self.lb_chat.Append(self._format_display(autor, mensaje, hora, tipo, monto))
-            while self.lb_chat.GetCount() > MAX_ITEMS_CHAT:
-                self.lb_chat.Delete(0)
-                if self._chat_vis:
-                    self._chat_vis.pop(0)
             if wx.Window.FindFocus() is not self.lb_chat:
                 self.lb_chat.SetFirstItem(self.lb_chat.GetCount() - 1)
 
@@ -1158,8 +1138,7 @@ class YTChatFrame(wx.Frame):
         self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
         # Chat: datos y lista visible.
-        self._chat_all.clear()
-        self._chat_vis.clear()
+        self._chat.limpiar()
         try:    self.lb_chat.Clear()
         except Exception: pass
         # Super Chats acumulados de la sesión.
@@ -1211,8 +1190,7 @@ class YTChatFrame(wx.Frame):
         self._tipo_video = tipo
         # Empezar el chat en limpio en cada conexión: el reset al desconectar ya
         # lo hace, pero así garantizamos que nunca quede nada del vídeo anterior.
-        self._chat_all.clear()
-        self._chat_vis.clear()
+        self._chat.limpiar()
         self._sc_totales.clear()
         try:    self.lb_chat.Clear()
         except Exception: pass
@@ -1337,13 +1315,11 @@ class YTChatFrame(wx.Frame):
 
     def _rebuild_listbox(self) -> None:
         self.lb_chat.Clear()
-        self._chat_vis.clear()
-        for i, (autor, msg, hora, tipo, monto) in enumerate(self._chat_all):
-            if self._autor_esta_oculto(autor):
-                continue
-            if self._filtro is None or tipo == self._filtro:
-                self._chat_vis.append(i)
-                self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
+        visibles = self._chat.reconstruir(
+            lambda it: not self._autor_esta_oculto(it[0])
+            and (self._filtro is None or it[3] == self._filtro))
+        for autor, msg, hora, tipo, monto in visibles:
+            self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
 
     def _set_conectado_ui(self, conectado: bool) -> None:
         # Botón (toggle), items de menú Conectar/Desconectar y campo URL. El
@@ -1405,6 +1381,47 @@ class YTChatFrame(wx.Frame):
             return f"SC: {n} ({d}{t:.2f})"
         partes = [f"{d}{t:.0f}" for d, t in self._sc_totales.items()]
         return f"SC: {n} ({', '.join(partes)})"
+
+
+# ── Portapapeles ─────────────────────────────────────────────────────────────
+# Compartido con el panel de comentarios: primero wx y, si falla (p. ej. otro
+# proceso tiene el portapapeles abierto), la vía Win32 directa como respaldo.
+
+def copiar_al_portapapeles(text: str) -> None:
+    try:
+        if wx.TheClipboard.Open():
+            try:
+                wx.TheClipboard.SetData(wx.TextDataObject(text))
+                wx.TheClipboard.Flush()
+            finally:
+                wx.TheClipboard.Close()
+            return
+    except Exception:
+        pass
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        u32 = ctypes.windll.user32
+        if not u32.OpenClipboard(0):
+            return
+        try:
+            u32.EmptyClipboard()
+            encoded = text.encode("utf-16-le") + b"\x00\x00"
+            h = k32.GlobalAlloc(0x0042, len(encoded))
+            if not h:
+                return
+            p = k32.GlobalLock(h)
+            if not p:
+                k32.GlobalFree(h)
+                return
+            ctypes.memmove(p, encoded, len(encoded))
+            k32.GlobalUnlock(h)
+            if not u32.SetClipboardData(13, h):  # CF_UNICODETEXT
+                k32.GlobalFree(h)
+        finally:
+            u32.CloseClipboard()
+    except Exception:
+        pass
 
 
 # ── Helpers de voces ─────────────────────────────────────────────────────────

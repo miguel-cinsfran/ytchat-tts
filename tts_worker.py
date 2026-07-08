@@ -161,17 +161,9 @@ class TTSWorker(threading.Thread):
                         self._voz.Voice = voces.Item(val)
                         logger.info("Voz cambiada: %s", voces.Item(val).GetDescription())
                 elif cmd == "rate":
-                    self._rate = max(-10, min(10, int(val)))
-                    self._voz.Rate = self._rate
-                elif cmd == "rate_delta":
-                    self._rate = max(-10, min(10, self._rate + int(val)))
-                    self._voz.Rate = self._rate
+                    self._voz.Rate = max(-10, min(10, int(val)))
                 elif cmd == "volume":
-                    self._volume = max(0, min(100, int(val)))
-                    self._voz.Volume = self._volume
-                elif cmd == "volume_delta":
-                    self._volume = max(0, min(100, self._volume + int(val)))
-                    self._voz.Volume = self._volume
+                    self._voz.Volume = max(0, min(100, int(val)))
                 elif cmd == "purge":
                     self._purge_pending.set()
             except Exception as exc:
@@ -268,10 +260,15 @@ class TTSWorker(threading.Thread):
         self._cmds.put(("voice", idx))
 
     def cambiar_rate(self, delta: int):
-        self._cmds.put(("rate_delta", delta))
+        # El contador se actualiza AQUÍ (en el hilo del llamador) y al hilo TTS
+        # va el valor absoluto: así get_rate() devuelve el valor nuevo al
+        # instante y pulsar rápido no desfasa lo anunciado/persistido.
+        self._rate = max(-10, min(10, self._rate + int(delta)))
+        self._cmds.put(("rate", self._rate))
 
     def cambiar_volumen(self, delta: int) -> None:
-        self._cmds.put(("volume_delta", delta))
+        self._volume = max(0, min(100, self._volume + int(delta)))
+        self._cmds.put(("volume", self._volume))
 
     def get_rate(self) -> int:
         return self._rate
