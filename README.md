@@ -4,7 +4,7 @@ Lector del chat de YouTube Live con las voces SAPI5 de Windows, pensado para
 streamers ciegos o con baja visión. Toda la interfaz se maneja con teclado y
 está probada con NVDA.
 
-Versión 0.1.0 · Windows 10/11.
+Versión 1.0.0 · Windows 10/11. Historial de cambios en [CHANGELOG.md](CHANGELOG.md).
 
 ## Qué hace
 
@@ -23,7 +23,7 @@ Pegas la URL de un directo (o de un vídeo normal) y la app se conecta sola:
   usuarios del chat y enviar mensajes al directo.
 - **Pestaña Información**: canal, vistas, fecha y descripción del vídeo, con
   los enlaces clicables.
-- **Directos de TikTok** (experimental): pega una URL tipo
+- **Directos de TikTok** (en desarrollo, saldrá en la 2.0): pega una URL tipo
   `tiktok.com/@usuario/live` y lee el chat, los regalos y las suscripciones
   con la misma voz, con el vídeo del directo en el reproductor. Solo lectura:
   en TikTok no se puede comentar ni moderar desde la app.
