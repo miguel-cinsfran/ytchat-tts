@@ -717,10 +717,17 @@ def main():
             wx.CallAfter(frame.configurar_tiktok, usuario, url_flujo)
             wx.CallAfter(frame.set_metadatos, meta)
 
+        def _on_espectadores(n):
+            if gen != _estado["gen"]:
+                return
+            if _gm._gui_frame and _gm._gui_frame._alive:
+                wx.CallAfter(_gm._gui_frame.set_espectadores, n)
+
         def _run():
             tiktok_captura.capturar_con_reconexion(
                 usuario, config, ps,
-                on_evento=_on_evento, on_estado=_on_estado, on_info=_on_info)
+                on_evento=_on_evento, on_estado=_on_estado, on_info=_on_info,
+                on_espectadores=_on_espectadores)
             # Igual que en YouTube: solo apagar la UI si seguimos siendo la
             # sesión activa (un hilo viejo no debe pisar el directo nuevo).
             if gen == _estado["gen"] and _gm._gui_frame and not parada.is_set():

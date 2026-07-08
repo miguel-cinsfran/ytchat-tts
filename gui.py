@@ -1264,6 +1264,14 @@ class YTChatFrame(wx.Frame):
         self._live_chat_id = live_chat_id or ""
         self._actualizar_estado_online()
 
+    def set_espectadores(self, n: int) -> None:
+        """Actualiza el conteo de espectadores en vivo (TikTok lo refresca cada
+        pocos segundos). Así F2 dice cuántos hay AHORA, no solo al conectar."""
+        if not self._alive:
+            return
+        try:    self._metadatos["vistas"] = int(n)
+        except Exception: pass
+
     def set_tipo_video(self, tipo: str, video_id: str) -> None:
         if not self._alive:
             return

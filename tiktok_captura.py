@@ -102,12 +102,13 @@ async def _vigilar_parada(client, parada) -> None:
         logger.debug("vigilar_parada: %s", exc)
 
 
-def _sesion(usuario, parada, on_evento, on_estado, on_info):
+def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
     """Una conexión completa (bloquea hasta desconectar). Devuelve la excepción
     de conexión si la hubo, o None si terminó con normalidad."""
     from TikTokLive import TikTokLiveClient
     from TikTokLive.events import (ConnectEvent, CommentEvent, GiftEvent,
-                                   SubscribeEvent, DisconnectEvent, LiveEndEvent)
+                                   SubscribeEvent, DisconnectEvent, LiveEndEvent,
+                                   RoomUserSeqEvent)
 
     client = TikTokLiveClient(unique_id=usuario)
     error: list = [None]
@@ -154,6 +155,20 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info):
     async def _on_subscribe(evento):
         autor, canal_id = _autor(evento)
         on_evento(autor, "", TIPO_MIEMBRO, "", canal_id)
+
+    @client.on(RoomUserSeqEvent)
+    async def _on_user_seq(evento):
+        # Conteo de espectadores EN VIVO (se actualiza cada pocos segundos).
+        if not on_espectadores:
+            return
+        n = getattr(evento, "total_user", None)
+        if n is None:
+            n = getattr(evento, "m_total", None)
+        try:
+            if n is not None:
+                on_espectadores(int(n))
+        except (TypeError, ValueError):
+            pass
 
     @client.on(LiveEndEvent)
     async def _on_live_end(evento):
@@ -220,10 +235,12 @@ def _es_error_permanente(exc) -> bool:
 
 
 def capturar_con_reconexion(usuario, config, parada, on_evento,
-                            on_estado=None, on_info=None) -> None:
+                            on_estado=None, on_info=None,
+                            on_espectadores=None) -> None:
     """Bucle de captura con reintentos, con el mismo contrato de estados que la
     captura de YouTube (conectando/conectado/reintentando/error…). Bloquea:
-    llamar desde un hilo aparte."""
+    llamar desde un hilo aparte. on_espectadores(n) (opcional) recibe el conteo
+    de espectadores en vivo cuando TikTok lo actualiza."""
     if not disponible():
         if on_estado:
             on_estado("error_permanente",
@@ -235,7 +252,7 @@ def capturar_con_reconexion(usuario, config, parada, on_evento,
     while not parada.is_set():
         if on_estado:
             on_estado("conectando", f"Conectando al directo de TikTok de @{usuario}...")
-        err = _sesion(usuario, parada, on_evento, on_estado, on_info)
+        err = _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores)
         if parada.is_set():
             break
         if err is not None and _es_error_permanente(err):
