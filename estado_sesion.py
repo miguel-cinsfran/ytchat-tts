@@ -105,7 +105,11 @@ def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
         if s.espectadores is None:
             return ""
         n = _fmt_num(s.espectadores)
-        return f"Espectadores: {n}" if largo else f"{n} espectadores"
+        # En un directo es el nº de espectadores AHORA; en un vídeo, las vistas
+        # totales (números distintos, no confundir).
+        en_directo = s.tipo in ("live_youtube", "live_tiktok")
+        palabra = "espectadores" if en_directo else "vistas"
+        return f"{palabra.capitalize()}: {n}" if largo else f"{n} {palabra}"
 
     if nombre == "mensajes_leidos":
         n = _fmt_num(s.mensajes_leidos)

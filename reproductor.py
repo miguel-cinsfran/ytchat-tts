@@ -762,9 +762,12 @@ class ReproductorPanel(wx.Panel):
             self._error_carga()
             return
         self._pos_ms = self._dur_ms = 0
-        self.lbl_estado.SetLabel("Reproduciendo." if reproducir else "Listo.")
+        # Un directo de TikTok no tiene barra de tiempo: se puede pausar (al
+        # reanudar vuelve al momento actual) pero no adelantar ni retroceder.
+        self.lbl_estado.SetLabel("En directo (sin barra de tiempo)."
+                                 if reproducir else "Listo.")
         if reproducir:
-            anunciar("Reproduciendo")
+            anunciar("En directo")
 
     def set_calidad(self, altura):
         """altura=None → automática; si no hay info aún, se aplica al cargar."""
@@ -848,12 +851,20 @@ class ReproductorPanel(wx.Panel):
         if not silencioso:
             anunciar("Detenido")
 
+    def _aviso_sin_barra(self) -> None:
+        # En un directo de TikTok no hay línea de tiempo; en un directo de
+        # YouTube sí (se puede retroceder dentro del margen que da YouTube).
+        if self._url_flujo:
+            anunciar("En un directo de TikTok no se puede adelantar ni retroceder")
+        else:
+            anunciar("No se puede buscar en este momento")
+
     def _buscar_rel(self, delta_ms: int):
         if self._player is None:
             return
         dur = self._player.get_length()
         if dur <= 0:
-            anunciar("No se puede buscar en este flujo")
+            self._aviso_sin_barra()
             return
         nueva = min(max(0, self._player.get_time() + delta_ms), dur)
         self._player.set_time(int(nueva))
@@ -948,7 +959,7 @@ class ReproductorPanel(wx.Panel):
             return
         dur = self._player.get_length()
         if dur <= 0:
-            anunciar("No se puede buscar en este flujo")
+            self._aviso_sin_barra()
             return
         destino = int(dur * pct / 100)
         self._player.set_time(destino)
