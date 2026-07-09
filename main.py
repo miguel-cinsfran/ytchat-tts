@@ -333,7 +333,14 @@ def procesar_entrante(autor, mensaje, tipo, monto, canal_id, cola, config, stats
         on_message(autor, mensaje, hora, tipo, monto, canal_id)
 
     if debe_leer_tts(autor, config) and (sesion_activa is None or sesion_activa()):
-        encolar(cola, {"texto_tts": tts_text}, config, stats)
+        item = {"texto_tts": tts_text}
+        # Multi-voz: los eventos (Super Chats, regalos, miembros, entradas) se
+        # leen con otra voz si está activado; los mensajes normales, con la base.
+        if config.get("multivoz") and tipo in (TIPO_SUPERCHAT, TIPO_STICKER,
+                                               TIPO_MIEMBRO, TIPO_ENTRADA):
+            try:    item["voz"] = int(config.get("voz_eventos", 0))
+            except (TypeError, ValueError): pass
+        encolar(cola, item, config, stats)
         stats.inc("leidos")
 
 

@@ -218,6 +218,7 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
 
 _DEF = {
     "voz": "0", "velocidad": "175", "volumen": "1.0",
+    "multivoz": "false", "voz_eventos": "0",
     "estrategia": "limite", "tamanio_maximo": "15", "umbral_solo_nombre": "0",
     "reconectar": "true", "espera_entre_intentos": "10", "max_intentos": "5",
     "formato_prefijo": "nombre_mensaje",
@@ -235,6 +236,11 @@ _CONFIG_FALLBACK = """\
 voz = 0
 velocidad = 175
 volumen = 1.0
+# Multi-voz: usar una voz distinta para los eventos (Super Chats, regalos,
+# miembros, entradas). voz_eventos es el indice de esa voz. Editable en
+# Preferencias > Lectura.
+multivoz = false
+voz_eventos = 0
 [cola]
 estrategia = limite
 tamanio_maximo = 15
@@ -451,6 +457,10 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
     if not p.has_option("tiktok", "anunciar_entradas"):
         guardar_opcion(ruta, "tiktok", "anunciar_entradas", "false")
+    if not p.has_option("voz", "multivoz"):
+        guardar_opcion(ruta, "voz", "multivoz", "false")
+    if not p.has_option("voz", "voz_eventos"):
+        guardar_opcion(ruta, "voz", "voz_eventos", "0")
 
     # Estado (F2): un booleano por componente. Si falta la sección, se crea con
     # los valores por defecto (lo relevante activado; lo técnico apagado).
@@ -473,6 +483,8 @@ def cargar_configuracion() -> dict:
         "voz": _gs(p, "voz", "voz"),
         "velocidad": _pi(p, "voz", "velocidad", lo=50, hi=500),
         "volumen": _pf(p, "voz", "volumen"),
+        "multivoz": _pb(p, "voz", "multivoz"),
+        "voz_eventos": _gs(p, "voz", "voz_eventos"),
         "estrategia": estrategia,
         "tamanio_maximo": _pi(p, "cola", "tamanio_maximo", lo=1),
         "umbral_solo_nombre": _pi(p, "cola", "umbral_solo_nombre"),

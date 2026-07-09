@@ -315,6 +315,32 @@ class PreferenciasDialog(wx.Dialog):
             self.cho_voz.Disable()
         vs.Add(self.cho_voz, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
+        # Multi-voz: una voz distinta para los eventos (Super Chats, regalos,
+        # miembros, entradas). Desactivada por defecto.
+        self.chk_multivoz = wx.CheckBox(
+            p, name="MultiVoz",
+            label="Usar una voz &distinta para los eventos (Super Chats, regalos, "
+                  "miembros y entradas)")
+        self.chk_multivoz.SetForegroundColour(_T.text)
+        self.chk_multivoz.SetValue(bool(self._config.get("multivoz", False)))
+        vs.Add(self.chk_multivoz, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        vs.Add(self._fila_label(p, "Voz para los &eventos:"), 0, wx.LEFT | wx.RIGHT, 10)
+        self.cho_voz_eventos = wx.Choice(
+            p, choices=self._voces or ["(no hay voces disponibles)"],
+            name="Voz para los eventos")
+        _tc(self.cho_voz_eventos)
+        if self._voces:
+            self.cho_voz_eventos.SetSelection(
+                _resolver_idx_voz(self._config.get("voz_eventos", "0"), self._voces))
+        else:
+            self.cho_voz_eventos.SetSelection(0)
+        self.cho_voz_eventos.Enable(bool(self._voces) and self.chk_multivoz.GetValue())
+        self.chk_multivoz.Bind(
+            wx.EVT_CHECKBOX,
+            lambda e: self.cho_voz_eventos.Enable(bool(self._voces) and e.IsChecked()))
+        vs.Add(self.cho_voz_eventos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         vs.Add(self._fila_label(p, "Qué leer de cada mensaje:"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         self.rb_formato = wx.RadioBox(
             p, choices=[f[0] for f in _FORMATOS], majorDimension=1,
@@ -654,6 +680,13 @@ class PreferenciasDialog(wx.Dialog):
             idx_voz = max(0, self.cho_voz.GetSelection())
             self._set("voz", "voz", str(idx_voz))
             c["voz"] = str(idx_voz)
+            idx_ev = max(0, self.cho_voz_eventos.GetSelection())
+            self._set("voz", "voz_eventos", str(idx_ev))
+            c["voz_eventos"] = str(idx_ev)
+
+        multivoz = self.chk_multivoz.GetValue()
+        self._set("voz", "multivoz", "true" if multivoz else "false")
+        c["multivoz"] = multivoz
 
         formato = _FORMATOS[self.rb_formato.GetSelection()][1]
         self._set("lectura", "formato_prefijo", formato)

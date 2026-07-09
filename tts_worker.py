@@ -91,6 +91,12 @@ class TTSWorker(threading.Thread):
         self._rate   = _wpm_a_rate(config.get("velocidad", 175))
         self._volume = max(0, min(100, int(config.get("volumen", 1.0) * 100)))
         self._purge_pending = threading.Event()
+        # Multi-voz: colección de voces cacheada y qué voz está activa ahora. La
+        # voz «base» es la del menú/preferencias; un mensaje puede pedir otra
+        # (p. ej. eventos con una voz distinta) y se cambia solo para ese.
+        self._voces_col = None
+        self._voz_base_idx = 0
+        self._voz_actual_idx = 0
 
     def run(self):
         self._init_com()
@@ -119,7 +125,7 @@ class TTSWorker(threading.Thread):
                 continue
             self._active.wait()
             try:
-                self._hablar(texto); _err = 0
+                self._hablar(texto, item.get("voz")); _err = 0
             except Exception as exc:
                 _err += 1
                 if _err <= 5:
@@ -128,7 +134,21 @@ class TTSWorker(threading.Thread):
                     logger.error("TTS: demasiados errores seguidos.")
         logger.info("TTSWorker terminado.")
 
-    def _hablar(self, texto: str) -> None:
+    def _aplicar_voz_idx(self, idx) -> None:
+        """Cambia la voz activa de SAPI si hace falta (usa la colección cacheada,
+        sin recrearla). Silencioso ante índices fuera de rango o fallos."""
+        try:
+            if (self._voces_col is not None and idx is not None
+                    and idx != self._voz_actual_idx
+                    and 0 <= idx < self._voces_col.Count):
+                self._voz.Voice = self._voces_col.Item(idx)
+                self._voz_actual_idx = idx
+        except Exception as exc:
+            logger.debug("cambiar voz a %s: %s", idx, exc)
+
+    def _hablar(self, texto: str, voz=None) -> None:
+        # Multi-voz: si el mensaje pide una voz concreta, se usa; si no, la base.
+        self._aplicar_voz_idx(voz if voz is not None else self._voz_base_idx)
         self._voz.Speak(texto, _SPEAK_FLAGS)
         while True:
             try:
@@ -156,10 +176,13 @@ class TTSWorker(threading.Thread):
             except queue.Empty: break
             try:
                 if cmd == "voice":
-                    voces = self._voz.GetVoices()
-                    if 0 <= val < voces.Count:
-                        self._voz.Voice = voces.Item(val)
-                        logger.info("Voz cambiada: %s", voces.Item(val).GetDescription())
+                    # Cambia la voz BASE (la del menú); los mensajes normales la
+                    # usan y los eventos pueden pedir otra (multi-voz).
+                    if self._voces_col is not None and 0 <= val < self._voces_col.Count:
+                        self._voz_base_idx = val
+                        self._aplicar_voz_idx(val)
+                        logger.info("Voz base: %s",
+                                    self._voces_col.Item(val).GetDescription())
                 elif cmd == "rate":
                     self._voz.Rate = max(-10, min(10, int(val)))
                 elif cmd == "volume":
@@ -196,6 +219,9 @@ class TTSWorker(threading.Thread):
         tts.Voice  = voces.Item(idx)
         tts.Volume = self._volume
         tts.Rate   = self._rate
+        self._voces_col = voces      # cacheada para cambiar de voz sin recrearla
+        self._voz_base_idx = idx
+        self._voz_actual_idx = idx
         logger.info("Voz: %s | Rate: %+d | Vol: %d%%",
                     voces.Item(idx).GetDescription(), tts.Rate, tts.Volume)
         return tts
