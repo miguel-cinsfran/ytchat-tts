@@ -22,6 +22,7 @@ TIPO_TEXTO     = "text"
 TIPO_SUPERCHAT = "superchat"
 TIPO_STICKER   = "sticker"
 TIPO_MIEMBRO   = "member"
+TIPO_ENTRADA   = "entrada"   # alguien entra al directo (solo TikTok, opcional)
 
 FILTROS = [
     ("Todos",        None),
@@ -226,6 +227,7 @@ _DEF = {
     "guardar_historial": "no", "autoplay_reproductor": "true",
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
     "mostrar_botones_reproductor": "false", "mostrar_metadatos": "true",
+    "anunciar_entradas": "false",
 }
 
 _CONFIG_FALLBACK = """\
@@ -283,6 +285,10 @@ mostrar_metadatos = true
 [sesion]
 guardar_historial = no
 silenciar_lectura = false
+[tiktok]
+# Leer por voz quien entra al directo (solo TikTok). En directos grandes puede
+# ser muchisimo, por eso viene desactivado. Editable en Preferencias > Lectura.
+anunciar_entradas = false
 # Componentes que anuncia F2 (estado de sesion). Editable en
 # Preferencias > Estado (F2). true = se dice; false = no.
 [estado]
@@ -443,6 +449,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "ui", "mostrar_metadatos", "true")
     if not p.has_option("sesion", "silenciar_lectura"):
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
+    if not p.has_option("tiktok", "anunciar_entradas"):
+        guardar_opcion(ruta, "tiktok", "anunciar_entradas", "false")
 
     # Estado (F2): un booleano por componente. Si falta la sección, se crea con
     # los valores por defecto (lo relevante activado; lo técnico apagado).
@@ -486,6 +494,7 @@ def cargar_configuracion() -> dict:
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),
         "guardar_historial": guardar,
         "silenciar_lectura": _pb(p, "sesion", "silenciar_lectura"),
+        "tiktok_anunciar_entradas": _pb(p, "tiktok", "anunciar_entradas"),
         "estado_toggles": estado_toggles,
         "atajos_raw": atajos_raw,
         "ruta_config": ruta,

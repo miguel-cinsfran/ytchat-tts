@@ -27,7 +27,7 @@ import os
 import re
 import sys
 
-from config import TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_MIEMBRO
+from config import TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_MIEMBRO, TIPO_ENTRADA
 
 logger = logging.getLogger(__name__)
 
@@ -173,14 +173,15 @@ async def _vigilar_parada(client, parada) -> None:
         logger.debug("vigilar_parada: %s", exc)
 
 
-def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
+def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores,
+            anunciar_entradas=False):
     """Una conexión completa (bloquea hasta desconectar). Devuelve la excepción
     de conexión si la hubo, o None si terminó con normalidad."""
     _parchear_extended_user()   # antes de tocar ningún evento (ver la función)
     from TikTokLive import TikTokLiveClient
     from TikTokLive.events import (ConnectEvent, CommentEvent, GiftEvent,
                                    SubscribeEvent, DisconnectEvent, LiveEndEvent,
-                                   RoomUserSeqEvent)
+                                   RoomUserSeqEvent, JoinEvent)
 
     client = TikTokLiveClient(unique_id=usuario)
     error: list = [None]
@@ -221,6 +222,14 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores):
     async def _on_subscribe(evento):
         autor, canal_id = _autor(evento)
         on_evento(autor, "", TIPO_MIEMBRO, "", canal_id)
+
+    if anunciar_entradas:
+        # Quién entra al directo. Solo si el usuario lo pidió: en directos
+        # grandes son constantes y saturarían el TTS.
+        @client.on(JoinEvent)
+        async def _on_join(evento):
+            autor, canal_id = _autor(evento)
+            on_evento(autor, "", TIPO_ENTRADA, "", canal_id)
 
     @client.on(RoomUserSeqEvent)
     async def _on_user_seq(evento):
@@ -318,7 +327,8 @@ def capturar_con_reconexion(usuario, config, parada, on_evento,
     while not parada.is_set():
         if on_estado:
             on_estado("conectando", f"Conectando al directo de TikTok de @{usuario}...")
-        err = _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores)
+        err = _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores,
+                      anunciar_entradas=bool(config.get("tiktok_anunciar_entradas")))
         if parada.is_set():
             break
         if err is not None and _es_error_permanente(err):

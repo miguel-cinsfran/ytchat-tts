@@ -195,6 +195,14 @@ class PreferenciasDialog(wx.Dialog):
         vs.Add(self.chk_emojis, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         vs.Add(self.chk_urls, 0, wx.ALL, 10)
 
+        self.chk_entradas = wx.CheckBox(
+            p, name="AnunciarEntradas",
+            label="Leer quién &entra al directo (solo TikTok; en directos grandes "
+                  "puede ser muchísimo)")
+        self.chk_entradas.SetForegroundColour(_T.text)
+        self.chk_entradas.SetValue(bool(self._config.get("tiktok_anunciar_entradas", False)))
+        vs.Add(self.chk_entradas, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         vs.Add(self._fila_label(p, "&Longitud máxima del mensaje (caracteres):"),
                0, wx.LEFT | wx.RIGHT, 10)
         self.sp_long = wx.SpinCtrl(p, min=20, max=1000,
@@ -519,6 +527,10 @@ class PreferenciasDialog(wx.Dialog):
         urls = self.chk_urls.GetValue()
         self._set("texto", "eliminar_urls", "true" if urls else "false")
         c["eliminar_urls"] = urls
+
+        entradas = self.chk_entradas.GetValue()
+        self._set("tiktok", "anunciar_entradas", "true" if entradas else "false")
+        c["tiktok_anunciar_entradas"] = entradas
         longitud = str(self.sp_long.GetValue())
         self._set("texto", "max_longitud_mensaje", longitud)
         c["max_longitud_mensaje"] = int(longitud)

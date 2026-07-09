@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", message=".*get_event_loop.*")
 
 from config import (
     APP_NAME, APP_VERSION, app_dir,
-    TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO,
+    TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO, TIPO_ENTRADA,
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
 
@@ -321,6 +321,8 @@ def procesar_entrante(autor, mensaje, tipo, monto, canal_id, cola, config, stats
                     else f"{etiqueta_monto} de {autor}: {monto}")
     elif tipo == TIPO_MIEMBRO:
         tts_text = f"Nuevo miembro: {autor}"
+    elif tipo == TIPO_ENTRADA:
+        tts_text = f"{autor} entró"
     elif umbral > 0 and cola.qsize() >= umbral:
         tts_text = sanitizar(autor, config["limpiar_emojis"], False, 50) or "Usuario"
     else:

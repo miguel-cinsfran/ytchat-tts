@@ -16,7 +16,7 @@ import wx
 
 from config import (
     APP_NAME, APP_VERSION,
-    TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO,
+    TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO, TIPO_ENTRADA,
     FILTROS,
 )
 from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
@@ -1485,6 +1485,8 @@ class YTChatFrame(wx.Frame):
             return f"🎨 [{monto}] {autor}, {hora}"
         if tipo == TIPO_MIEMBRO:
             return f"⭐ NUEVO MIEMBRO: {autor}, {hora}"
+        if tipo == TIPO_ENTRADA:
+            return f"👋 {autor} entró, {hora}"
         return f"{autor}: {msg}, {hora}"
 
     def _rebuild_listbox(self) -> None:
