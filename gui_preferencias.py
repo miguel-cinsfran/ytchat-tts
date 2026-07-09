@@ -49,6 +49,149 @@ _FORMATOS = [
 ]
 
 
+# ── Captura de atajos (pulsar en vez de escribir) ─────────────────────────────
+# Idea tomada del proyecto bellbird del dueño: en vez de teclear el atajo (con
+# riesgo de escribirlo mal), se pulsa un botón, se captura la combinación real y
+# se valida al vuelo (área correcta y sin conflicto). Así no hay atajos inválidos.
+
+_TECLA_WX_A_TEXTO = {
+    wx.WXK_LEFT: "left", wx.WXK_RIGHT: "right", wx.WXK_UP: "up", wx.WXK_DOWN: "down",
+    wx.WXK_RETURN: "enter", wx.WXK_NUMPAD_ENTER: "enter", wx.WXK_SPACE: "space",
+}
+_AREA_AYUDA = {
+    "ctrl": "Debe ser Ctrl y una tecla (por ejemplo Ctrl+P).",
+    "alt":  "Debe ser Alt y una tecla (por ejemplo Alt+C).",
+    "f":    "Debe ser una tecla de función, de F1 a F12.",
+}
+
+
+def _tecla_texto(keycode: int) -> str | None:
+    """Nombre de tecla en nuestro formato («left», «f5», «p»…) desde un keycode
+    de wx. None si no es una tecla admitida como atajo."""
+    if keycode in _TECLA_WX_A_TEXTO:
+        return _TECLA_WX_A_TEXTO[keycode]
+    if wx.WXK_F1 <= keycode <= wx.WXK_F12:
+        return f"f{keycode - wx.WXK_F1 + 1}"
+    if 33 <= keycode < 127:   # letras, dígitos y símbolos ASCII
+        return chr(keycode).lower()
+    return None
+
+
+def _combo_a_texto(mods: int, keycode: int) -> str | None:
+    """(modificadores, keycode) de wx → texto tipo «ctrl+p», «alt+enter», «f5».
+    None si la tecla no sirve como atajo. Deja que config valide el resto."""
+    tecla = _tecla_texto(keycode)
+    if not tecla:
+        return None
+    partes = []
+    if mods & wx.MOD_CONTROL: partes.append("ctrl")
+    if mods & wx.MOD_ALT:     partes.append("alt")
+    if mods & wx.MOD_SHIFT:   partes.append("shift")
+    return "+".join(partes + [tecla]) if partes else tecla
+
+
+_NOMBRE_TECLA_MOSTRAR = {
+    "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "enter": "Enter",
+    "left": "Left", "right": "Right", "up": "Up", "down": "Down", "space": "Space",
+}
+
+
+def _mostrar_atajo(valor: str) -> str:
+    """Texto legible de un atajo para el botón: «Ctrl+P», «Alt+Enter», «F5»,
+    «(sin asignar)»."""
+    if not valor:
+        return "(sin asignar)"
+    partes = [_NOMBRE_TECLA_MOSTRAR.get(p, p.upper()) for p in valor.split("+")]
+    return "+".join(partes)
+
+
+class _CapturaAtajoDialog(wx.Dialog):
+    """Mini-diálogo que captura una combinación de teclas y la valida (área de
+    la acción y conflicto con otras). Devuelve el atajo normalizado o None."""
+
+    def __init__(self, parent, accion, etiqueta, valores_actuales):
+        super().__init__(parent, title="Capturar atajo", name="CapturaAtajo")
+        self._accion = accion
+        self._area = cfg.ATAJOS_AREA.get(accion)
+        self._valores = valores_actuales      # dict acción -> atajo normalizado
+        self._capturado = None                # normalizado válido, o None
+        self.SetBackgroundColour(_T.bg)
+
+        vs = wx.BoxSizer(wx.VERTICAL)
+        ayuda = _AREA_AYUDA.get(self._area, "")
+        intro = wx.StaticText(self, name="IntroCaptura", label=(
+            f"Pulsa la combinación para «{etiqueta}». {ayuda}\n"
+            "Escape cancela. Sigue pulsando para cambiarla."))
+        intro.SetForegroundColour(_T.text)
+        intro.Wrap(420)
+        vs.Add(intro, 0, wx.ALL, 12)
+
+        self.lbl_captura = wx.StaticText(self, name="ResultadoCaptura",
+                                         label="Esperando…")
+        self.lbl_captura.SetForegroundColour(_T.accent)
+        vs.Add(self.lbl_captura, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
+
+        row = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_ok = wx.Button(self, wx.ID_OK, "&Aceptar", name="AceptarCaptura")
+        self.btn_ok.Disable()
+        btn_quitar = wx.Button(self, wx.ID_ANY, "&Desactivar atajo", name="DesactivarAtajo")
+        btn_cancel = wx.Button(self, wx.ID_CANCEL, "&Cancelar", name="CancelarCaptura")
+        for b in (self.btn_ok, btn_quitar, btn_cancel):
+            b.SetBackgroundColour(_T.btn); b.SetForegroundColour(_T.btn_t)
+            row.Add(b, 0, wx.RIGHT, 6)
+        vs.Add(row, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
+
+        self.SetSizerAndFit(vs)
+        self.SetEscapeId(wx.ID_CANCEL)
+        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
+        btn_quitar.Bind(wx.EVT_BUTTON, self._on_desactivar)
+        self.Centre()
+
+    def _on_key(self, event):
+        k = event.GetKeyCode()
+        # Escape cierra; teclas solo-modificador se ignoran (se espera la tecla).
+        if k == wx.WXK_ESCAPE:
+            event.Skip(); return
+        if k in (wx.WXK_SHIFT, wx.WXK_CONTROL, wx.WXK_ALT, wx.WXK_RAW_CONTROL):
+            return
+        if k in (wx.WXK_TAB, wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and \
+                event.GetModifiers() == wx.MOD_NONE:
+            # Tab/Enter sin modificador: dejarlos para navegar/aceptar el diálogo.
+            event.Skip(); return
+        combo = _combo_a_texto(event.GetModifiers(), k)
+        self._evaluar(combo)
+
+    def _evaluar(self, combo):
+        norm = cfg._normalizar_atajo(combo) if combo else None
+        if norm is None:
+            self._fijar("Esa combinación no es válida.", None)
+            return
+        if not cfg.atajo_valido_para_area(self._accion, norm):
+            self._fijar(f"No vale aquí. {_AREA_AYUDA.get(self._area, '')}", None)
+            return
+        # Conflicto con otra acción (comparando el atajo normalizado).
+        for otra, val in self._valores.items():
+            if otra != self._accion and val and val == norm:
+                etq = _ETIQUETAS_ATAJO.get(otra, otra)
+                self._fijar(f"Ya lo usa: {etq}. Elige otra.", None)
+                return
+        self._fijar(f"Capturado: {_mostrar_atajo(norm)}", norm)
+
+    def _fijar(self, texto, norm):
+        self._capturado = norm
+        self.lbl_captura.SetLabel(texto)
+        self.btn_ok.Enable(norm is not None)
+        anunciar(texto)
+
+    def _on_desactivar(self, event):
+        self._capturado = ""     # cadena vacía = atajo desactivado
+        self.EndModal(wx.ID_OK)
+
+    def resultado(self):
+        """Atajo elegido: cadena normalizada, "" si se desactivó, o None si no."""
+        return self._capturado
+
+
 class PreferenciasDialog(wx.Dialog):
 
     def __init__(self, parent, config: dict):
@@ -277,39 +420,60 @@ class PreferenciasDialog(wx.Dialog):
         vs = wx.BoxSizer(wx.VERTICAL)
 
         nota = wx.StaticText(p, label=(
-            "El modificador indica el área: Ctrl para el reproductor, Alt para "
-            "conexión y chat, y teclas F para la voz. Escribe combinaciones como "
-            "ctrl+d, alt+enter, ctrl+left o f5. F9 a F12 son fijas. Deja en "
-            "blanco para desactivar. La navegación entre regiones (F6 y "
-            "Shift+F6) no se cambia aquí."),
+            "Cada área tiene su modificador: Ctrl para el reproductor, Alt para "
+            "conexión y chat, y teclas F para la voz. Pulsa un botón y luego la "
+            "combinación que quieras: se comprueba sola que sea válida y que no "
+            "choque con otra. F9 a F12 son fijas. La navegación entre regiones "
+            "(F6 y Shift+F6) no se cambia aquí."),
             name="NotaAtajos")
         nota.SetForegroundColour(_T.dim)
         nota.Wrap(560)
         vs.Add(nota, 0, wx.ALL, 10)
 
-        self._campos_atajo: dict[str, wx.TextCtrl] = {}
+        # Valores normalizados en memoria (lo que se edita y se guarda).
         raw = self._config.get("atajos_raw", {})
+        self._valores_atajo: dict[str, str] = {}
+        self._botones_atajo: dict[str, wx.Button] = {}
+        for accion in cfg.ATAJOS_DEFAULTS:
+            crudo = raw.get(accion, cfg.ATAJOS_DEFAULTS[accion])
+            self._valores_atajo[accion] = cfg._normalizar_atajo(crudo) or ""
+
         for titulo, acciones in cfg.ATAJOS_GRUPOS:
             box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
-            grid = wx.FlexGridSizer(0, 2, 6, 10)
-            grid.AddGrowableCol(1, 1)
             for accion in acciones:
                 etiqueta = _ETIQUETAS_ATAJO.get(accion, accion)
-                valor = raw.get(accion, cfg.ATAJOS_DEFAULTS[accion])
-                lbl = wx.StaticText(p, label=etiqueta + ":")
-                lbl.SetForegroundColour(_T.text)
-                txt = wx.TextCtrl(p, value=valor, name=etiqueta)
-                _tc(txt)
-                if accion in cfg.ATAJOS_FIJOS:
-                    txt.Disable()
-                grid.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL)
-                grid.Add(txt, 1, wx.EXPAND)
-                self._campos_atajo[accion] = txt
-            box.Add(grid, 0, wx.EXPAND | wx.ALL, 6)
+                fija = accion in cfg.ATAJOS_FIJOS
+                valor = self._valores_atajo.get(accion, "")
+                sufijo = " (fija)" if fija else ""
+                btn = wx.Button(
+                    p, name=f"Atajo_{accion}",
+                    label=f"{etiqueta}: {_mostrar_atajo(valor)}{sufijo}")
+                btn.SetBackgroundColour(_T.btn); btn.SetForegroundColour(_T.btn_t)
+                if fija:
+                    btn.Disable()
+                else:
+                    btn.SetToolTip("Pulsa para capturar una nueva combinación.")
+                    btn.Bind(wx.EVT_BUTTON,
+                             lambda e, a=accion, et=etiqueta: self._capturar_atajo(a, et))
+                self._botones_atajo[accion] = btn
+                box.Add(btn, 0, wx.EXPAND | wx.ALL, 4)
             vs.Add(box, 0, wx.EXPAND | wx.ALL, 8)
 
         p.SetSizer(vs)
         return p
+
+    def _capturar_atajo(self, accion, etiqueta):
+        dlg = _CapturaAtajoDialog(self, accion, etiqueta, self._valores_atajo)
+        try:
+            if dlg.ShowModal() == wx.ID_OK:
+                nuevo = dlg.resultado()
+                if nuevo is not None:
+                    self._valores_atajo[accion] = nuevo
+                    self._botones_atajo[accion].SetLabel(
+                        f"{etiqueta}: {_mostrar_atajo(nuevo)}")
+                    anunciar(f"{etiqueta}: {_mostrar_atajo(nuevo)}")
+        finally:
+            dlg.Destroy()
 
     def _pag_api(self, parent):
         p = self._make_panel(parent, "PagApi")
@@ -452,36 +616,10 @@ class PreferenciasDialog(wx.Dialog):
         cfg.guardar_opcion(self._ruta, seccion, clave, valor)
         self._cambios = True
 
-    def _validar_atajos(self) -> list[str]:
-        area_txt = {"ctrl": "Ctrl+algo", "alt": "Alt+algo",
-                    "f": "una tecla F (f1 a f12)"}
-        errores = []
-        for accion, txt in self._campos_atajo.items():
-            if accion in cfg.ATAJOS_FIJOS:
-                continue
-            valor = txt.GetValue().strip().lower()
-            if valor == "":
-                continue   # desactivado a propósito
-            norm = cfg._normalizar_atajo(valor)
-            etq = _ETIQUETAS_ATAJO.get(accion, accion)
-            if norm is None:
-                errores.append(f"  {etq}: «{valor}» no es un atajo válido.")
-            elif not cfg.atajo_valido_para_area(accion, norm):
-                req = area_txt.get(cfg.ATAJOS_AREA.get(accion), "el modificador correcto")
-                errores.append(f"  {etq}: «{valor}» debe ser {req}.")
-        return errores
-
     def _on_guardar(self, event):
         c = self._config
-
-        # Validar atajos ANTES de guardar nada: cada uno debe respetar su área
-        # (Ctrl reproductor, Alt app, F voz). Si algo está mal, no se guarda.
-        errores = self._validar_atajos()
-        if errores:
-            self.nb.SetSelection(3)   # pestaña Atajos
-            wx.MessageBox("Estos atajos no son válidos:\n\n" + "\n".join(errores),
-                          "Atajos inválidos", wx.OK | wx.ICON_WARNING, self)
-            return
+        # Los atajos ya vienen validados desde la captura (área + conflicto), así
+        # que aquí solo se guardan; no hace falta revalidar por escritura.
 
         # Interfaz
         fuente = str(self.sp_fuente.GetValue())
@@ -552,12 +690,11 @@ class PreferenciasDialog(wx.Dialog):
         self._set("filtros", "usuarios_silenciados", usuarios)
         c["usuarios_silenciados"] = _lista(usuarios)
 
-        # Atajos
+        # Atajos: los valores capturados (ya normalizados y validados).
         raw = c.setdefault("atajos_raw", {})
-        for accion, txt in self._campos_atajo.items():
+        for accion, valor in self._valores_atajo.items():
             if accion in cfg.ATAJOS_FIJOS:
                 continue
-            valor = txt.GetValue().strip().lower()
             self._set("atajos", accion, valor)
             raw[accion] = valor
 
