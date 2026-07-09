@@ -637,9 +637,12 @@ def main():
                 wx.CallAfter(frame.set_tipo_video, tipo, vid)
                 wx.CallAfter(frame.set_metadatos, metadatos)
                 # Registrar en el historial (canal desde los metadatos de yt-dlp).
+                # directo=True si es un live: su id cambia cada vez y, terminado,
+                # no reconecta (se marca en la lista del historial).
                 wx.CallAfter(frame.registrar_historial, "youtube", vid,
                              f"https://www.youtube.com/watch?v={vid}",
-                             titulo, (metadatos or {}).get("canal", ""))
+                             titulo, (metadatos or {}).get("canal", ""),
+                             tipo == deteccion.LIVE)
 
             if deteccion.tiene_chat_en_vivo(tipo):
                 # Directo (o tipo no determinado): capturamos el chat con pytchat.
@@ -732,7 +735,7 @@ def main():
             # Registrar en el historial (TikTok reconecta por @usuario/live).
             wx.CallAfter(frame.registrar_historial, "tiktok", usuario,
                          f"https://www.tiktok.com/@{usuario}/live",
-                         titulo, (meta.get("canal") or ""))
+                         titulo, (meta.get("canal") or ""), True)
 
         def _on_espectadores(n):
             if gen != _estado["gen"]:

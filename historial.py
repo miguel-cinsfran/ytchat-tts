@@ -26,16 +26,20 @@ MAX_ENTRADAS = 100
 
 
 def upsert(lista: list, plataforma: str, clave: str, url: str, titulo: str,
-           canal: str, fecha: str | None = None,
+           canal: str, fecha: str | None = None, directo: bool = False,
            max_entradas: int = MAX_ENTRADAS) -> list:
     """Lista nueva con la entrada al principio (la más reciente arriba),
-    deduplicada por (plataforma, clave) y recortada a `max_entradas`."""
+    deduplicada por (plataforma, clave) y recortada a `max_entradas`.
+
+    `directo=True` marca un directo (un directo de YouTube ya terminado no
+    reconecta; un @usuario de TikTok sí, si está en vivo)."""
     if not clave:
         return list(lista)
     fecha = fecha or datetime.now().isoformat(timespec="seconds")
     entrada = {
         "plataforma": plataforma, "clave": clave, "url": url,
         "titulo": titulo or "", "canal": canal or "", "fecha": fecha,
+        "directo": bool(directo),
     }
     resto = [e for e in lista
              if not (e.get("plataforma") == plataforma and e.get("clave") == clave)]
@@ -48,12 +52,14 @@ def de_plataforma(lista: list, plataforma: str) -> list:
 
 
 def etiqueta(entrada: dict) -> str:
-    """Texto legible de una entrada para la lista (canal — título (fecha))."""
+    """Texto legible de una entrada para la lista (canal — título · directo (fecha))."""
     canal = (entrada.get("canal") or "").strip()
     titulo = (entrada.get("titulo") or "").strip()
     fecha = (entrada.get("fecha") or "")[:10]
     partes = [p for p in (canal, titulo) if p]
     base = " — ".join(partes) if partes else (entrada.get("clave") or "?")
+    if entrada.get("directo"):
+        base += " · directo"
     return f"{base} ({fecha})" if fecha else base
 
 

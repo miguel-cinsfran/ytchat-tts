@@ -673,7 +673,7 @@ class YTChatFrame(wx.Frame):
         return app_dir() / "historial_lives.json"
 
     def registrar_historial(self, plataforma: str, clave: str, url: str,
-                            titulo: str, canal: str) -> None:
+                            titulo: str, canal: str, directo: bool = False) -> None:
         """Guarda (o actualiza) una entrada del historial al conectar con éxito.
         Lo llama main vía wx.CallAfter cuando ya tiene título y canal."""
         if not self._alive or not clave:
@@ -681,7 +681,7 @@ class YTChatFrame(wx.Frame):
         try:
             ruta = self._ruta_historial()
             lista = historial.upsert(historial.cargar(ruta), plataforma, clave,
-                                     url, titulo, canal)
+                                     url, titulo, canal, directo=directo)
             historial.guardar(ruta, lista)
         except Exception as exc:
             logger.debug("registrar historial: %s", exc)

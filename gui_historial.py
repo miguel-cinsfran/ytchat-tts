@@ -39,8 +39,9 @@ class HistorialDialog(wx.Dialog):
 
         nota = wx.StaticText(panel, name="NotaHistorial", label=(
             "Directos y vídeos vistos. Enter o «Conectar» vuelve a uno; Suprimir "
-            "lo quita. Los de TikTok se reconectan siempre; un directo de YouTube "
-            "ya terminado no volverá, pero un vídeo normal sí."))
+            "lo quita. Los marcados «· directo» eran emisiones en vivo: los de "
+            "TikTok se reconectan si el usuario está en vivo; un directo de "
+            "YouTube ya terminado no volverá, pero un vídeo normal sí."))
         nota.SetForegroundColour(_T.dim)
         nota.Wrap(560)
         vs.Add(nota, 0, wx.ALL, 10)

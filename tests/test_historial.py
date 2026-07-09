@@ -57,6 +57,15 @@ class TestConsulta(unittest.TestCase):
         e = {"clave": "pepe", "canal": "", "titulo": "", "fecha": ""}
         self.assertEqual(h.etiqueta(e), "pepe")
 
+    def test_etiqueta_marca_directo(self):
+        e = {"canal": "Larzock", "titulo": "Módulos", "fecha": "2026-07-08T20:00:00",
+             "directo": True}
+        self.assertEqual(h.etiqueta(e), "Larzock — Módulos · directo (2026-07-08)")
+
+    def test_upsert_guarda_directo(self):
+        l = h.upsert([], "tiktok", "pepe", "u", "T", "C", directo=True)
+        self.assertTrue(l[0]["directo"])
+
 
 class TestPersistencia(unittest.TestCase):
 
