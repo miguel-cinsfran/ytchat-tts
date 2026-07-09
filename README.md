@@ -27,6 +27,12 @@ Pegas la URL de un directo (o de un vídeo normal) y la app se conecta sola:
   chat, los regalos y las suscripciones con la misma voz, con el vídeo del
   directo en el reproductor. Solo lectura: en TikTok no se puede comentar ni
   moderar desde la app.
+- **Historial de directos** (menú Archivo): guarda lo que has visto, con su
+  canal, en dos pestañas (YouTube y TikTok), para volver a un directo sin
+  recordar el enlace.
+- **Estado por voz (F2)**: dice de un vistazo los datos del directo (título,
+  canal, espectadores ahora, mensajes leídos…). Se elige qué dice en
+  Preferencias → Estado (F2).
 
 Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS) y cada
 control tiene nombre accesible. Hay navegación por regiones con F6 y una barra
