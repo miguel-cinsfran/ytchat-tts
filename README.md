@@ -56,7 +56,9 @@ la tecla Aplicaciones abre el menú contextual sobre el chat o los comentarios.
 ## Atajos principales
 
 El modificador indica el área: **Ctrl** para el reproductor, **Alt** para la
-conexión y el chat, **teclas F** para la voz. Se editan en Preferencias → Atajos.
+conexión y el chat, **teclas F** para la voz. Se cambian en Preferencias →
+Atajos: pulsás el botón de una acción y luego la combinación que quieras; se
+comprueba sola que sea válida y que no choque con otra.
 
 - Alt+C / Alt+D — conectar / desconectar.
 - F5 — pausar o reanudar la lectura. F8 — callar la voz actual.
@@ -66,6 +68,11 @@ conexión y el chat, **teclas F** para la voz. Se editan en Preferencias → Ata
 - F2 — anunciar el estado por voz.
 
 La lista completa está en la barra de menú, junto a cada acción.
+
+Otras opciones útiles: una **segunda voz para los eventos** (Super Chats,
+regalos, miembros, entradas) distinta de la de los mensajes, y **leer quién
+entra** a un directo de TikTok. Ambas están desactivadas por defecto, en
+Preferencias → Lectura.
 
 ## Accesibilidad
 
