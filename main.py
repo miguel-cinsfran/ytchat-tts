@@ -389,6 +389,31 @@ def captura_con_reconexion(video_id, cola, config, parada, stats, on_message=Non
         parada.wait(timeout=espera)
 
 
+def _cliente_pytchat():
+    """Cliente httpx propio para pytchat: uno NUEVO en cada intento de
+    conexión, en vez de dejar que pytchat use el suyo.
+
+    `PytchatCore.__init__` (pytchat/core/pytchat.py) declara
+    `client=httpx.Client(http2=True)` como valor por defecto del parámetro:
+    en Python eso se evalúa UNA sola vez, al importar el módulo, así que si no
+    le pasamos cliente, TODAS las conexiones del proceso —incluidas las
+    reconexiones automáticas de captura_con_reconexion— comparten el mismo
+    httpx.Client de toda la vida de la app. Además, con HTTP/2 y conexiones
+    keep-alive hay un bug conocido de httpx/h2 (se ve en consola como
+    `httpx.LocalProtocolError: Invalid input ConnectionInputs.RECV_PING in
+    state ConnectionState.CLOSED`): si YouTube cierra una conexión inactiva y
+    el cliente la reutiliza igual, revienta. Combinados, un intento fallido
+    por ese bug deja el cliente compartido roto para SIEMPRE, y cada
+    reconexión automática vuelve a pegarse con la misma conexión muerta —así
+    es como el error de la consola exigía reconectar a mano.
+    `client` es un parámetro documentado de PytchatCore (no hace falta tocar
+    su código): pasando un httpx.Client nuevo por conexión, y en HTTP/1.1 (sin
+    multiplexado, así que sin ese bug de h2), ninguna conexión rota sobrevive
+    de un intento al siguiente."""
+    import httpx
+    return httpx.Client(http2=False)
+
+
 def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=None,
              sesion_activa=None):
     asyncio.set_event_loop(asyncio.new_event_loop())
@@ -402,9 +427,13 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
     if on_estado: on_estado("conectando", "Conectando al directo...")
     _snd.reproducir("conectando")
 
+    cliente = _cliente_pytchat()
     try:
-        chat = pytchat.create(video_id=video_id, interruptable=False)
+        chat = pytchat.create(video_id=video_id, interruptable=False,
+                              client=cliente)
     except Exception as exc:
+        try:    cliente.close()
+        except Exception: pass
         msg = _mensaje_error_amigable(exc)
         if on_estado: on_estado("error_conexion", msg)
         _snd.reproducir("error")
@@ -459,6 +488,10 @@ def _captura(video_id, cola, config, parada, stats, on_message=None, on_estado=N
             ultimo_error = exc
             logger.error("Error en captura: %s", exc)
     finally:
+        # El cliente es de este intento (pytchat es síncrono aquí: nadie más
+        # lo usa); cerrarlo evita ir dejando sockets por cada reconexión.
+        try:    cliente.close()
+        except Exception: pass
         if not parada.is_set():
             try:    chat.raise_for_status()
             except Exception as exc:

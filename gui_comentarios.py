@@ -17,7 +17,10 @@ import wx
 import credenciales
 import youtube_api
 import sound_player as _snd
-from gui import anunciar, copiar_al_portapapeles, nombre_accesible, _T, _tc
+from gui import (
+    anunciar, copiar_al_portapapeles, nombre_accesible, instalar_busqueda_tipo,
+    _T, _tc,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +83,9 @@ class ComentariosPanel(wx.Panel):
         # (menú contextual), igual que el chat del live: no hacen falta botones.
         self.lb.SetToolTip("Enter lee el comentario con la voz. Ctrl+C copia. "
                            "Tecla Aplicaciones (o clic derecho) abre el menú.")
-        nombre_accesible(self.lb, "Lista de comentarios")
+        # msaa=False: lista de contenido dinámico (igual que el chat en vivo);
+        # ver el porqué en gui.nombre_accesible().
+        nombre_accesible(self.lb, "Lista de comentarios", msaa=False)
         vs.Add(self.lb, 1, wx.EXPAND | wx.ALL, 8)
 
         # Botones de acción: solo los que NO dependen del comentario seleccionado
@@ -101,6 +106,10 @@ class ComentariosPanel(wx.Panel):
         self.lb.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._leer())
         self.lb.Bind(wx.EVT_KEY_DOWN, self._on_key)
         self.lb.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        # Type-ahead: escribir letras seguidas salta al comentario que empiece
+        # así (mismo helper que el chat en vivo; ver gui.instalar_busqueda_tipo).
+        instalar_busqueda_tipo(
+            self.lb, lambda: [self.lb.GetString(i) for i in range(self.lb.GetCount())])
 
         self._actualizar_botones_sesion()
 

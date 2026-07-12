@@ -25,6 +25,7 @@ import metadatos
 import estado_sesion
 import historial
 from lista_chat import ListaChat
+from busqueda_lista import buscar_prefijo, normalizar
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -36,6 +37,10 @@ _IDX_FILTRO     = {"todos": 0, "texto": 1, "superchat": 2, "miembro": 3}
 
 MAX_ITEMS_CHAT  = 500
 TIMER_STATUS_MS = 1000
+# Ráfagas de mensajes del chat: en vez de un Append/Delete por mensaje (mucho
+# repintado en el hilo de GUI mientras NVDA navega la lista), se agrupan y se
+# vuelcan juntos cada tanto. Ver agregar_mensaje_chat / _volcar_pendientes.
+MS_VOLCADO_CHAT = 120
 ANCHO_DEFECTO   = 860
 ALTO_DEFECTO    = 700
 
@@ -127,21 +132,112 @@ class _NombreAccesible(wx.Accessible):
         return (wx.ACC_NOT_IMPLEMENTED, "")
 
 
-def nombre_accesible(ctrl, nombre: str) -> None:
+def nombre_accesible(ctrl, nombre: str, msaa: bool = True) -> None:
     """Refuerza el nombre accesible de un control. Mantiene los tooltips ricos
     que ya tengamos (solo pone uno si falta) y no altera el rol ni el valor: el
-    `wx.Accessible` solo sobrescribe el nombre y delega el resto."""
+    `wx.Accessible` solo sobrescribe el nombre y delega el resto.
+
+    `msaa=False` se salta el `wx.Accessible` (deja SetName/tooltip/HelpText
+    igual). Úsalo en listas de CONTENIDO DINÁMICO (chat, comentarios): al
+    instalar un `wx.Accessible` en Python, TODAS las consultas MSAA de NVDA
+    sobre ese control (también las de cada fila al navegar con flechas) pasan
+    por el proxy de wx y el hilo de GUI. Con la lista recibiendo Append/Delete
+    constantes por los mensajes que llegan, esas consultas se quedan esperando
+    y la navegación se traba a trompicones. Las listas estáticas (voces,
+    historial…) no sufren esto y siguen con el refuerzo."""
     ctrl.SetName(nombre)
     if not ctrl.GetToolTip():
         ctrl.SetToolTip(nombre)
     try:    ctrl.SetHelpText(nombre)   # JAWS lee el help text en algunos controles
     except Exception: pass
+    if not msaa:
+        return
     try:
         acc = _NombreAccesible(nombre)
         ctrl.SetAccessible(acc)
         ctrl._nombre_accesible = acc   # evita que el GC se lo lleve
     except Exception:
         pass  # fuera de Windows o sin MSAA: el name/tooltip siguen aplicando
+
+
+# ── Búsqueda por prefijo (type-ahead) en listas de texto ────────────────────
+# Estando en el chat o en comentarios, escribir letras seguidas salta al
+# primer mensaje cuyo texto MOSTRADO («autor: mensaje…») empiece por eso, con
+# buffer multiletra («mig» → «Miguel», no una letra a la vez) que se resetea
+# solo tras un rato sin teclear. La lógica de búsqueda vive en
+# `busqueda_lista.py` (pura, sin wx); esto solo engancha el evento y lleva el
+# buffer/temporizador.
+
+_MS_RESET_BUSQUEDA = 900
+
+
+class _EstadoBusqueda:
+    """Buffer de teclas y temporizador de reseteo de una lista. Uno por
+    control (instalar_busqueda_tipo lo crea y lo cierra en un closure)."""
+
+    def __init__(self):
+        self.buffer = ""
+        self.timer = None
+
+
+def instalar_busqueda_tipo(listbox: wx.ListBox, obtener_textos) -> None:
+    """Engancha en `listbox` el type-ahead sobre EVT_CHAR (aparte de
+    EVT_KEY_DOWN, que ya usan estas listas para Enter/Ctrl+C/menú, para no
+    pelearse con esos keycodes). `obtener_textos` es una función sin
+    argumentos que devuelve, en orden de fila, el texto mostrado de cada
+    ítem (normalmente `[listbox.GetString(i) for i in range(GetCount())]`).
+    """
+    estado = _EstadoBusqueda()
+
+    def _resetear_buffer():
+        estado.buffer = ""
+        estado.timer = None
+
+    def _on_char(event):
+        # Combinaciones con Ctrl/Alt son atajos, no texto de búsqueda.
+        if event.ControlDown() or event.AltDown():
+            event.Skip()
+            return
+        code = event.GetUnicodeKey()
+        if code == wx.WXK_NONE:
+            event.Skip()
+            return
+        ch = chr(code)
+        if not ch.isprintable():
+            event.Skip()
+            return
+        if ch == " " and not estado.buffer:
+            # Espacio con el buffer vacío: no es inicio de búsqueda, que se
+            # comporte como en cualquier lista (no lo consumimos).
+            event.Skip()
+            return
+
+        estado.buffer += ch
+        if estado.timer is not None:
+            try:    estado.timer.Stop()
+            except Exception: pass
+        estado.timer = wx.CallLater(_MS_RESET_BUSQUEDA, _resetear_buffer)
+
+        textos = obtener_textos()
+        if not textos:
+            return
+        actual = listbox.GetSelection()
+        if (len(estado.buffer) > 1 and actual != wx.NOT_FOUND
+                and 0 <= actual < len(textos)
+                and normalizar(textos[actual]).startswith(normalizar(estado.buffer))):
+            return   # el seleccionado ya cumple: no mover nada
+        desde = (actual + 1) if actual != wx.NOT_FOUND else 0
+        idx = buscar_prefijo(textos, desde, estado.buffer)
+        if idx is not None:
+            listbox.SetSelection(idx)
+            # NVDA no siempre anuncia una selección puesta por programa.
+            anunciar(textos[idx])
+        else:
+            # Sin coincidencia: no hacer ruido; se descarta la última letra
+            # para poder seguir completando la búsqueda anterior.
+            estado.buffer = estado.buffer[:-1]
+
+    listbox.Bind(wx.EVT_CHAR, _on_char)
 
 
 # ── Paleta «piedra cálida + terracota» ───────────────────────────────────────
@@ -235,6 +331,10 @@ class YTChatFrame(wx.Frame):
 
         self._chat = ListaChat(MAX_ITEMS_CHAT)
         self._filtro = None
+        # Cola de mensajes entrantes aún no volcados a lb_chat/self._chat, y el
+        # temporizador que programa el volcado agrupado (ver MS_VOLCADO_CHAT).
+        self._pendientes: list[tuple] = []
+        self._pendientes_timer = None
 
         self._sc_totales: dict[str, float] = {}
         self._canal_por_autor: dict[str, str] = {}
@@ -515,7 +615,8 @@ class YTChatFrame(wx.Frame):
         self.lb_chat.SetToolTip(
             "Mensajes del chat. Enter copia el mensaje. "
             "Tecla aplicaciones abre el menú contextual.")
-        nombre_accesible(self.lb_chat, "Chat en vivo")
+        # msaa=False: ver el porqué en nombre_accesible() (lista dinámica).
+        nombre_accesible(self.lb_chat, "Chat en vivo", msaa=False)
         vs.Add(self.lb_chat, 1, wx.EXPAND | wx.ALL, 8)
 
         pag.SetSizer(vs)
@@ -571,6 +672,9 @@ class YTChatFrame(wx.Frame):
         self.lb_chat.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._copiar_mensaje())
         self.lb_chat.Bind(wx.EVT_KEY_DOWN,       self._on_chat_key)
         self.lb_chat.Bind(wx.EVT_CONTEXT_MENU,   self._on_chat_menu)
+        instalar_busqueda_tipo(
+            self.lb_chat,
+            lambda: [self.lb_chat.GetString(i) for i in range(self.lb_chat.GetCount())])
 
     def _on_nb_page(self, event):
         # No hay anuncio nativo del cambio de pestaña: lo decimos a mano.
@@ -1181,6 +1285,10 @@ class YTChatFrame(wx.Frame):
         self._alive = False
         try:    self._timer.Stop()
         except Exception: pass
+        if self._pendientes_timer is not None:
+            try:    self._pendientes_timer.Stop()
+            except Exception: pass
+            self._pendientes_timer = None
         if self.on_desconectar_cb:
             try:    self.on_desconectar_cb()
             except Exception: pass
@@ -1217,10 +1325,24 @@ class YTChatFrame(wx.Frame):
         # esto no descarta nada legítimo.
         if not self._conectado:
             return
+        # No tocar self._chat/lb_chat aquí: se encola y se procesa en el
+        # volcado agrupado (ver _volcar_pendientes) para no disparar un
+        # Append/Delete por mensaje mientras NVDA navega la lista.
+        self._pendientes.append((autor, mensaje, hora, tipo, monto, canal_id))
+        # Si el temporizador ya corre, NO reiniciarlo: con un chat activo
+        # (mensajes cada menos de MS_VOLCADO_CHAT) reiniciar pospondría el
+        # volcado indefinidamente y no aparecería nada hasta una pausa.
+        if self._pendientes_timer is None:
+            self._pendientes_timer = wx.CallLater(MS_VOLCADO_CHAT, self._volcar_pendientes)
+
+    def _procesar_mensaje_chat(self, autor: str, mensaje: str, hora: str,
+                               tipo: str, monto: str, canal_id: str) -> bool:
+        """Aplica UN mensaje ya desencolado al modelo y a lb_chat. Devuelve si
+        quedó visible (se le hizo Append). Solo lo llama _volcar_pendientes."""
         if canal_id:
             self._canal_por_autor[autor.lower().strip()] = canal_id
         if self._autor_esta_oculto(autor):
-            return
+            return False
 
         # El modelo (lista_chat) recorta el historial y nos dice cuántas filas
         # viejas borrar por arriba, manteniendo fila ↔ mensaje siempre alineados
@@ -1241,8 +1363,53 @@ class YTChatFrame(wx.Frame):
 
         if visible:
             self.lb_chat.Append(self._format_display(autor, mensaje, hora, tipo, monto))
-            if wx.Window.FindFocus() is not self.lb_chat:
-                self.lb_chat.SetFirstItem(self.lb_chat.GetCount() - 1)
+        return visible
+
+    def _volcar_pendientes(self) -> None:
+        """Procesa TODOS los mensajes en espera de una vez: modelo y vista se
+        mutan juntos aquí (nunca al encolar), así que fila↔mensaje se mantienen
+        alineados igual que antes. Con más de un pendiente, Freeze/Thaw evita
+        repintar fila a fila."""
+        self._pendientes_timer = None
+        pendientes, self._pendientes = self._pendientes, []
+        if not pendientes or not self._alive or not self._conectado:
+            return
+        freeze = len(pendientes) > 1
+        if freeze:
+            self.lb_chat.Freeze()
+        hubo_visible = False
+        try:
+            for datos in pendientes:
+                if self._procesar_mensaje_chat(*datos):
+                    hubo_visible = True
+        finally:
+            if freeze:
+                self.lb_chat.Thaw()
+        # Un solo SetFirstItem al final (no uno por mensaje), y solo si el foco
+        # no está en la lista (si el usuario está navegando, no le movemos la
+        # vista) y algo se añadió de verdad.
+        if hubo_visible and wx.Window.FindFocus() is not self.lb_chat:
+            self.lb_chat.SetFirstItem(self.lb_chat.GetCount() - 1)
+
+    def _flush_pendientes_ahora(self) -> None:
+        """Vuelca ya lo encolado, sin esperar el temporizador. Se usa antes de
+        leer/reconstruir la lista desde self._chat (cambio de filtro) para que
+        no falte lo más reciente todavía sin procesar."""
+        if self._pendientes_timer is not None:
+            try:    self._pendientes_timer.Stop()
+            except Exception: pass
+            self._pendientes_timer = None
+        self._volcar_pendientes()
+
+    def _descartar_pendientes(self) -> None:
+        """Tira lo encolado sin procesarlo. Se usa donde hoy se limpia la lista
+        entera (desconectar, cambiar de vídeo): esos mensajes pertenecen a la
+        sesión que se está borrando."""
+        if self._pendientes_timer is not None:
+            try:    self._pendientes_timer.Stop()
+            except Exception: pass
+            self._pendientes_timer = None
+        self._pendientes.clear()
 
     def set_conectado(self, conectado: bool) -> None:
         if not self._alive:
@@ -1281,7 +1448,9 @@ class YTChatFrame(wx.Frame):
         self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
         self._es_tiktok = False
-        # Chat: datos y lista visible.
+        # Chat: datos, lista visible y lo que aún estaba en cola sin volcar (es
+        # de la sesión que se cierra; no debe colarse en la siguiente).
+        self._descartar_pendientes()
         self._chat.limpiar()
         try:    self.lb_chat.Clear()
         except Exception: pass
@@ -1343,6 +1512,7 @@ class YTChatFrame(wx.Frame):
         self._es_tiktok = False   # esta ruta es la de YouTube
         # Empezar el chat en limpio en cada conexión: el reset al desconectar ya
         # lo hace, pero así garantizamos que nunca quede nada del vídeo anterior.
+        self._descartar_pendientes()
         self._chat.limpiar()
         self._sc_totales.clear()
         try:    self.lb_chat.Clear()
@@ -1376,6 +1546,7 @@ class YTChatFrame(wx.Frame):
             return
         self._tipo_video = deteccion.LIVE
         self._es_tiktok = True
+        self._descartar_pendientes()
         self._chat.limpiar()
         self._sc_totales.clear()
         try:    self.lb_chat.Clear()
@@ -1490,6 +1661,10 @@ class YTChatFrame(wx.Frame):
         return f"{autor}: {msg}, {hora}"
 
     def _rebuild_listbox(self) -> None:
+        # Que lo que acaba de llegar (aún en cola, sin pasar por self._chat) no
+        # se pierda del recuento/reconstrucción: se procesa YA con el estado
+        # vigente antes de leer el modelo.
+        self._flush_pendientes_ahora()
         self.lb_chat.Clear()
         visibles = self._chat.reconstruir(
             lambda it: not self._autor_esta_oculto(it[0])
