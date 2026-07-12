@@ -25,7 +25,7 @@ import metadatos
 import estado_sesion
 import historial
 from lista_chat import ListaChat
-from busqueda_lista import buscar_prefijo, normalizar
+from busqueda_lista import buscar_prefijo, coincide
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -224,7 +224,7 @@ def instalar_busqueda_tipo(listbox: wx.ListBox, obtener_textos) -> None:
         actual = listbox.GetSelection()
         if (len(estado.buffer) > 1 and actual != wx.NOT_FOUND
                 and 0 <= actual < len(textos)
-                and normalizar(textos[actual]).startswith(normalizar(estado.buffer))):
+                and coincide(textos[actual], estado.buffer)):
             return   # el seleccionado ya cumple: no mover nada
         desde = (actual + 1) if actual != wx.NOT_FOUND else 0
         idx = buscar_prefijo(textos, desde, estado.buffer)
@@ -233,8 +233,10 @@ def instalar_busqueda_tipo(listbox: wx.ListBox, obtener_textos) -> None:
             # NVDA no siempre anuncia una selección puesta por programa.
             anunciar(textos[idx])
         else:
-            # Sin coincidencia: no hacer ruido; se descarta la última letra
-            # para poder seguir completando la búsqueda anterior.
+            # Que quien busca sepa que se buscó (en toda la lista, dando la
+            # vuelta) y no hubo nada; se descarta la última letra para poder
+            # seguir completando la búsqueda anterior.
+            anunciar(f"No hay coincidencias con {estado.buffer}")
             estado.buffer = estado.buffer[:-1]
 
     listbox.Bind(wx.EVT_CHAR, _on_char)

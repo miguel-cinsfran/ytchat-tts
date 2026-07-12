@@ -2,7 +2,7 @@
 
 import unittest
 
-from busqueda_lista import buscar_prefijo, normalizar
+from busqueda_lista import buscar_prefijo, coincide, normalizar
 
 
 class TestNormalizar(unittest.TestCase):
@@ -84,6 +84,41 @@ class TestBuscarPrefijo(unittest.TestCase):
         # el módulo de la longitud debe seguir funcionando (7 % 5 == 2, que ya
         # matchea "autor3").
         self.assertEqual(buscar_prefijo(self.items, 7, "autor"), 2)
+
+
+class TestSimbolosIniciales(unittest.TestCase):
+    """Las filas reales del chat empiezan por «@autor», «💲 [monto]», «⭐»,
+    «👋»… y quien busca teclea letras: la coincidencia debe saltarse esos
+    símbolos iniciales (bug real: con la arroba nunca coincidía nada)."""
+
+    def setUp(self):
+        self.items = [
+            "@judithvanessaperezflores9374: saludos a mis hijos, 21:14:10",
+            "💲 [5 €] Pepe: gracias, 21:14:11",
+            "⭐ NUEVO MIEMBRO: Marta, 21:14:12",
+            "👋 Carlos entró, 21:14:13",
+        ]
+
+    def test_arroba_del_autor(self):
+        self.assertEqual(buscar_prefijo(self.items, 0, "j"), 0)
+        self.assertEqual(buscar_prefijo(self.items, 0, "judith"), 0)
+
+    def test_arroba_tecleada_tambien_vale(self):
+        self.assertEqual(buscar_prefijo(self.items, 0, "@ju"), 0)
+
+    def test_marcadores_de_evento(self):
+        self.assertEqual(buscar_prefijo(self.items, 0, "nuevo"), 2)
+        self.assertEqual(buscar_prefijo(self.items, 0, "carlos"), 3)
+
+    def test_superchat_por_monto(self):
+        # En un Super Chat lo primero tras el marcador es el monto.
+        self.assertEqual(buscar_prefijo(self.items, 0, "5"), 1)
+
+    def test_coincide_directo(self):
+        self.assertTrue(coincide("@Miguel: hola", "mig"))
+        self.assertTrue(coincide("👋 Ángela entró", "angela"))
+        self.assertFalse(coincide("@Miguel: hola", "hola"))
+        self.assertFalse(coincide("cualquiera", ""))
 
 
 if __name__ == "__main__":
