@@ -101,8 +101,14 @@ if defined VLCDIR (
   REM primer arranque, que hacia que la app tardara en abrir.
   if exist "%VLCDIR%\vlc-cache-gen.exe" "%VLCDIR%\vlc-cache-gen.exe" "%OUT%\vlc\plugins" >nul 2>nul
 )
-copy /y "config.ini" "%OUT%\" >nul
-copy /y "sounds.ini" "%OUT%\" >nul
+REM config.ini y sounds.ini van SIEMPRE con los valores por defecto de git,
+REM no con los de esta carpeta: los locales llevan los ajustes personales de
+REM quien construye (velocidad de voz, tema...) y no deben viajar en el ZIP.
+REM Si git no esta disponible, se avisa y se copian los locales como antes.
+git show HEAD:config.ini > "%OUT%\config.ini" 2>nul
+if errorlevel 1 ( echo    AVISO: sin git; config.ini local ^(puede llevar ajustes personales^). & copy /y "config.ini" "%OUT%\" >nul )
+git show HEAD:sounds.ini > "%OUT%\sounds.ini" 2>nul
+if errorlevel 1 ( echo    AVISO: sin git; sounds.ini local ^(puede llevar ajustes personales^). & copy /y "sounds.ini" "%OUT%\" >nul )
 copy /y "LICENSE"    "%OUT%\" >nul
 REM Documentacion de cara al usuario en HTML (se abre con doble clic; el amigo
 REM no tiene por que saber abrir un Markdown). Se genera con generar_docs.py y
