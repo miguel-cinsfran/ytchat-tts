@@ -107,7 +107,8 @@ copy /y "LICENSE"    "%OUT%\" >nul
 REM Documentacion de cara al usuario en HTML (se abre con doble clic; el amigo
 REM no tiene por que saber abrir un Markdown). Se genera con generar_docs.py y
 REM viaja tambien dentro de docs/. La dejamos ademas en la raiz, a la vista. El
-REM historial de versiones esta en la seccion "Novedades" del propio Leeme.
+REM historial de versiones (CHANGELOG) va como docs/CHANGELOG.html, enlazado
+REM desde el propio Leeme ("que hay de nuevo").
 copy /y "docs\README.html" "%OUT%\Leeme.html" >nul
 
 REM Por higiene: nada de log ni credenciales en el paquete que se envia.
