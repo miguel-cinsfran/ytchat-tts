@@ -669,6 +669,34 @@ class ReproductorPanel(wx.Panel):
             # congelaba la ventana hasta que terminaba.
             self._detener(silencioso=True, en_segundo_plano=True)
 
+    # ── Getters para el gestor de descargas (gui_descargas) ──────────────────
+    # NO acoplan con `descargas.py`: este módulo sigue con sus llamadas yt-dlp
+    # propias, y el gestor usa estos getters solo para decidir QUÉ descargar
+    # (URL actual + si es YouTube no-live). El _info_listo es asíncrono, así
+    # que `get_es_live` se evalúa contra el último `_info` cacheado o devuelve
+    # False si aún no se cargó.
+
+    def get_url_para_descarga(self) -> str | None:
+        """URL o id de YouTube del vídeo actual. None si no hay o es flujo de
+        TikTok (que se gatingea en gui.py)."""
+        if self._video_id:
+            return "https://www.youtube.com/watch?v=" + self._video_id
+        return None
+
+    def get_plataforma(self) -> str:
+        """Plataforma del vídeo en reproducción: 'youtube' (el panel es siempre
+        YouTube; TikTok usa set_flujo y se gatingea en gui.py)."""
+        return "youtube"
+
+    def get_es_live(self) -> bool:
+        """¿El vídeo actual es un directo en curso? True si yt-dlp ya lo
+        clasificó como live. False si aún no se cargó, si es VOD/programado,
+        o si la reproducción viene de un flujo HLS de TikTok."""
+        if self._info is None:
+            return False
+        try:    return bool(self._info.get("is_live"))
+        except Exception: return False
+
     # ── Carga / reproducción ──────────────────────────────────────────────────
 
     def cargar(self, reproducir: bool = True):

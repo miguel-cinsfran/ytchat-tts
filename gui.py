@@ -463,6 +463,11 @@ class YTChatFrame(wx.Frame):
             self.Bind(wx.EVT_MENU, lambda e, a=altura: self._rep_accion("set_calidad", a), it)
         m.AppendSubMenu(sub_cal, "Ca&lidad del vídeo")
         m.AppendSeparator()
+        # Descargar este vídeo (solo YouTube, no live). Se habilita en
+        # `_actualizar_menus_por_conexion` cuando hay URL reproducible.
+        self.mi_descargar_este = m.Append(
+            wx.ID_ANY, "Descargar este &vídeo")
+        m.AppendSeparator()
         mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor" + self._accel("rep_vol_menos"))
         mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
         m.AppendSeparator()
@@ -476,6 +481,9 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), mi_rep_stop)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_mute"), mi_rep_mute)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("alternar_pantalla_completa"), mi_rep_fs)
+        self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(
+            url=self._rep_panel.get_url_para_descarga() if self._rep_panel else None),
+            self.mi_descargar_este)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", -20), mi_rep_volm)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", +20), mi_rep_volM)
 
@@ -486,9 +494,15 @@ class YTChatFrame(wx.Frame):
         self.mi_enviar_live = m.Append(
             wx.ID_ANY,
             "&Enviar mensaje al chat del directo (solo YouTube)…" + self._accel("enviar_chat"))
+        m.AppendSeparator()
+        # Gestor de descargas: SIEMPRE habilitado (funciona sin conexión de
+        # chat, abriendo una URL pegada a mano). Ctrl+S es el atajo.
+        self.mi_descargas = m.Append(
+            wx.ID_ANY, "Gestor de &descargas…" + self._accel("descargas_abrir"))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
+        self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(), self.mi_descargas)
 
         # Ayuda
         m = wx.Menu()
@@ -863,6 +877,26 @@ class YTChatFrame(wx.Frame):
                           "Error", wx.OK | wx.ICON_ERROR, self)
         # La pestaña API puede haber cambiado la sesión: refrescar.
         self._actualizar_estado_online()
+
+    # ── Gestor de descargas (gui_descargas) ──────────────────────────────────
+    # Abre el diálogo siempre (no requiere conexión). Si le llega una URL, la
+    # precarga (caso "Descargar este vídeo"). Importamos gui_descargas perezoso
+    # para que el ciclo de imports (gui → gui_descargas → gui) no se queje.
+
+    def _abrir_descargas(self, url: str | None = None) -> None:
+        try:
+            from gui_descargas import abrir
+        except Exception as exc:
+            logger.warning("No se pudo abrir el gestor de descargas: %s", exc)
+            wx.MessageBox(f"No se pudo abrir el gestor de descargas:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
+            return
+        try:
+            abrir(self, url_inicial=url)
+        except Exception as exc:
+            logger.warning("gestor de descargas: %s", exc)
+            wx.MessageBox(f"Error en el gestor de descargas:\n{exc}",
+                          "Error", wx.OK | wx.ICON_ERROR, self)
 
     def _aplicar_preferencias_en_caliente(self):
         # Reconstruir atajos y menú por si cambiaron las teclas.
@@ -1689,7 +1723,11 @@ class YTChatFrame(wx.Frame):
         activa: navegar por paneles, el filtro, todo el menú Reproductor y las
         acciones de voz sobre una lectura en curso. Así el usuario no llega por
         el menú a paneles que no existen aún. Los ajustes de voz y «Ir a URL» /
-        «Anunciar estado» quedan siempre disponibles."""
+        «Anunciar estado» quedan siempre disponibles.
+
+        El ítem «Descargar este vídeo» sigue las reglas del diseño: solo se
+        habilita con conexión YouTube NO-live (TikTok y live están deshabilitados
+        en v1). Si la URL no se puede obtener del reproductor, se deshabilita."""
         con = bool(self._conectado)
         mb = self.GetMenuBar()
         if mb is not None:
@@ -1703,6 +1741,25 @@ class YTChatFrame(wx.Frame):
         for it in getattr(self, "_mi_voz_conexion", []):
             try:    it.Enable(con)
             except Exception: pass
+
+        # Descargar este vídeo: YouTube + conexión + no live + URL disponible.
+        # El propio ReproductorPanel se gatingea arriba (POS_MENU_REPRODUCTOR
+        # se deshabilita sin conexión), pero afinamos el ítem para que:
+        #   - TikTok → off (es TikTok, no YouTube)
+        #   - Live   → off (out of scope v1, ver spec R: Live y TikTok off)
+        #   - sin URL → off (no hay nada que descargar)
+        try:
+            descargar_este_on = False
+            if con and not self._es_tiktok and getattr(self, "_rep_panel", None):
+                try:
+                    if not self._rep_panel.get_es_live():
+                        descargar_este_on = bool(self._rep_panel.get_url_para_descarga())
+                except Exception:
+                    descargar_este_on = False
+            if hasattr(self, "mi_descargar_este"):
+                self.mi_descargar_este.Enable(descargar_este_on)
+        except Exception as exc:
+            logger.debug("enable mi_descargar_este: %s", exc)
 
     def _actualizar_sb(self) -> None:
         sin_tts = " [sin TTS]" if self._config.get("silenciar_lectura", False) else ""

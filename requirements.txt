@@ -46,3 +46,11 @@ TikTokLive>=6.6,<7
 # resto de la app funciona igual.
 yt-dlp>=2025.1.1
 python-vlc>=3.0.20
+
+# ── ffmpeg bundleado (necesario para descargar) ──────────────────────────────
+# imageio-ffmpeg trae un ffmpeg.exe portable dentro del paquete (sin red). El
+# `construir.bat` lo copia junto al .exe para que el gestor de descargas
+# (yt-dlp con formatos mp3/m4a o mux de mp4/webm) tenga ffmpeg sin que el
+# usuario instale nada. Si falta, las descargas de audio fallan con un error
+# 3-vías claro (sonido + anunciar() + texto en GUI).
+imageio-ffmpeg>=0.5

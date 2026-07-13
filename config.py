@@ -91,6 +91,7 @@ ATAJOS_DEFAULTS = {
     "rep_mute":          "ctrl+m",
     "rep_vol_menos":     "ctrl+down",
     "rep_vol_mas":       "ctrl+up",
+    "descargas_abrir":   "ctrl+s",
     # Conexión y chat (Alt)
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
@@ -114,7 +115,7 @@ ATAJOS_FIJOS = {"velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_ma
 ATAJOS_GRUPOS = [
     ("Reproductor (Ctrl)",
      ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
-      "rep_vol_menos", "rep_vol_mas"]),
+      "rep_vol_menos", "rep_vol_mas", "descargas_abrir"]),
     ("Conexión y chat (Alt)",
      ["conectar", "desconectar", "enviar_chat"]),
     ("Voz y lectura (teclas F)",
@@ -229,6 +230,11 @@ _DEF = {
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
     "mostrar_botones_reproductor": "false", "mostrar_metadatos": "true",
     "anunciar_entradas": "false",
+    # Gestor de descargas (yt-dlp). El formato y la carpeta se eligen en el
+    # diálogo; el bitrate solo aplica a audio (mp3/m4a); enumerar prefijá
+    # 01_, 02_... a los ítems de una playlist.
+    "descargas_formato": "mp4", "descargas_bitrate": "192",
+    "descargas_enumerar": "false",
 }
 
 _CONFIG_FALLBACK = """\
@@ -307,6 +313,15 @@ aportes = true
 en_cola = false
 voz = false
 lectura_silenciada = true
+
+# Gestor de descargas con yt-dlp. Formato: mp4 | webm | mp3 | m4a (mp3/m4a
+# requieren ffmpeg). Bitrate solo aplica a audio. Enumerar prefijá 01_, 02_...
+# a los videos de una playlist. Carpeta portable junto al ejecutable.
+[descargas]
+formato = mp4
+bitrate = 192
+carpeta = Descargas
+enumerar = false
 """
 
 _SOUNDS_FALLBACK = """\
@@ -407,6 +422,93 @@ def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> N
         logger.debug("guardar_opcion: no se pudo escribir: %s", exc)
 
 
+# ── Helpers de descargas (formato, bitrate, carpeta, enumerar) ──────────────
+# Se leen/escriben del INI con `guardar_opcion` (preserva comentarios). Sirven
+# para que `descargas.GestorDescargas` y `gui_descargas` trabajen contra un
+# único origen de verdad, sin tener que duplicar la carga de config.ini.
+#
+# Formato por defecto: mp4 muxed (mejor compat con NVDA, sin audio separado).
+# Carpeta por defecto: `app_dir() / "Descargas"` (portable, escribible sin
+# permisos de admin). Si el INI trae la clave vacía, también se rellena.
+
+_FORMATOS_VALIDOS = ("mp4", "webm", "mp3", "m4a")
+_BITRATES_VALIDOS = (192, 256, 320)
+
+
+def obtener_opciones_descarga() -> dict:
+    """Lee la sección [descargas] del INI y devuelve un dict validado.
+
+    Si la sección no existe o falta alguna clave, se rellena con `guardar_opcion`
+    (que conserva comentarios y orden) y se devuelve el dict ya con defaults.
+    Funciona standalone: NO requiere haber llamado a `cargar_configuracion`.
+    """
+    ruta = app_dir() / "config.ini"
+    p = _mk_parser()
+    if ruta.exists():
+        try:    p.read(ruta, encoding="utf-8")
+        except configparser.Error: pass
+
+    # Carpeta: si está vacía o no existe, usar app_dir() / "Descargas".
+    carpeta_raw = (p.get("descargas", "carpeta", fallback="").strip()
+                   if p.has_section("descargas") else "")
+    if not carpeta_raw:
+        carpeta = str(app_dir() / "Descargas")
+        if ruta.exists():
+            guardar_opcion(ruta, "descargas", "carpeta", carpeta)
+    else:
+        carpeta = carpeta_raw
+
+    formato = (p.get("descargas", "formato", fallback="mp4").strip().lower()
+               if p.has_section("descargas") else "mp4")
+    if formato not in _FORMATOS_VALIDOS:
+        formato = "mp4"
+        if ruta.exists():
+            guardar_opcion(ruta, "descargas", "formato", formato)
+
+    bitrate_raw = (p.get("descargas", "bitrate", fallback="192").strip()
+                   if p.has_section("descargas") else "192")
+    try:    bitrate = int(bitrate_raw)
+    except Exception: bitrate = 192
+    if bitrate not in _BITRATES_VALIDOS:
+        bitrate = 192
+        if ruta.exists():
+            guardar_opcion(ruta, "descargas", "bitrate", str(bitrate))
+
+    enumerar_raw = (p.get("descargas", "enumerar", fallback="false").strip().lower()
+                    if p.has_section("descargas") else "false")
+    enumerar = enumerar_raw in ("true", "1", "yes", "on")
+
+    return {"formato": formato, "bitrate": bitrate,
+            "carpeta": carpeta, "enumerar": enumerar}
+
+
+def guardar_opciones_descarga(op: dict) -> None:
+    """Persiste todas las opciones de descarga de una vez. Valida y normaliza
+    los valores antes de escribir."""
+    ruta = app_dir() / "config.ini"
+    if not ruta.exists():
+        # Si por algo no existe, crearlo con el fallback y volver a llamar.
+        try:    ruta.write_text(_CONFIG_FALLBACK, encoding="utf-8")
+        except Exception as exc:
+            logger.debug("guardar_opciones_descarga: no se pudo crear config.ini: %s", exc)
+            return
+
+    formato = str(op.get("formato", "mp4")).lower().strip()
+    if formato not in _FORMATOS_VALIDOS:
+        formato = "mp4"
+    try:    bitrate = int(op.get("bitrate", 192))
+    except Exception: bitrate = 192
+    if bitrate not in _BITRATES_VALIDOS:
+        bitrate = 192
+    carpeta = str(op.get("carpeta") or (app_dir() / "Descargas")).strip()
+    enumerar = bool(op.get("enumerar", False))
+
+    guardar_opcion(ruta, "descargas", "formato", formato)
+    guardar_opcion(ruta, "descargas", "bitrate", str(bitrate))
+    guardar_opcion(ruta, "descargas", "carpeta", carpeta)
+    guardar_opcion(ruta, "descargas", "enumerar", "true" if enumerar else "false")
+
+
 def cargar_configuracion() -> dict:
     ruta = app_dir() / "config.ini"
     if not ruta.exists():
@@ -462,6 +564,26 @@ def cargar_configuracion() -> dict:
     if not p.has_option("voz", "voz_eventos"):
         guardar_opcion(ruta, "voz", "voz_eventos", "0")
 
+    # Inyectar la sección [descargas] con defaults si falta cualquiera de sus
+    # claves. `obtener_opciones_descarga` también lo hace standalone, pero
+    # aquí garantizamos que cargar_configuracion devuelva `descargas_*` en el
+    # dict para que la GUI lo use sin tener que parsear el INI por su cuenta.
+    if not p.has_section("descargas"):
+        guardar_opcion(ruta, "descargas", "formato", "mp4")
+        guardar_opcion(ruta, "descargas", "bitrate", "192")
+        guardar_opcion(ruta, "descargas", "carpeta", str(app_dir() / "Descargas"))
+        guardar_opcion(ruta, "descargas", "enumerar", "false")
+    else:
+        if not p.has_option("descargas", "formato"):
+            guardar_opcion(ruta, "descargas", "formato", "mp4")
+        if not p.has_option("descargas", "bitrate"):
+            guardar_opcion(ruta, "descargas", "bitrate", "192")
+        if not p.has_option("descargas", "carpeta"):
+            guardar_opcion(ruta, "descargas", "carpeta", str(app_dir() / "Descargas"))
+        if not p.has_option("descargas", "enumerar"):
+            guardar_opcion(ruta, "descargas", "enumerar", "false")
+    desc_op = obtener_opciones_descarga()
+
     # Estado (F2): un booleano por componente. Si falta la sección, se crea con
     # los valores por defecto (lo relevante activado; lo técnico apagado).
     from estado_sesion import COMPONENTES as _EST_COMP, ACTIVOS_DEFECTO as _EST_DEF
@@ -510,6 +632,14 @@ def cargar_configuracion() -> dict:
         "estado_toggles": estado_toggles,
         "atajos_raw": atajos_raw,
         "ruta_config": ruta,
+        # Gestor de descargas (GestorDescargas / gui_descargas). Las opciones
+        # validadas viven además en `desc_op` por si alguien quiere pasarlas
+        # explícitamente sin parsear el INI de nuevo.
+        "descargas": desc_op,
+        "descargas_formato": desc_op["formato"],
+        "descargas_bitrate": desc_op["bitrate"],
+        "descargas_carpeta": desc_op["carpeta"],
+        "descargas_enumerar": desc_op["enumerar"],
     }
 
 
