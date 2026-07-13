@@ -28,6 +28,7 @@ historial_lives.json
 .claudeignore
 CLAUDE.md
 claude.md
+AGENTS.md
 INFORME_*.md
 # Tablero de control interno (estado y pendientes): no se versiona.
 estado.md
