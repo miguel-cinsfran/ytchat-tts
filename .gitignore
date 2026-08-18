@@ -11,6 +11,13 @@ YTChat TTS v*.zip
 __pycache__/
 *.py[cod]
 
+# Entorno virtual (lo crea construir.bat con uv). Miles de archivos: nunca va.
+.venv/
+venv/
+
+# Indice de CodeGraph: es por clon y no viaja.
+.codegraph/
+
 # Logs
 ytchat.log
 
@@ -23,14 +30,18 @@ historial.txt
 # Historial de directos vistos (ventana Historial)
 historial_lives.json
 
-# Claude Code y notas/informes ajenos al proyecto
+# Andamiaje de trabajo con agentes: no se versiona.
+# Viaja si se copia la carpeta, no con un git clone.
 .claude/
 .claudeignore
+.atl/
 CLAUDE.md
 claude.md
+AGENTS.md
+MD/
+herramientas/
+prompts/
 INFORME_*.md
-# Tablero de control interno (estado y pendientes): no se versiona.
-estado.md
 
 # Scripts .bat locales sueltos. Los oficiales del proyecto SÍ se versionan.
 *.bat
