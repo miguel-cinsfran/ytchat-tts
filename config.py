@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import diagnostico
+
 
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,24 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
         root.addHandler(fh)
     except Exception as exc:
         logging.getLogger(__name__).warning("No se pudo crear ytchat.log: %s", exc)
+
+    # Temporalmente activado para reunir evidencia en la máquina afectada.
+    detallado = True
+    try:
+        p_diag = _mk_parser()
+        p_diag.read(app_dir() / "config.ini", encoding="utf-8")
+        detallado = p_diag.getboolean("diagnostico", "registro_detallado",
+                                     fallback=True)
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "No se pudo leer la configuración de diagnóstico: %s", exc)
+    if detallado:
+        try:
+            root.addHandler(diagnostico.crear_manejador_detallado(
+                app_dir() / "ytchat-debug.log"))
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "No se pudo crear ytchat-debug.log: %s", exc)
 
     # httpx (dep de pytchat) ensucia la consola con cada petición HTTP.
     for _lib in ("httpx", "httpcore", "httpcore.http11", "httpcore.connection", "hpack", "h2"):
@@ -295,6 +315,9 @@ silenciar_lectura = false
 # Leer por voz quien entra al directo (solo TikTok). En directos grandes puede
 # ser muchisimo, por eso viene desactivado. Editable en Preferencias > Lectura.
 anunciar_entradas = false
+# Registro detallado temporal para diagnosticar una instalación concreta.
+[diagnostico]
+registro_detallado = true
 # Componentes que anuncia F2 (estado de sesion). Editable en
 # Preferencias > Estado (F2). true = se dice; false = no.
 [estado]
@@ -457,6 +480,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
     if not p.has_option("tiktok", "anunciar_entradas"):
         guardar_opcion(ruta, "tiktok", "anunciar_entradas", "false")
+    if not p.has_option("diagnostico", "registro_detallado"):
+        guardar_opcion(ruta, "diagnostico", "registro_detallado", "true")
     if not p.has_option("voz", "multivoz"):
         guardar_opcion(ruta, "voz", "multivoz", "false")
     if not p.has_option("voz", "voz_eventos"):
