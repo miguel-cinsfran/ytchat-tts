@@ -56,6 +56,12 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertEqual(mensajes, ["HILO inicia nombre=%s", "HILO termina nombre=%s"])
         self.assertEqual(registrar.call_args_list[1].args[1], "HiloPrueba")
 
+    def test_marcar_incidencia_escribe_marca_visible(self):
+        with patch.object(diagnostico.logger, "warning") as registrar:
+            marca = diagnostico.marcar_incidencia()
+        self.assertTrue(marca)
+        registrar.assert_called_once_with("INCIDENCIA usuario marca=%s", marca)
+
     def test_configuracion_instala_registro_detallado_si_esta_activado(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "config.ini").write_text(

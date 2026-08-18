@@ -39,6 +39,7 @@ _IDX_FILTRO     = {"todos": 0, "texto": 1, "superchat": 2, "miembro": 3}
 
 MAX_ITEMS_CHAT  = 500
 TIMER_STATUS_MS = 1000
+TIMER_DIAGNOSTICO_MS = 100
 # Ráfagas de mensajes del chat: en vez de un Append/Delete por mensaje (mucho
 # repintado en el hilo de GUI mientras NVDA navega la lista), se agrupan y se
 # vuelcan juntos cada tanto. Ver agregar_mensaje_chat / _volcar_pendientes.
@@ -705,6 +706,9 @@ class YTChatFrame(wx.Frame):
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self._timer)
         self._timer.Start(TIMER_STATUS_MS)
+        self._diagnostico_timer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._on_diagnostico_timer, self._diagnostico_timer)
+        self._diagnostico_timer.Start(TIMER_DIAGNOSTICO_MS)
 
     # ── Navegación de paneles ────────────────────────────────────────────────
 
@@ -1320,18 +1324,21 @@ class YTChatFrame(wx.Frame):
 
     def _on_timer(self, event):
         if self._alive:
-            ahora = time.monotonic()
-            bloqueo = diagnostico.vigilar_hilo_interfaz(
-                self._diagnostico_marca, ahora)
-            if bloqueo:
-                diagnostico.logger.warning("%s", bloqueo)
-            self._diagnostico_marca = ahora
-            censo = diagnostico.debe_censar_hilos(self._diagnostico_censo, ahora)
-            if censo:
-                self._diagnostico_censo, texto = censo
-                diagnostico.logger.info("%s", texto)
             try:    self._actualizar_sb()
             except Exception: pass
+
+    def _on_diagnostico_timer(self, event):
+        if not self._alive:
+            return
+        ahora = time.monotonic()
+        bloqueo = diagnostico.vigilar_hilo_interfaz(self._diagnostico_marca, ahora)
+        if bloqueo:
+            diagnostico.logger.warning("%s", bloqueo)
+        self._diagnostico_marca = ahora
+        censo = diagnostico.debe_censar_hilos(self._diagnostico_censo, ahora)
+        if censo:
+            self._diagnostico_censo, texto = censo
+            diagnostico.logger.info("%s", texto)
 
     # ── API pública (main.py la invoca vía wx.CallAfter) ─────────────────────
 
