@@ -1095,7 +1095,7 @@ class YTChatFrame(wx.Frame):
                 wx.CallAfter(self._api_err, exc)
 
         import threading
-        threading.Thread(target=_run, daemon=True, name="AccionAPI").start()
+        diagnostico.crear_hilo(_run, "AccionAPI").start()
 
     def _api_ok(self, mensaje, sonido: str = "enviado"):
         _snd.reproducir(sonido)

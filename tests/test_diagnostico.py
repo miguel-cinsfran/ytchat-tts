@@ -45,6 +45,17 @@ class DiagnosticoTest(unittest.TestCase):
     def test_vigilante_no_informa_demora_normal(self):
         self.assertIsNone(diagnostico.vigilar_hilo_interfaz(10.0, 10.4))
 
+    def test_hilo_de_aplicacion_registra_inicio_y_fin(self):
+        llamadas = []
+        with patch.object(diagnostico.logger, "info") as registrar:
+            hilo = diagnostico.crear_hilo(lambda: llamadas.append(True), "HiloPrueba")
+            hilo.start()
+            hilo.join()
+        self.assertEqual(llamadas, [True])
+        mensajes = [llamada.args[0] for llamada in registrar.call_args_list]
+        self.assertEqual(mensajes, ["HILO inicia nombre=%s", "HILO termina nombre=%s"])
+        self.assertEqual(registrar.call_args_list[1].args[1], "HiloPrueba")
+
     def test_configuracion_instala_registro_detallado_si_esta_activado(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "config.ini").write_text(

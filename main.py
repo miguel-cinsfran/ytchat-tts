@@ -683,8 +683,8 @@ def main():
             if deteccion.tiene_chat_en_vivo(tipo):
                 # Directo (o tipo no determinado): capturamos el chat con pytchat.
                 # Resolver el id del chat en vivo en paralelo (red opcional).
-                threading.Thread(target=_resolver_live_chat_id, args=(vid,),
-                                 daemon=True, name="LiveChatId").start()
+                diagnostico.crear_hilo(_resolver_live_chat_id, "LiveChatId",
+                                       args=(vid,)).start()
                 captura_con_reconexion(vid, cola, config, ps, stats,
                                        on_message=_on_msg, on_estado=_on_estado,
                                        sesion_activa=lambda: gen == _estado["gen"])
@@ -703,7 +703,7 @@ def main():
                     wx.CallAfter(frame.set_conectado, True)
                     _snd.reproducir("conectado")
 
-        threading.Thread(target=_run, daemon=True, name="Chat").start()
+        diagnostico.crear_hilo(_run, "Chat").start()
 
     def _conectar_tiktok(usuario):
         """Rama TikTok: mismo esquema de sesión (ps + gen) que YouTube, con la
@@ -790,7 +790,7 @@ def main():
                 wx.CallAfter(_gm._gui_frame.set_conectado, False)
                 wx.CallAfter(_gm._gui_frame.set_titulo_stream, "")
 
-        threading.Thread(target=_run, daemon=True, name="TikTok").start()
+        diagnostico.crear_hilo(_run, "TikTok").start()
 
     def _cb_desconectar():
         ps = _estado.get("parada_sesion")

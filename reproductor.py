@@ -19,11 +19,13 @@ import os
 import re
 import sys
 import threading
+import time
 
 import wx
 
 import config as _cfg
 import iconos
+import diagnostico
 from gui import anunciar, nombre_accesible, _T, _tc
 
 logger = logging.getLogger(__name__)
@@ -360,6 +362,9 @@ class ReproductorPanel(wx.Panel):
         self._inst_lock = threading.Lock()  # crear la instancia VLC sin carreras
         self._player = None
         self._info = None
+        self._marca_reproduccion = None
+        self._marca_extraccion = None
+        self._marca_url = None
         self._fs = None        # ventana de pantalla completa, si está activa
 
         self.SetBackgroundColour(_T.bg)
@@ -400,7 +405,7 @@ class ReproductorPanel(wx.Panel):
                 self._asegurar_instancia()
             except Exception as exc:
                 logger.debug("precalentar VLC: %s", exc)
-        threading.Thread(target=_run, daemon=True, name="ReproductorWarmup").start()
+        diagnostico.crear_hilo(_run, "ReproductorWarmup").start()
 
     def _asegurar_player(self) -> bool:
         # La instancia (lenta) puede venir ya precalentada; el reproductor y el
@@ -682,24 +687,31 @@ class ReproductorPanel(wx.Panel):
         anunciar("Cargando vídeo")
         vid = self._video_id
         gen = self._gen   # si cambia al volver, esta carga ya no vale
+        marca_inicio = time.monotonic()
+        self._marca_reproduccion = marca_inicio
 
         def _run():
             try:
                 info = _info_video(vid)
+                marca_extraccion = time.monotonic()
             except Exception as exc:
                 logger.warning("info vídeo: %s", exc)
                 wx.CallAfter(self._error_carga, gen)
                 return
-            wx.CallAfter(self._info_listo, info, reproducir, vid, gen)
+            wx.CallAfter(self._info_listo, info, reproducir, vid, gen,
+                         marca_inicio, marca_extraccion)
 
-        threading.Thread(target=_run, daemon=True, name="ReproductorInfo").start()
+        diagnostico.crear_hilo(_run, "ReproductorInfo").start()
 
-    def _info_listo(self, info, reproducir, vid, gen):
+    def _info_listo(self, info, reproducir, vid, gen, marca_inicio=None,
+                    marca_extraccion=None):
         if gen != self._gen or vid != self._video_id:
             return  # se detuvo/desconectó o cambió de vídeo mientras cargaba
         self._info = info
         self._alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
         self._cargando = False
+        self._marca_reproduccion = marca_inicio
+        self._marca_extraccion = marca_extraccion
         self._reproducir_calidad(self._calidad_sel, reproducir)
 
     def _reproducir_calidad(self, altura, reproducir):
@@ -725,6 +737,7 @@ class ReproductorPanel(wx.Panel):
             if slave:
                 media.add_option(f":input-slave={slave}")
             self._player.set_media(media)
+            self._marca_url = time.monotonic()
             self._player.audio_set_volume(self._vol)
             self._player.audio_set_mute(self._muted)
             if reproducir:
@@ -751,6 +764,9 @@ class ReproductorPanel(wx.Panel):
             for opt in _MEDIA_OPTS:
                 media.add_option(opt)
             self._player.set_media(media)
+            self._marca_reproduccion = time.monotonic()
+            self._marca_extraccion = self._marca_reproduccion
+            self._marca_url = self._marca_reproduccion
             self._player.audio_set_volume(self._vol)
             self._player.audio_set_mute(self._muted)
             if reproducir:
@@ -839,7 +855,7 @@ class ReproductorPanel(wx.Panel):
                     except Exception: pass
                     try:    player.release()
                     except Exception: pass
-                threading.Thread(target=_cerrar, daemon=True, name="ReproductorStop").start()
+                diagnostico.crear_hilo(_cerrar, "ReproductorStop").start()
             else:
                 try:    self._player.stop()
                 except Exception: pass
@@ -992,7 +1008,17 @@ class ReproductorPanel(wx.Panel):
         # eso al cambiar de URL el slider quedaba en un valor y el audio sonaba a
         # otro (incluso slider a 0 % sonando). Reconciliamos aquí, ya en marcha:
         # el slider (self._vol) manda. Mientras esté en mute no tocamos nada.
-        if not self._muted and self._player.get_state() == _vlc.State.Playing:
+        reproduciendo = self._player.get_state() == _vlc.State.Playing
+        if reproduciendo and self._marca_url is not None:
+            diagnostico.logger.info(
+                "REPRODUCCIÓN tramos_ms=%.0f,%.0f,%.0f",
+                (self._marca_extraccion - self._marca_reproduccion) * 1000
+                if self._marca_extraccion and self._marca_reproduccion else 0,
+                (self._marca_url - self._marca_extraccion) * 1000
+                if self._marca_extraccion else 0,
+                (time.monotonic() - self._marca_url) * 1000)
+            self._marca_url = None
+        if not self._muted and reproduciendo:
             actual = self._player.audio_get_volume()
             if actual >= 0 and actual != self._vol:
                 self._player.audio_set_volume(self._vol)
