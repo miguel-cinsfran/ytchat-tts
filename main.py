@@ -32,6 +32,7 @@ from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd
 import deteccion
 import tiktok_captura
+import diagnostico
 
 
 # Traducción pytchat → tipos internos.
@@ -541,6 +542,8 @@ def main():
     # Aquí y no al importar el módulo: así los tests y el smoke test pueden
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
     configurar_logging()
+    diagnostico.instalar_capturadores(app_dir() / "ytchat-fallos.log")
+    diagnostico.registrar_entorno(APP_VERSION)
 
     if not _verificar_instancia_unica():
         # Ya hay una instancia abierta. Intentamos informar al usuario.

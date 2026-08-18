@@ -1,9 +1,10 @@
 import logging
+import sys
 import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import config
 import diagnostico
@@ -30,6 +31,7 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertIn("Versión de libVLC: 3.0", texto)
         self.assertIn("Placa de vídeo: Placa", texto)
         self.assertIn("ENTORNO inicio", texto)
+        self.assertIn("Lector de pantalla activo: NVDA", texto)
 
     def test_censo_incluye_hilo_actual(self):
         self.assertIn(threading.current_thread().name, diagnostico.censo_hilos())
@@ -56,3 +58,31 @@ class DiagnosticoTest(unittest.TestCase):
                     manejador.close()
                 for manejador in previos:
                     raiz.addHandler(manejador)
+
+    def test_capturadores_registran_excepciones_de_hilos(self):
+        anterior_sys = sys.excepthook
+        anterior_hilos = threading.excepthook
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                try:
+                    with patch.object(sys, "excepthook"), \
+                         patch.object(threading, "excepthook"), \
+                         patch("faulthandler.enable") as activar, \
+                         patch.object(diagnostico.logging.getLogger("diagnostico"),
+                                      "critical") as registrar:
+                        diagnostico.instalar_capturadores(Path(tmp) / "fallos.log")
+                        error = RuntimeError("prueba")
+                        hilo = MagicMock()
+                        hilo.name = "HiloPrueba"
+                        args = MagicMock(exc_type=RuntimeError, exc_value=error,
+                                         exc_traceback=None, thread=hilo)
+                        threading.excepthook(args)
+                        self.assertIn("HiloPrueba", registrar.call_args.args[1])
+                        activar.assert_called_once()
+                finally:
+                    if diagnostico._ARCHIVO_FALLOS is not None:
+                        diagnostico._ARCHIVO_FALLOS.close()
+                        diagnostico._ARCHIVO_FALLOS = None
+        finally:
+            sys.excepthook = anterior_sys
+            threading.excepthook = anterior_hilos

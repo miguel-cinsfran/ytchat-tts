@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import subprocess
 import sys
 import threading
 from logging.handlers import RotatingFileHandler
@@ -16,6 +17,7 @@ FORMATO_DETALLADO = (
 )
 FECHA_DETALLADA = "%Y-%m-%d %H:%M:%S"
 INTERVALO_CENSO_HILOS_S = 30
+_ARCHIVO_FALLOS = None
 
 
 def crear_manejador_detallado(ruta: str | Path) -> RotatingFileHandler:
@@ -73,10 +75,86 @@ def _memoria_total() -> tuple[str | None, str | None]:
 
 def _lector_activo() -> tuple[str | None, str | None]:
     try:
-        import accessible_output2
-        return accessible_output2.__name__, None
+        from accessible_output2.outputs.auto import Auto
+        for salida in getattr(Auto(), "outputs", []):
+            if salida.is_active() and "sapi" not in type(salida).__name__.lower():
+                return type(salida).__name__, None
+        return None, "no se detectó un lector de pantalla activo"
     except Exception as exc:
         return None, str(exc)
+
+
+def _placa_video() -> tuple[str | None, str | None]:
+    if os.name != "nt":
+        return None, "solo disponible en Windows"
+    try:
+        resultado = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Get-CimInstance Win32_VideoController | "
+             "Select-Object -ExpandProperty Name) -join ', '"],
+            capture_output=True, text=True, timeout=5, check=False)
+        nombre = resultado.stdout.strip()
+        if nombre:
+            return nombre, None
+        return None, resultado.stderr.strip() or "la consulta no devolvió datos"
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _version_paquete(nombre: str) -> tuple[str | None, str | None]:
+    try:
+        modulo = __import__(nombre)
+        version = getattr(modulo, "__version__", None)
+        if version is None and nombre == "yt_dlp":
+            version = getattr(getattr(modulo, "version", None), "__version__", None)
+        return (str(version), None) if version else (None, "el paquete no informa versión")
+    except Exception as exc:
+        return None, str(exc)
+
+
+def instalar_capturadores(ruta_fallos: str | Path) -> None:
+    """Conserva excepciones no capturadas y fallos nativos en archivos."""
+    global _ARCHIVO_FALLOS
+    logger = logging.getLogger(__name__)
+    anterior_sys = sys.excepthook
+    anterior_hilos = threading.excepthook
+
+    def _sys_hook(tipo, valor, traza):
+        logger.critical("Excepción no capturada del proceso", exc_info=(tipo, valor, traza))
+        anterior_sys(tipo, valor, traza)
+
+    def _hilo_hook(args):
+        logger.critical("Excepción no capturada en hilo %s", args.thread.name,
+                        exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+        anterior_hilos(args)
+
+    sys.excepthook = _sys_hook
+    threading.excepthook = _hilo_hook
+    try:
+        import faulthandler
+        _ARCHIVO_FALLOS = open(ruta_fallos, "a", encoding="utf-8")
+        faulthandler.enable(_ARCHIVO_FALLOS)
+    except Exception as exc:
+        logger.warning("No se pudo activar faulthandler: %s", exc)
+
+
+def registrar_entorno(version: str) -> None:
+    """Escribe una sola vez el entorno disponible durante el arranque."""
+    gpu, motivo_gpu = _placa_video()
+    ytdlp, motivo_ytdlp = _version_paquete("yt_dlp")
+    vlc, motivo_vlc = _version_paquete("vlc")
+    texto = componer_volcado_entorno(
+        version, vlc_version=vlc, ytdlp_version=ytdlp, gpu=gpu)
+    if motivo_gpu:
+        texto = texto.replace("Placa de vídeo: no se pudo obtener",
+                              f"Placa de vídeo: no se pudo obtener ({motivo_gpu})")
+    if motivo_vlc:
+        texto = texto.replace("Versión de libVLC: no se pudo obtener",
+                              f"Versión de libVLC: no se pudo obtener ({motivo_vlc})")
+    if motivo_ytdlp:
+        texto = texto.replace("Versión de yt-dlp: no se pudo obtener",
+                              f"Versión de yt-dlp: no se pudo obtener ({motivo_ytdlp})")
+    logging.getLogger(__name__).info("%s", texto)
 
 
 def componer_volcado_entorno(version: str, *, vlc_version=None,
