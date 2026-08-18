@@ -37,6 +37,14 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertIn(threading.current_thread().name, diagnostico.censo_hilos())
         self.assertIn("vivos=", diagnostico.componer_censo_hilos())
 
+    def test_vigilante_informa_bloqueo_sobre_umbral(self):
+        with patch.object(diagnostico.sys, "_current_frames", return_value={}):
+            texto = diagnostico.vigilar_hilo_interfaz(10.0, 10.6)
+        self.assertIn("bloqueada_ms=600", texto)
+
+    def test_vigilante_no_informa_demora_normal(self):
+        self.assertIsNone(diagnostico.vigilar_hilo_interfaz(10.0, 10.4))
+
     def test_configuracion_instala_registro_detallado_si_esta_activado(self):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "config.ini").write_text(

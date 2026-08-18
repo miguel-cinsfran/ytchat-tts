@@ -8,6 +8,9 @@ import platform
 import subprocess
 import sys
 import threading
+import time
+import traceback
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -17,7 +20,9 @@ FORMATO_DETALLADO = (
 )
 FECHA_DETALLADA = "%Y-%m-%d %H:%M:%S"
 INTERVALO_CENSO_HILOS_S = 30
+UMBRAL_BLOQUEO_INTERFAZ_MS = 500
 _ARCHIVO_FALLOS = None
+logger = logging.getLogger(__name__)
 
 
 def crear_manejador_detallado(ruta: str | Path) -> RotatingFileHandler:
@@ -40,6 +45,45 @@ def censo_hilos() -> tuple[str, ...]:
 def componer_censo_hilos() -> str:
     nombres = censo_hilos()
     return f"HILOS vivos={len(nombres)} nombres={', '.join(nombres)}"
+
+
+def vigilar_hilo_interfaz(marca_anterior: float, marca_actual: float | None = None):
+    """Devuelve una anomalía si el hilo de interfaz tardó demasiado."""
+    actual = time.monotonic() if marca_actual is None else marca_actual
+    demora_ms = (actual - marca_anterior) * 1000
+    if demora_ms < UMBRAL_BLOQUEO_INTERFAZ_MS:
+        return None
+    marcos = sys._current_frames()
+    marco = marcos.get(threading.main_thread().ident)
+    pila = "".join(traceback.format_stack(marco)) if marco else "no disponible"
+    return f"INTERFAZ bloqueada_ms={demora_ms:.0f}\n{pila.rstrip()}"
+
+
+def crear_hilo(target, nombre: str, *, args=(), daemon=True) -> threading.Thread:
+    """Crea un hilo que deja constancia de su vida completa."""
+    logger = logging.getLogger(__name__)
+
+    def ejecutar():
+        logger.info("HILO inicia nombre=%s", nombre)
+        try:
+            target(*args)
+        finally:
+            logger.info("HILO termina nombre=%s", nombre)
+
+    return threading.Thread(target=ejecutar, daemon=daemon, name=nombre)
+
+
+def debe_censar_hilos(marca_anterior: float, marca_actual: float | None = None):
+    actual = time.monotonic() if marca_actual is None else marca_actual
+    if actual - marca_anterior < INTERVALO_CENSO_HILOS_S:
+        return None
+    return actual, componer_censo_hilos()
+
+
+def marcar_incidencia() -> str:
+    marca = datetime.now().astimezone().isoformat(timespec="milliseconds")
+    logger.warning("INCIDENCIA usuario marca=%s", marca)
+    return marca
 
 
 def _dato(nombre: str, valor, motivo: str | None = None) -> str:

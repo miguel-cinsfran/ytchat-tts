@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 import webbrowser
 
 import wx
@@ -29,6 +30,7 @@ from busqueda_lista import buscar_prefijo, coincide
 import sound_player as _snd
 import credenciales
 import youtube_api
+import diagnostico
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -350,6 +352,8 @@ class YTChatFrame(wx.Frame):
         self.on_desconectar_cb = None
 
         self._atajos = parsear_atajos(config.get("atajos_raw", {}))
+        self._diagnostico_marca = time.monotonic()
+        self._diagnostico_censo = self._diagnostico_marca
 
         self.SetBackgroundColour(_T.bg)
         self._build_menubar()
@@ -493,11 +497,13 @@ class YTChatFrame(wx.Frame):
         # Ayuda
         m = wx.Menu()
         mi_guia = m.Append(wx.ID_ANY, "&Guía de configuración de la API…")
+        mi_incidente = m.Append(wx.ID_ANY, "&Marcar incidencia")
         mi_about = m.Append(wx.ID_ABOUT, "&Acerca de")
         mb.Append(m, "A&yuda")
         self.Bind(wx.EVT_MENU, lambda e: webbrowser.open(
             "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"),
             mi_guia)
+        self.Bind(wx.EVT_MENU, self._on_marcar_incidencia, mi_incidente)
         self.Bind(wx.EVT_MENU, self._on_about, mi_about)
 
         self.SetMenuBar(mb)
@@ -922,6 +928,10 @@ class YTChatFrame(wx.Frame):
             "Lector accesible del chat de YouTube Live con voz SAPI5.",
             "Acerca de", wx.OK | wx.ICON_INFORMATION, self)
 
+    def _on_marcar_incidencia(self, event):
+        diagnostico.marcar_incidencia()
+        anunciar("La marca de incidencia se guardó")
+
     # ── Handlers de voz / TTS ────────────────────────────────────────────────
 
     def _on_pausa(self, event):
@@ -1310,6 +1320,16 @@ class YTChatFrame(wx.Frame):
 
     def _on_timer(self, event):
         if self._alive:
+            ahora = time.monotonic()
+            bloqueo = diagnostico.vigilar_hilo_interfaz(
+                self._diagnostico_marca, ahora)
+            if bloqueo:
+                diagnostico.logger.warning("%s", bloqueo)
+            self._diagnostico_marca = ahora
+            censo = diagnostico.debe_censar_hilos(self._diagnostico_censo, ahora)
+            if censo:
+                self._diagnostico_censo, texto = censo
+                diagnostico.logger.info("%s", texto)
             try:    self._actualizar_sb()
             except Exception: pass
 
