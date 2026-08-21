@@ -63,7 +63,7 @@ call uv run pyinstaller main.py ^
   --collect-submodules google_auth_oauthlib ^
   --collect-submodules pytchat ^
   --collect-all TikTokLive ^
-  --collect-all yt_dlp ^
+  --exclude-module yt_dlp ^
   --hidden-import vlc ^
   --add-data "!YTDOC!;googleapiclient/discovery_cache/documents"
 if errorlevel 1 ( echo ERROR en PyInstaller. & pause & exit /b 1 )
