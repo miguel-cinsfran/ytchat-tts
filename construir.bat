@@ -107,15 +107,12 @@ REM imageio-ffmpeg trae un ffmpeg.exe portable en site-packages. Lo copiamos
 REM junto al .exe para que el gestor de descargas (yt-dlp + FFmpegExtractAudio)
 REM pueda muxear sin que el usuario instale nada. Sin parentesis en estos REM,
 REM romperian el bloque IF.
-set "FFDIR="
-for /f "delims=" %%f in ('uv run python -c "import imageio_ffmpeg,os;print(os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe()))"') do set "FFDIR=%%f"
-if defined FFDIR (
-  echo    %FFDIR%
-  robocopy "%FFDIR%" "%OUT%" ffmpeg.exe /NFL /NDL /NJH /NJS /NP >nul
-  REM ffprobe.exe puede o no existir en el paquete de imageio_ffmpeg; si esta,
-  REM lo copiamos tambien (yt-dlp lo usa para merges y para el hook de
-  REM previsualizacion).
-  if exist "%FFDIR%\ffprobe.exe" robocopy "%FFDIR%" "%OUT%" ffprobe.exe /NFL /NDL /NJH /NJS /NP >nul
+set "FFEXE="
+for /f "delims=" %%f in ('uv run python -c "import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())"') do set "FFEXE=%%f"
+if defined FFEXE (
+  echo    %FFEXE%
+  copy /y "%FFEXE%" "%OUT%\ffmpeg.exe" >nul
+  if not exist "%OUT%\ffmpeg.exe" echo    AVISO: no se pudo copiar ffmpeg; el paquete saldra SIN ffmpeg.
 ) else (
   echo    AVISO: imageio-ffmpeg no encontrado. El paquete saldra SIN ffmpeg; las descargas de audio fallaran.
 )
