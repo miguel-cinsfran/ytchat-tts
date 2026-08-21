@@ -82,6 +82,10 @@ class TestAvisoAlReproducir(unittest.TestCase):
             panel._toggle_play()
         anunciar.assert_not_called()
 
+        panel._video_id = ""
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._toggle_play()
+        anunciar.assert_called_once_with("No hay ningún video cargado")
 
 if __name__ == "__main__":
     unittest.main()
