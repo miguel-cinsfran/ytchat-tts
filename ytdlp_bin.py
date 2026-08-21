@@ -36,14 +36,16 @@ def _ruta_actualizada() -> Path:
     return Path.home() / SUBDIRECTORIO_DATOS / NOMBRE_BINARIO
 
 
-def _ruta_del_paquete() -> Path:
+def _ruta_del_paquete() -> Path | None:
+    if not getattr(sys, "frozen", False):
+        return None
     return Path(sys.executable).resolve().parent / NOMBRE_BINARIO
 
 
 def ruta_ytdlp() -> str | None:
     """Devuelve la copia actualizada o la que viaja junto al ejecutable."""
     for ruta in (_ruta_actualizada(), _ruta_del_paquete()):
-        if ruta.is_file():
+        if ruta is not None and ruta.is_file():
             return str(ruta)
     return None
 
