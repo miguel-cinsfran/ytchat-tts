@@ -31,6 +31,7 @@ import sound_player as _snd
 import credenciales
 import youtube_api
 import diagnostico
+import ytdlp_bin
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -508,10 +509,13 @@ class YTChatFrame(wx.Frame):
         # chat, abriendo una URL pegada a mano). Ctrl+S es el atajo.
         self.mi_descargas = m.Append(
             wx.ID_ANY, "Gestor de &descargas…" + self._accel("descargas_abrir"))
+        self.mi_actualizar_ytdlp = m.Append(wx.ID_ANY, "&Actualizar yt-dlp")
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
         self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(), self.mi_descargas)
+        self.Bind(wx.EVT_MENU, self._on_actualizar_ytdlp,
+                  self.mi_actualizar_ytdlp)
 
         # Ayuda
         m = wx.Menu()
@@ -527,6 +531,41 @@ class YTChatFrame(wx.Frame):
 
         self.SetMenuBar(mb)
         self.mi_enviar_live.Enable(False)
+
+    def _on_actualizar_ytdlp(self, event):
+        anunciar("Buscando la última versión de yt-dlp")
+        version_actual = ""
+        ruta = ytdlp_bin.ruta_ytdlp()
+        if ruta:
+            version_actual = ytdlp_bin.version_ytdlp(ruta)
+
+        def _run():
+            try:
+                if not ruta:
+                    wx.CallAfter(anunciar, "Descargando yt-dlp")
+                resultado = ytdlp_bin.asegurar_ytdlp()
+                if resultado.correcta:
+                    version_nueva = ytdlp_bin.version_ytdlp(
+                        ytdlp_bin.ruta_ytdlp() or "")
+                    estado = "ya_al_dia" if ruta else "actualizado"
+                    texto = ytdlp_bin.mensaje_de_actualizacion(
+                        estado, version_actual, version_nueva)
+                elif "firma" in resultado.motivo.lower():
+                    texto = ytdlp_bin.mensaje_de_actualizacion("firma_incorrecta")
+                elif ("conexión" in resultado.motivo.lower()
+                      or "consultar" in resultado.motivo.lower()
+                      or "descargar las firmas" in resultado.motivo.lower()):
+                    texto = ytdlp_bin.mensaje_de_actualizacion("sin_conexion")
+                else:
+                    texto = ytdlp_bin.mensaje_de_actualizacion(
+                        "otro_fallo", motivo=resultado.motivo)
+            except Exception as exc:
+                logger.warning("actualización de yt-dlp: %s", exc)
+                texto = ytdlp_bin.mensaje_de_actualizacion(
+                    "otro_fallo", motivo=str(exc))
+            wx.CallAfter(anunciar, texto)
+
+        diagnostico.crear_hilo(_run, "ActualizarYtdlp").start()
 
     # ── Construcción de la UI ────────────────────────────────────────────────
 
