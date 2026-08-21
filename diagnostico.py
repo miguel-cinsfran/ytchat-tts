@@ -14,6 +14,8 @@ from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import ytdlp_bin
+
 
 FORMATO_DETALLADO = (
     "%(asctime)s.%(msecs)03d %(levelname)-8s %(threadName)s %(name)s: %(message)s"
@@ -185,7 +187,9 @@ def instalar_capturadores(ruta_fallos: str | Path) -> None:
 def registrar_entorno(version: str) -> None:
     """Escribe una sola vez el entorno disponible durante el arranque."""
     gpu, motivo_gpu = _placa_video()
-    ytdlp, motivo_ytdlp = _version_paquete("yt_dlp")
+    ruta_ytdlp = ytdlp_bin.ruta_ytdlp()
+    ytdlp = ytdlp_bin.version_ytdlp(ruta_ytdlp) if ruta_ytdlp else None
+    motivo_ytdlp = None if ytdlp else "no disponible al arrancar"
     vlc, motivo_vlc = _version_paquete("vlc")
     texto = componer_volcado_entorno(
         version, vlc_version=vlc, ytdlp_version=ytdlp, gpu=gpu)
