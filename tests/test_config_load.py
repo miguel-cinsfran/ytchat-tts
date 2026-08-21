@@ -93,6 +93,23 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
         self.assertEqual(ruta.read_text(encoding="utf-8"), contenido)
 
+    def test_cargar_configuracion_no_persiste_carpeta_por_defecto(self):
+        for contenido in (
+            config._CONFIG_FALLBACK.replace(
+                "[descargas]\nformato = mp4\nbitrate = 192\ncarpeta = Descargas\nenumerar = false\n",
+                ""),
+            "[descargas]\nformato = mp4\nbitrate = 192\nenumerar = false\n",
+        ):
+            with self.subTest(seccion="descargas" in contenido):
+                ruta = Path(self._tmp.name) / "config.ini"
+                ruta.write_text(contenido, encoding="utf-8")
+                with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+                    cfg = config.cargar_configuracion()
+                self.assertEqual(cfg["descargas_carpeta"], str(Path(self._tmp.name) / "Descargas"))
+                self.assertNotRegex(
+                    ruta.read_text(encoding="utf-8").lower(), r"(?m)^\s*carpeta\s*="
+                )
+
     def test_guardar_opciones_descarga_persiste(self):
         import config
         with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):

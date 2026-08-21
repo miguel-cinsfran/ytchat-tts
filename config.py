@@ -594,15 +594,12 @@ def cargar_configuracion() -> dict:
     if not p.has_section("descargas"):
         guardar_opcion(ruta, "descargas", "formato", "mp4")
         guardar_opcion(ruta, "descargas", "bitrate", "192")
-        guardar_opcion(ruta, "descargas", "carpeta", str(app_dir() / "Descargas"))
         guardar_opcion(ruta, "descargas", "enumerar", "false")
     else:
         if not p.has_option("descargas", "formato"):
             guardar_opcion(ruta, "descargas", "formato", "mp4")
         if not p.has_option("descargas", "bitrate"):
             guardar_opcion(ruta, "descargas", "bitrate", "192")
-        if not p.has_option("descargas", "carpeta"):
-            guardar_opcion(ruta, "descargas", "carpeta", str(app_dir() / "Descargas"))
         if not p.has_option("descargas", "enumerar"):
             guardar_opcion(ruta, "descargas", "enumerar", "false")
     desc_op = obtener_opciones_descarga()
