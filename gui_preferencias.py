@@ -172,7 +172,7 @@ class _CapturaAtajoDialog(wx.Dialog):
         # Conflicto con otra acción (comparando el atajo normalizado).
         for otra, val in self._valores.items():
             if otra != self._accion and val and val == norm:
-                etq = _ETIQUETAS_ATAJO.get(otra, otra)
+                etq = etiqueta_de_accion(otra)
                 self._fijar(f"Ya lo usa: {etq}. Elige otra.", None)
                 return
         self._fijar(f"Capturado: {_mostrar_atajo(norm)}", norm)
@@ -467,7 +467,7 @@ class PreferenciasDialog(wx.Dialog):
         for titulo, acciones in cfg.ATAJOS_GRUPOS:
             box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
             for accion in acciones:
-                etiqueta = _ETIQUETAS_ATAJO.get(accion, accion)
+                etiqueta = etiqueta_de_accion(accion)
                 fija = accion in cfg.ATAJOS_FIJOS
                 valor = self._valores_atajo.get(accion, "")
                 sufijo = " (fija)" if fija else ""
@@ -765,6 +765,16 @@ _ETIQUETAS_ATAJO = {
     "silenciar_sonidos": "Silenciar sonidos",
     "anunciar_estado":   "Anunciar estado",
 }
+
+
+def etiqueta_de_accion(accion: str) -> str:
+    try:
+        etiqueta = _ETIQUETAS_ATAJO.get(accion)
+        if etiqueta is not None:
+            return etiqueta
+        return str(accion).replace("_", " ").capitalize()
+    except Exception:
+        return ""
 
 
 def _lista(v: str) -> list:

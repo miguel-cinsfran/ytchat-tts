@@ -3,7 +3,7 @@
 import unittest
 
 from config import _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS
-from gui_preferencias import _ETIQUETAS_ATAJO
+from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
 class TestNormalizarAtajo(unittest.TestCase):
@@ -51,6 +51,14 @@ class TestParsearAtajos(unittest.TestCase):
 
     def test_todas_las_acciones_tienen_etiqueta(self):
         self.assertTrue(set(ATAJOS_DEFAULTS) <= set(_ETIQUETAS_ATAJO))
+
+    def test_etiquetas_de_defaults_no_exponen_guiones_bajos(self):
+        for accion in ATAJOS_DEFAULTS:
+            self.assertNotIn("_", etiqueta_de_accion(accion))
+
+    def test_etiqueta_desconocida_es_frase(self):
+        self.assertEqual(
+            etiqueta_de_accion("algo_que_no_existe"), "Algo que no existe")
 
     def test_defaults_completos(self):
         atajos = parsear_atajos({})
