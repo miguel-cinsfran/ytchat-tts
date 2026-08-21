@@ -2,8 +2,42 @@
 
 import unittest
 from unittest import mock
+import types
+import sys
 
 import reproductor
+
+
+class _YoutubeDL:
+    def __init__(self, opciones):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def extract_info(self, *args, **kwargs):
+        return {"formats": [{"vcodec": "avc1", "height": 720}]}
+
+
+class TestInfoVideo(unittest.TestCase):
+
+    def test_info_video_con_programa_no_importa_el_modulo(self):
+        info = {"formats": [{"vcodec": "avc1", "height": 1080}]}
+        with mock.patch.object(reproductor.ytdlp_bin, "info_video", return_value=info), \
+                mock.patch.dict(sys.modules, {"yt_dlp": None}):
+            self.assertIs(info, reproductor._info_video("A" * 11))
+
+    def test_info_video_sin_programa_usa_el_modulo(self):
+        modulo = types.SimpleNamespace(YoutubeDL=_YoutubeDL)
+        with mock.patch.object(reproductor.ytdlp_bin, "info_video", return_value=None), \
+                mock.patch.dict(sys.modules, {"yt_dlp": modulo}):
+            self.assertEqual(
+                {"formats": [{"vcodec": "avc1", "height": 720}]},
+                reproductor._info_video("A" * 11),
+            )
 
 
 class TestAvisoReproductor(unittest.TestCase):

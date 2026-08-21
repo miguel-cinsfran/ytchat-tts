@@ -26,6 +26,7 @@ import wx
 import config as _cfg
 import iconos
 import diagnostico
+import ytdlp_bin
 from gui import anunciar, nombre_accesible, _T, _tc
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,9 @@ _CALIDADES = [2160, 1440, 1080, 720, 480, 360, 240, 144]
 
 def _info_video(video_id: str) -> dict:
     """Datos de yt-dlp del vídeo (bloquea; usar en hilo)."""
+    info = ytdlp_bin.info_video(video_id)
+    if info is not None:
+        return info
     import yt_dlp
     # socket_timeout: sin él, una red lenta deja la app colgada en «Cargando
     # vídeo…» sin feedback. 20 s es de sobra para la extracción normal (~3-5 s).
