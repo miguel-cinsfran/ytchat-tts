@@ -116,6 +116,22 @@ if defined FFEXE (
 ) else (
   echo    AVISO: imageio-ffmpeg no encontrado. El paquete saldra SIN ffmpeg; las descargas de audio fallaran.
 )
+echo == Empaquetando yt-dlp independiente ==
+echo    La primera vez descarga yt-dlp desde GitHub y puede tardar.
+call uv run python -c "import shutil,ytdlp_bin; from pathlib import Path; r=ytdlp_bin.asegurar_ytdlp(); p=ytdlp_bin.ruta_ytdlp(); d=Path(r'%OUT%') / 'yt-dlp.exe'; shutil.copy2(p,d) if r.correcta and p else None; print('   ' + ('resultado: ' if r.correcta else 'AVISO: ') + r.motivo)"
+REM El lanzador del entorno pesa unos 45 KB; el ejecutable oficial observado
+REM el 21/08/2026 pesa unos 17 MB. Un MiB deja margen y descarta el lanzador.
+set "YTDLP_MIN_BYTES=1048576"
+if not exist "%OUT%\yt-dlp.exe" (
+  echo    AVISO: no se obtuvo yt-dlp.exe de verdad; el paquete saldra sin el programa independiente.
+) else (
+  for %%f in ("%OUT%\yt-dlp.exe") do if %%~zf LSS %YTDLP_MIN_BYTES% (
+    echo    AVISO: yt-dlp.exe pesa %%~zf bytes y no es el programa independiente; se elimina.
+    del /q "%OUT%\yt-dlp.exe"
+  ) else (
+    echo    OK: yt-dlp.exe independiente copiado, %%~zf bytes.
+  )
+)
 REM config.ini y sounds.ini van SIEMPRE con los valores por defecto de git,
 REM no con los de esta carpeta: los locales llevan los ajustes personales de
 REM quien construye (velocidad de voz, tema...) y no deben viajar en el ZIP.

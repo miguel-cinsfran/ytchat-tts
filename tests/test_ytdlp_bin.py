@@ -3,11 +3,40 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+import sys
 
 import ytdlp_bin
 
 
 class PruebasYtdlpBin(unittest.TestCase):
+    def test_desde_codigo_fuente_no_usa_ejecutable_de_la_carpeta_del_interprete(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            interprete = Path(carpeta) / "Scripts"
+            interprete.mkdir()
+            (interprete / "yt-dlp.exe").write_bytes(b"lanzador")
+            with patch.object(ytdlp_bin, "_ruta_actualizada", return_value=Path(carpeta) / "no.exe"), \
+                    patch.object(sys, "executable", str(interprete / "python.exe")), \
+                    patch.object(sys, "frozen", False, create=True):
+                self.assertIsNone(ytdlp_bin.ruta_ytdlp())
+
+    def test_empaquetado_usa_ejecutable_junto_al_interprete(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            carpeta = Path(carpeta)
+            ejecutable = carpeta / "YTChatTTS.exe"
+            paquete = carpeta / "yt-dlp.exe"
+            ejecutable.touch()
+            paquete.write_bytes(b"programa")
+            with patch.object(sys, "executable", str(ejecutable)), \
+                    patch.object(sys, "frozen", True, create=True):
+                self.assertEqual(paquete.resolve(), ytdlp_bin._ruta_del_paquete())
+
+    def test_construccion_rechaza_archivo_menor_que_un_mib(self):
+        construir = Path(__file__).parents[1] / "construir.bat"
+        texto = construir.read_text(encoding="utf-8")
+        self.assertIn('set "YTDLP_MIN_BYTES=1048576"', texto)
+        self.assertIn('if %%~zf LSS %YTDLP_MIN_BYTES%', texto)
+        self.assertIn('del /q "%OUT%\\yt-dlp.exe"', texto)
+
     def test_firma_sha256_lee_el_archivo_correcto(self):
         texto = (
             "a" * 64 + "  otro.zip\n"
