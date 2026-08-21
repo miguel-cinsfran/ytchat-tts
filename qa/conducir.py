@@ -679,6 +679,19 @@ def medir_accion(app: Aplicacion, hacer, espera: float = 3.0):
     `(bloqueo, latencia_de_voz, lo_que_dijo)`, con la latencia en `None` si no
     llegó a hablar.
     """
+    # Esperar a que la aplicación se calle ANTES de actuar. Si no, el primer
+    # anuncio que llegue se le atribuye a la acción, y con una carga en vuelo
+    # eso mide la red y no el control. El 21/08/2026 esto produjo tres fallos
+    # contra un directo real que en la corrida siguiente no aparecieron.
+    quieto = time.time() + 8
+    ultimo = len(app.anuncios)
+    calma = time.time() + 0.6
+    while time.time() < quieto and time.time() < calma:
+        if len(app.anuncios) != ultimo:
+            ultimo = len(app.anuncios)
+            calma = time.time() + 0.6
+        time.sleep(0.05)
+
     antes = len(app.anuncios)
     t0 = time.time()
     hacer()
@@ -1486,8 +1499,12 @@ def conectar_de_verdad(app: Aplicacion, res: Resultado, url: str,
     fallar por motivos ajenos al codigo. Cuando falle, antes de tocar nada hay
     que comprobar a mano que el directo siga emitiendo.
     """
-    app.pedir("frente")
-    app.pedir("foco", nombre="URL")
+    app.al_frente()
+    # Por el nombre COMPLETO del campo. Pedir foco por «URL» a secas caia en la
+    # etiqueta «URL/ID:», que tambien contiene esa palabra y va antes en el
+    # arbol, y entonces la URL no se escribia nunca. El escenario no lo decia
+    # porque las ordenes rechazadas se ignoraban; con `pedir` estricto salta.
+    app.pedir("foco", nombre="URL del directo o vídeo")
     app.pedir("texto", valor=url)
     n = len(app.anuncios)
 
@@ -1567,6 +1584,27 @@ def escenario_directo_youtube(app: Aplicacion, args, res: Resultado):
     else:
         res.nota("youtube en vivo: conectó pero no llegó ningún mensaje en "
                  "90 s. Puede ser un chat tranquilo, no es defecto por sí solo")
+
+    # Y ahora lo que ningún escenario había hecho nunca: el reproductor con
+    # vídeo de verdad cargado. Hasta el 21/08/2026 la batería solo se había
+    # corrido sin nada cargado, que es el caso fácil: con medio real entran en
+    # juego la red, el buffer y lo que tarda VLC en responder, y ahí es donde
+    # viviría la torpeza de la que se queja quien la usa.
+    #
+    # Se espera a que termine de cargar antes de medir: juzgar la latencia
+    # mientras yt-dlp todavía resuelve la URL mide la red, no la aplicación.
+    if app.esperar_dicho("reproduciendo", segundos=60):
+        res.nota("youtube en vivo: el reproductor arrancó")
+    else:
+        res.nota("youtube en vivo: no se oyó «Reproduciendo» en 60 s; se mide "
+                 "igual, pero puede que no haya llegado a cargar")
+    time.sleep(3.0)
+
+    visibles = " ".join(((c.get("etiqueta") or "") + " " + (c.get("nombre") or ""))
+                        for c in app.arbol()).lower()
+    if "retroceder 1 min" not in visibles:
+        app.pedir("pulsar", nombre="AlternarBotonesReproductor")
+    bateria_reproductor(app, res, "youtube en vivo")
 
     app.llamar("set_conectado", False)
 
