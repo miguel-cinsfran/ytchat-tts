@@ -53,6 +53,13 @@ class TestAvisoAlReproducir(unittest.TestCase):
             self._panel_sin_medio()._toggle_mute()
         anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
+    def test_silenciar_sin_reproductor_anuncia_indisponible(self):
+        panel = self._panel_sin_medio()
+        panel._listo = False
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._toggle_mute()
+        anunciar.assert_called_once_with("El reproductor no está disponible")
+
     def test_buscar_sin_medio_anuncia(self):
         with mock.patch.object(reproductor, "anunciar") as anunciar:
             self._panel_sin_medio()._buscar_rel(10_000)
