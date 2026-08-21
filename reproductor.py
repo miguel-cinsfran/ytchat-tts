@@ -117,7 +117,7 @@ def aviso_reproductor(hay_reproductor: bool, hay_medio: bool) -> str:
     if not hay_reproductor:
         return "El reproductor no está disponible"
     if not hay_medio:
-        return "No hay ningún video cargado"
+        return "No hay ningún vídeo cargado"
     return ""
 
 

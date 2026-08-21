@@ -67,10 +67,6 @@ REG_CONTENIDO = 1
 REG_REPRODUCTOR = 2
 _NOMBRE_REGION = ("Conexión", "Contenido", "Reproductor")
 
-# Posición del menú «Reproductor» en la barra (Archivo, Ver, Voz, Reproductor,
-# Herramientas, Ayuda). Se deshabilita entero cuando no hay conexión.
-POS_MENU_REPRODUCTOR = 3
-
 logger = logging.getLogger(__name__)
 
 
@@ -1774,8 +1770,8 @@ class YTChatFrame(wx.Frame):
             except Exception: pass
 
         # Descargar este vídeo: YouTube + conexión + no live + URL disponible.
-        # El propio ReproductorPanel se gatingea arriba (POS_MENU_REPRODUCTOR
-        # se deshabilita sin conexión), pero afinamos el ítem para que:
+        # El panel del reproductor gestiona sus propios avisos, pero afinamos
+        # el ítem para que:
         #   - TikTok → off (es TikTok, no YouTube)
         #   - Live   → off (out of scope v1, ver spec R: Live y TikTok off)
         #   - sin URL → off (no hay nada que descargar)

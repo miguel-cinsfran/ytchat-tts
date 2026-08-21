@@ -16,7 +16,7 @@ class TestAvisoReproductor(unittest.TestCase):
     def test_reproductor_sin_medio(self):
         self.assertEqual(
             reproductor.aviso_reproductor(True, False),
-            "No hay ningún video cargado")
+            "No hay ningún vídeo cargado")
 
     def test_reproductor_con_medio(self):
         self.assertEqual(reproductor.aviso_reproductor(True, True), "")
@@ -38,7 +38,7 @@ class TestAvisoAlReproducir(unittest.TestCase):
                 mock.patch.object(reproductor, "_vlc", State=estados):
             panel._toggle_play()
 
-        anunciar.assert_called_once_with("No hay ningún video cargado")
+        anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
     def _panel_sin_medio(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
@@ -51,12 +51,12 @@ class TestAvisoAlReproducir(unittest.TestCase):
     def test_silenciar_sin_medio_anuncia(self):
         with mock.patch.object(reproductor, "anunciar") as anunciar:
             self._panel_sin_medio()._toggle_mute()
-        anunciar.assert_called_once_with("No hay ningún video cargado")
+        anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
     def test_buscar_sin_medio_anuncia(self):
         with mock.patch.object(reproductor, "anunciar") as anunciar:
             self._panel_sin_medio()._buscar_rel(10_000)
-        anunciar.assert_called_once_with("No hay ningún video cargado")
+        anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
     def test_pantalla_completa_sin_reproductor_anuncia(self):
         panel = self._panel_sin_medio()
@@ -85,7 +85,7 @@ class TestAvisoAlReproducir(unittest.TestCase):
         panel._video_id = ""
         with mock.patch.object(reproductor, "anunciar") as anunciar:
             panel._toggle_play()
-        anunciar.assert_called_once_with("No hay ningún video cargado")
+        anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
 if __name__ == "__main__":
     unittest.main()
