@@ -1,25 +1,24 @@
 """Gestor de descargas con yt-dlp (módulo puro, sin wx).
 
-Frontera pura/plataforma: este módulo no importa `wx` y la importación de
-`yt_dlp` es GUARDADA (None si falta). Eso permite que los tests corran en
-Linux/WSL sin yt-dlp instalado, parcheando `descargas.yt_dlp`.
+Frontera pura/plataforma: este módulo no importa `wx` ni el módulo de yt-dlp.
 
 NO se acopla con las 2 llamadas yt-dlp existentes en `main.obtener_info_video`
 ni en `reproductor._info_video`: este módulo hace sus PROPIAS llamadas a
-`YoutubeDL`, en su propio hilo y con su propio postprocesador
-(FFmpegExtractAudio cuando el formato es mp3/m4a).
+el programa independiente, en su propio hilo.
 
 Modos soportados:
   - mp4  : bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best
   - webm : bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best
-  - mp3  : bestaudio + ExtractAudio(mp3)   (postprocesador FFmpegExtractAudio)
-  - m4a  : bestaudio + ExtractAudio(m4a)   (postprocesador FFmpegExtractAudio)
+  - mp3  : bestaudio + conversión a mp3
+  - m4a  : bestaudio + conversión a m4a
 """
 from __future__ import annotations
 
 import logging
+import json
 import os
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -29,20 +28,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from config import app_dir, obtener_opciones_descarga
+import ytdlp_bin
+from progreso_ytdlp import PLANTILLA, analizar_linea_progreso
 
 logger = logging.getLogger(__name__)
-
-# Import guardado: yt-dlp puede no estar instalado (entornos de tests en Linux).
-# Si falla, queda None y los tests parchean `descargas.yt_dlp` con un mock.
-try:
-    import yt_dlp  # type: ignore
-except ImportError:
-    yt_dlp = None  # type: ignore
-
-
-class DownloadCancelled(Exception):
-    """Lanzada desde el progress hook de yt-dlp para abortar una descarga."""
-
 
 @dataclass
 class ItemDescarga:
@@ -71,8 +60,7 @@ def formato_a_ydl(formato: str, bitrate: int) -> str:
 
     mp4/webm piden el mejor stream de vídeo con esa extensión combinada con el
     mejor audio compatible, y caen a un fallback genérico si no hay.
-    mp3/m4a piden solo el mejor audio; la conversión la hace el postprocesador
-    FFmpegExtractAudio que añade `descargar()`.
+    mp3/m4a piden solo el mejor audio y `descargar()` añade la conversión.
     """
     f = (formato or "").lower().strip()
     if f == "mp4":
@@ -102,18 +90,25 @@ def construir_outtmpl(opciones: dict, enumerar: bool) -> str:
 def analizar_url(url: str) -> dict:
     """Inspecciona una URL y devuelve tipo / id / título / cuenta.
 
-    Crea su PROPIA instancia de YoutubeDL (no acopla con main.obtener_info_video
-    ni con reproductor._info_video, ver decisiones.md). Si yt_dlp no está,
-    devuelve un dict con tipo 'error'.
+    Pide los datos al programa independiente. Si no está disponible, devuelve
+    el mismo error que se informaba cuando faltaba el módulo de Python.
     """
-    if yt_dlp is None:
+    ruta = ytdlp_bin.ruta_ytdlp()
+    if ruta is None:
         return {"tipo": "error", "id": "", "titulo": "", "cuenta": 0,
                 "mensaje": "yt-dlp no está instalado"}
     try:
-        ydl_opts = {"quiet": True, "skip_download": True, "extract_flat": False}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-    except Exception as exc:
+        resultado = subprocess.run(
+            [ruta, "--dump-json", "--quiet", "--no-warnings", "--skip-download",
+             "--no-playlist", "--socket-timeout", "20", url],
+            capture_output=True, text=True, creationflags=_sin_ventana(),
+            check=False,
+        )
+        if resultado.returncode:
+            return {"tipo": "error", "id": "", "titulo": "", "cuenta": 0,
+                    "mensaje": resultado.stderr.strip() or "yt-dlp falló"}
+        info = json.loads(resultado.stdout)
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError) as exc:
         logger.warning("analizar_url falló: %s", exc)
         return {"tipo": "error", "id": "", "titulo": "", "cuenta": 0,
                 "mensaje": str(exc)}
@@ -132,22 +127,25 @@ def analizar_url(url: str) -> dict:
             "cuenta": 1}
 
 
-def _postprocessors_para(formato: str, bitrate: int) -> list:
-    """Postprocesadores que se aplican tras la descarga.
+def _sin_ventana() -> int:
+    """Evita una ventana de consola en Windows al ejecutar yt-dlp."""
+    return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
-    Solo audio (mp3, m4a) lleva FFmpegExtractAudio. Si yt_dlp no está
-    disponible, devolvemos lista vacía (descargar() ya habrá abortado antes).
-    """
-    f = (formato or "").lower().strip()
-    if f not in ("mp3", "m4a"):
-        return []
-    if yt_dlp is None:
-        return []
-    return [{
-        "key": "FFmpegExtractAudio",
-        "preferredcodec": f,
-        "preferredquality": str(bitrate or 192),
-    }]
+
+def argumentos_descarga(url, opciones, enumerar) -> list[str]:
+    """Arma los argumentos de una descarga, sin ejecutar programas."""
+    f = (opciones.get("formato") or "mp4").lower().strip()
+    bitrate = int(opciones.get("bitrate") or 192)
+    argumentos = ["--newline", "--no-warnings", "--progress-template", PLANTILLA,
+                  "-f", formato_a_ydl(f, bitrate), "-o",
+                  construir_outtmpl(opciones, enumerar)]
+    if f in ("mp3", "m4a"):
+        argumentos.extend(["-x", "--audio-format", f,
+                           "--audio-quality", f"{bitrate}K"])
+    if getattr(sys, "frozen", False):
+        argumentos.extend(["--ffmpeg-location", str(app_dir())])
+    argumentos.extend(["--", url])
+    return argumentos
 
 
 def descargar(url: str, opciones: dict,
@@ -166,7 +164,8 @@ def descargar(url: str, opciones: dict,
       - estado_cb(estado: str, mensaje: str) — transiciones de estado: primero
         "descargando", luego uno de "completado" | "cancelado" | "error".
     """
-    if yt_dlp is None:
+    ruta = ytdlp_bin.ruta_ytdlp()
+    if ruta is None:
         estado_cb("error", "yt-dlp no está instalado")
         return
 
@@ -180,57 +179,52 @@ def descargar(url: str, opciones: dict,
                    "con tener ffmpeg en el PATH.")
         return
 
-    formato = (opciones.get("formato") or "mp4")
-    bitrate = int(opciones.get("bitrate") or 192)
     enumerar = bool(opciones.get("enumerar", False))
-
-    fmt = formato_a_ydl(formato, bitrate)
-    outtmpl = construir_outtmpl(opciones, enumerar)
-    postprocs = _postprocessors_para(formato, bitrate)
     ultimo_progreso_ts = None
-
-    def _hook(d):
-        nonlocal ultimo_progreso_ts
-        # El hook se ejecuta dentro del hilo de yt-dlp. Si el evento está
-        # marcado, levantamos DownloadCancelled; yt-dlp la propaga y la
-        # capturamos fuera del `with` para terminar limpio.
-        if cancel_event.is_set():
-            raise DownloadCancelled("cancelado por el usuario")
-        if d.get("status") != "downloading":
-            return
-        total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
-        descargado = d.get("downloaded_bytes") or 0
-        pct = (descargado * 100.0 / total) if total else 0.0
-        ahora = time.monotonic()
-        if not debe_emitir_progreso(ultimo_progreso_ts, ahora, pct):
-            return
-        ultimo_progreso_ts = ahora
-        try:
-            progreso_cb(pct, d.get("speed"), d.get("eta"), d.get("filename", ""))
-        except Exception as exc:
-            logger.debug("progreso_cb lanzó: %s", exc)
-
-    ydl_opts = {
-        "format": fmt,
-        "outtmpl": outtmpl,
-        "noplaylist": False,
-        "quiet": True,
-        "no_warnings": True,
-        "progress_hooks": [_hook],
-        "postprocessors": postprocs,
-    }
 
     estado_cb("descargando", "")
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except DownloadCancelled:
-        estado_cb("cancelado", "Descarga cancelada")
+        proceso = subprocess.Popen(
+            [ruta, *argumentos_descarga(url, opciones, enumerar)],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            creationflags=_sin_ventana(),
+        )
+        if cancel_event.is_set():
+            proceso.kill()
+            proceso.wait()
+            estado_cb("cancelado", "Descarga cancelada")
+            return
+        for linea in iter(proceso.stdout.readline, ""):
+            if cancel_event.is_set():
+                proceso.kill()
+                proceso.wait()
+                estado_cb("cancelado", "Descarga cancelada")
+                return
+            datos = analizar_linea_progreso(linea)
+            if datos is None:
+                continue
+            ahora = time.monotonic()
+            if not debe_emitir_progreso(ultimo_progreso_ts, ahora, datos["pct"]):
+                continue
+            ultimo_progreso_ts = ahora
+            try:
+                progreso_cb(datos["pct"], datos["velocidad"], datos["eta"],
+                            datos["nombre"])
+            except Exception as exc:
+                logger.debug("progreso_cb lanzó: %s", exc)
+        proceso.wait()
+        if cancel_event.is_set():
+            estado_cb("cancelado", "Descarga cancelada")
+        elif proceso.returncode == 0:
+            estado_cb("completado", "")
+        else:
+            estado_cb("error", f"yt-dlp terminó con código {proceso.returncode}")
+    except OSError as exc:
+        logger.warning("descargar falló: %s", exc)
+        estado_cb("error", str(exc) or exc.__class__.__name__)
     except Exception as exc:
         logger.warning("descargar falló: %s", exc)
         estado_cb("error", str(exc) or exc.__class__.__name__)
-    else:
-        estado_cb("completado", "")
 
 
 def tiene_ffmpeg() -> bool:
@@ -271,10 +265,10 @@ class GestorDescargas:
         `estado_cb(item_id, estado, mensaje)` reciben el id del ítem.
         """
         item_id = uuid.uuid4().hex[:12]
-        # analizar_url es opcional aquí: si yt_dlp falta, igualmente creamos
+        # analizar_url es opcional aquí: si el programa falta, igualmente creamos
         # el item con tipo "error" y nombre = url para que la cola no se
         # rompa; el hilo de descarga informará el error 3-vías.
-        info = analizar_url(url) if yt_dlp is not None else \
+        info = analizar_url(url) if ytdlp_bin.ruta_ytdlp() is not None else \
             {"tipo": "video", "id": "", "titulo": url, "cuenta": 1}
         it = ItemDescarga(id=item_id, url=url,
                           tipo=info.get("tipo", "video"),
@@ -315,8 +309,7 @@ class GestorDescargas:
         return item_id
 
     def cancelar(self, item_id: str) -> None:
-        """Marca el evento de cancelación. El progress hook lo verá y lanzará
-        DownloadCancelled; el estado del ítem pasa a 'cancelado'."""
+        """Marca el evento de cancelación para que termine el proceso."""
         ev = self._eventos.get(item_id)
         if ev is not None:
             ev.set()
