@@ -110,7 +110,7 @@ class TestMenusPorConexion(unittest.TestCase):
 
 class TestActualizarYtdlp(unittest.TestCase):
 
-    def _ejecutar(self, resultado, ruta=None, version="2026.08.20"):
+    def _ejecutar(self, resultado):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         anuncios = []
         hilo = mock.Mock()
@@ -123,35 +123,66 @@ class TestActualizarYtdlp(unittest.TestCase):
         with mock.patch.object(gui, "anunciar", side_effect=anuncios.append), \
                 mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
                 mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
-                mock.patch.object(ytdlp_bin, "ruta_ytdlp", return_value=ruta), \
-                mock.patch.object(ytdlp_bin, "version_ytdlp", return_value=version), \
-                mock.patch.object(ytdlp_bin, "asegurar_ytdlp", return_value=resultado):
+                mock.patch.object(ytdlp_bin, "actualizar_ytdlp", return_value=resultado):
             gui.YTChatFrame._on_actualizar_ytdlp(frame, None)
         return anuncios, hilo
 
     def test_activar_anuncia_antes_de_empezar(self):
-        anuncios, hilo = self._ejecutar(ytdlp_bin.ResultadoDescarga(True, ""))
-        self.assertEqual("Buscando la última versión de yt-dlp", anuncios[0])
+        anuncios, hilo = self._ejecutar(("ya_al_dia", "2026.08.20", "2026.08.20"))
+        self.assertIn("Buscando", anuncios[0])
         hilo.start.assert_called_once()
 
     def test_cada_desenlace_anuncia_su_texto(self):
         casos = (
-            (ytdlp_bin.ResultadoDescarga(True, ""), None, "actualizó"),
-            (ytdlp_bin.ResultadoDescarga(True, ""), "yt-dlp.exe", "al día"),
-            (ytdlp_bin.ResultadoDescarga(False, "no se pudo consultar la última versión"), None, "conexión"),
-            (ytdlp_bin.ResultadoDescarga(False, "la firma no coincide"), None, "No se instaló nada"),
-            (ytdlp_bin.ResultadoDescarga(False, "permiso denegado"), None, "permiso denegado"),
+            (("actualizado", "2026.08.20", "2026.08.21"), "actualizó"),
+            (("ya_al_dia", "2026.08.20", "2026.08.20"), "al día"),
+            (("sin_conexion", "2026.08.20", ""), "conexión"),
+            (("firma_incorrecta", "2026.08.20", "2026.08.21"), "No se instaló nada"),
+            (("otro_fallo", "2026.08.20", "2026.08.21"), "No se pudo actualizar"),
         )
-        for resultado, ruta, esperado in casos:
+        for resultado, esperado in casos:
             with self.subTest(esperado=esperado):
-                anuncios, _ = self._ejecutar(resultado, ruta)
+                anuncios, _ = self._ejecutar(resultado)
                 self.assertTrue(any(esperado in texto for texto in anuncios))
 
     def test_fallo_de_red_no_propaga_excepcion_y_anuncia(self):
-        anuncios, hilo = self._ejecutar(
-            ytdlp_bin.ResultadoDescarga(False, "no se pudo consultar la última versión"))
+        anuncios, hilo = self._ejecutar(("sin_conexion", "", ""))
         self.assertIn("conexión", anuncios[-1])
         hilo.start.assert_called_once()
+
+    def test_pasa_el_estado_sin_mirar_el_motivo(self):
+        with mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo") as crear, \
+                mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(ytdlp_bin, "mensaje_de_actualizacion") as mensaje, \
+                mock.patch.object(ytdlp_bin, "actualizar_ytdlp", return_value=("firma_incorrecta", "", "2026.08.21")):
+            hilo = mock.Mock()
+            hilo.start.side_effect = lambda: hilo.target()
+            crear.side_effect = lambda target, nombre: setattr(hilo, "target", target) or hilo
+            gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
+        mensaje.assert_called_once_with("firma_incorrecta", "", "2026.08.21")
+
+    def test_anuncia_antes_de_descargar_y_al_terminar(self):
+        anuncios = []
+        hilo = mock.Mock()
+        hilo.start.side_effect = lambda: hilo.target()
+
+        def crear(target, nombre):
+            hilo.target = target
+            return hilo
+
+        def actualizar(aviso):
+            aviso()
+            return "actualizado", "2026.08.20", "2026.08.21"
+
+        with mock.patch.object(gui, "anunciar", side_effect=anuncios.append), \
+                mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
+                mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(ytdlp_bin, "actualizar_ytdlp", side_effect=actualizar):
+            gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
+        self.assertIn("Buscando", anuncios[0])
+        self.assertIn("Descargando", anuncios[1])
+        self.assertIn("actualizó", anuncios[2])
 
 
 if __name__ == "__main__":

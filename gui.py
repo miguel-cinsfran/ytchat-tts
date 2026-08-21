@@ -534,31 +534,13 @@ class YTChatFrame(wx.Frame):
 
     def _on_actualizar_ytdlp(self, event):
         anunciar("Buscando la última versión de yt-dlp")
-        version_actual = ""
-        ruta = ytdlp_bin.ruta_ytdlp()
-        if ruta:
-            version_actual = ytdlp_bin.version_ytdlp(ruta)
 
         def _run():
             try:
-                if not ruta:
-                    wx.CallAfter(anunciar, "Descargando yt-dlp")
-                resultado = ytdlp_bin.asegurar_ytdlp()
-                if resultado.correcta:
-                    version_nueva = ytdlp_bin.version_ytdlp(
-                        ytdlp_bin.ruta_ytdlp() or "")
-                    estado = "ya_al_dia" if ruta else "actualizado"
-                    texto = ytdlp_bin.mensaje_de_actualizacion(
-                        estado, version_actual, version_nueva)
-                elif "firma" in resultado.motivo.lower():
-                    texto = ytdlp_bin.mensaje_de_actualizacion("firma_incorrecta")
-                elif ("conexión" in resultado.motivo.lower()
-                      or "consultar" in resultado.motivo.lower()
-                      or "descargar las firmas" in resultado.motivo.lower()):
-                    texto = ytdlp_bin.mensaje_de_actualizacion("sin_conexion")
-                else:
-                    texto = ytdlp_bin.mensaje_de_actualizacion(
-                        "otro_fallo", motivo=resultado.motivo)
+                estado, version_actual, version_nueva = ytdlp_bin.actualizar_ytdlp(
+                    lambda: wx.CallAfter(anunciar, "Descargando yt-dlp"))
+                texto = ytdlp_bin.mensaje_de_actualizacion(
+                    estado, version_actual, version_nueva)
             except Exception as exc:
                 logger.warning("actualización de yt-dlp: %s", exc)
                 texto = ytdlp_bin.mensaje_de_actualizacion(
