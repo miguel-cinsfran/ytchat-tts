@@ -388,8 +388,9 @@ class ReproductorPanel(wx.Panel):
 
     def _asegurar_instancia(self) -> bool:
         """Crea (o reutiliza) la instancia de libVLC. Es la parte LENTA: importar
-        libvlc.dll y escanear todos los plugins (1-2 s la 1ª vez). Va con lock
-        para poder precalentarla en segundo plano sin chocar con el hilo de la
+        libvlc.dll y escanear todos los plugins. Depende mucho de la máquina y
+        la caché de plugins: en tres arranques en frío midió 56, 92 y 128 s.
+        Va con lock para poder precalentarla en segundo plano sin chocar con el hilo de la
         GUI si el usuario conecta justo en ese momento."""
         if self._inst is not None:
             return True
