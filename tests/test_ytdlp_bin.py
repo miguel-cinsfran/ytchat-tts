@@ -300,13 +300,23 @@ class PruebasYtdlpBin(unittest.TestCase):
         self.assertEqual(["aviso", "descarga"], orden)
 
     def test_actualizar_no_avisa_si_no_hay_descarga(self):
-        aviso = mock = MagicMock()
+        aviso = MagicMock()
         with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
                 patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.21"), \
                 patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()):
             resultado = ytdlp_bin.actualizar_ytdlp(aviso)
         self.assertEqual("ya_al_dia", resultado[0])
         aviso.assert_not_called()
+
+    def test_actualizar_informa_firma_incorrecta(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.20"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()), \
+                patch.object(ytdlp_bin, "urlopen") as abrir, \
+                patch.object(ytdlp_bin, "descargar_ytdlp", return_value=ytdlp_bin.ResultadoDescarga(False, "la firma SHA-256 no coincide")):
+            abrir.return_value.__enter__.return_value.read.return_value = b"a" * 64 + b"  yt-dlp.exe\n"
+            resultado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual("firma_incorrecta", resultado[0])
 
 
 
