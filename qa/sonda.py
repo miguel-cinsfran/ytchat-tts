@@ -319,15 +319,41 @@ class Sonda:
                 self.responder(id_orden, True, {"listo": frame is not None})
 
             elif op == "frente":
-                # Solo traer la ventana al frente. NO se toca el foco: mover el
-                # foco al frame se lo quita al control que lo tuviera, y sin
-                # foco dentro de un control los aceleradores no llegan. Cada
-                # escenario pone el foco donde lo necesita, con la orden `foco`.
+                # Trae al frente la ventana que de verdad esta arriba, que con
+                # un dialogo abierto NO es la principal. Levantar siempre el
+                # frame le roba el foco al dialogo, y entonces el recorrido de
+                # Tab dentro de Preferencias o del gestor de descargas daba dos
+                # paradas en vez de veinte. Medido el 21/08/2026.
+                #
+                # El foco no se toca: moverlo al frame se lo quita al control
+                # que lo tuviera, y sin foco dentro de un control los
+                # aceleradores no llegan.
                 if frame is None:
                     raise RuntimeError("todavía no hay ventana principal")
-                frame.Iconize(False)
-                frame.Raise()
-                self.responder(id_orden, True, {"activa": bool(frame.IsActive())})
+                # Ojo: `_ventana_por_titulo` devuelve el frame cuando no se
+                # le pasa titulo, asi que preguntarle siempre nunca dejaba
+                # elegir el dialogo.
+                objetivo = None
+                if orden.get("ventana"):
+                    objetivo = self._ventana_por_titulo(orden["ventana"], frame)
+                if objetivo is None:
+                    objetivo = frame
+                    for v in wx.GetTopLevelWindows():
+                        try:
+                            if v is frame or not v.IsShown():
+                                continue
+                        except Exception:
+                            continue
+                        objetivo = v
+                        if getattr(v, "IsModal", lambda: False)():
+                            break
+                if objetivo is frame:
+                    frame.Iconize(False)
+                objetivo.Raise()
+                self.responder(id_orden, True, {
+                    "activa": bool(objetivo.IsActive()),
+                    "ventana": objetivo.GetTitle(),
+                })
 
             elif op == "ventanas":
                 abiertas = []
