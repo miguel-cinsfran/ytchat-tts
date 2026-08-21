@@ -9,6 +9,7 @@ from __future__ import annotations
 import threading
 import unittest
 from unittest import mock
+from pathlib import Path
 
 import descargas
 from descargas import (
@@ -80,7 +81,7 @@ class TestConstruirOuttmpl(unittest.TestCase):
     def test_sin_enumerar_incluye_carpeta(self):
         out = construir_outtmpl({"carpeta": "/tmp/Descargas"}, enumerar=False)
         self.assertIn("Descargas", out)
-        self.assertIn("/tmp", out)
+        self.assertEqual(Path(out).parent, Path("/tmp/Descargas"))
 
     def test_con_enumerar_lleva_playlist_index(self):
         out = construir_outtmpl({"carpeta": "/tmp/Descargas"}, enumerar=True)
