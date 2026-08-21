@@ -718,7 +718,10 @@ class ReproductorPanel(wx.Panel):
         if not self._listo or not self._asegurar_player():
             anunciar("El reproductor no está disponible.")
             return
-        if not self._video_id or self._cargando:
+        if not self._video_id:
+            return
+        if self._cargando:
+            anunciar("Cargando vídeo")
             return
         self._cargando = True
         self.lbl_estado.SetLabel("Cargando vídeo…")
