@@ -121,6 +121,14 @@ class GestorDescargasDialog(wx.Dialog):
             parent, path=self._opciones.get("carpeta") or str(cfg.app_dir() / "Descargas"),
             name="Carpeta destino", message="Elige la carpeta de descargas")
         _tc(self.dir_carpeta)
+        if hasattr(self.dir_carpeta, "GetTextCtrl"):
+            nombre_accesible(
+                self.dir_carpeta.GetTextCtrl(),
+                "Carpeta de destino de las descargas")
+        if hasattr(self.dir_carpeta, "GetPickerCtrl"):
+            boton_carpeta = self.dir_carpeta.GetPickerCtrl()
+            boton_carpeta.SetLabel("Examinar…")
+            nombre_accesible(boton_carpeta, "Examinar…")
         fila_carp.Add(self.dir_carpeta, 1, wx.EXPAND)
         box.Add(fila_carp, 0, wx.EXPAND | wx.ALL, 6)
 
