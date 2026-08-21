@@ -56,8 +56,19 @@ enorme y falsa** cuando hay pestañas: una que no está seleccionada esconde a s
 hijos y el servicio de accesibilidad no los expone. Hay que mirar solo lo que
 está en pantalla, con `IsShownOnScreen`.
 
-Y la regla que sale de las tres: cuando el instrumento y el código no coinciden,
-mirar primero el instrumento.
+**El smoke test y el banco no se pueden correr pegados.** La fase 3 de
+`smoke_test.py` levanta la aplicación con pywinauto, y si queda un proceso vivo
+cuando arranca el banco, su ventana se lleva el foco. El 21/08/2026 eso produjo
+diecisiete fallos de golpe: los once de teclado, dos aceleradores, y un
+escenario reventado con «la ventana no está al frente». Con la mesa limpia, la
+misma corrida dio cinco fallos, que son los conocidos.
+
+La firma es inconfundible: **fallan a la vez todas las comprobaciones que
+teclean, y ninguna de las que no**. Antes de creerse eso, cerrar los procesos
+de Python que estén corriendo la aplicación y repetir.
+
+Y la regla que sale de las cuatro: cuando el instrumento y el código no
+coinciden, mirar primero el instrumento.
 
 ## Lo que esto no prueba
 
