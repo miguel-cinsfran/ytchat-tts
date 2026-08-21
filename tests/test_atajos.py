@@ -61,7 +61,8 @@ class TestParsearAtajos(unittest.TestCase):
         crear_boton = mock.Mock(return_value=boton)
         with mock.patch.object(dialogo, "_make_panel", return_value=panel), \
                 mock.patch.object(gui_preferencias.wx, "BoxSizer", return_value=sizer), \
-                mock.patch.object(gui_preferencias.wx, "StaticBoxSizer", return_value=sizer), \
+                mock.patch.object(gui_preferencias, "caja_de_grupo",
+                                  return_value=(sizer, panel)), \
                 mock.patch.object(gui_preferencias.wx, "StaticText", return_value=mock.Mock()), \
                 mock.patch.object(gui_preferencias.wx, "Button", crear_boton), \
                 mock.patch.object(gui_preferencias, "etiqueta_de_accion",

@@ -58,6 +58,20 @@ class TestCapturaAtajos(unittest.TestCase):
         self.assertEqual(self.gp._mostrar_atajo("f5"), "F5")
         self.assertEqual(self.gp._mostrar_atajo(""), "(sin asignar)")
 
+    def test_caja_de_grupo_devuelve_la_caja_como_padre(self):
+        import wx
+        frame = wx.Frame(None)
+        try:
+            panel = wx.Panel(frame)
+            sizer, caja = self.gp.caja_de_grupo(panel, "Grupo de prueba")
+            boton = wx.Button(caja, label="Botón")
+
+            self.assertIs(boton.GetParent(), caja)
+            self.assertEqual(caja.GetLabel(), "Grupo de prueba")
+            self.assertIs(sizer.GetStaticBox(), caja)
+        finally:
+            frame.Destroy()
+
 
 if __name__ == "__main__":
     unittest.main()

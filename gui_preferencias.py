@@ -40,6 +40,17 @@ class _T:
 def _tc(w, bg=None, fg=None):
     pass
 
+
+def caja_de_grupo(panel, titulo):
+    """Crea la caja de un grupo y devuelve (sizer, padre_de_los_hijos).
+
+    Los controles del grupo tienen que ser hijos de la caja y no del panel:
+    si cuelgan del panel, Windows expone el grupo vacío y el lector no lo
+    asocia a nada. Medido el 21/08/2026 con el árbol de UI Automation.
+    """
+    caja = wx.StaticBox(panel, label=titulo)
+    return wx.StaticBoxSizer(caja, wx.VERTICAL), caja
+
 URL_GUIA = "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"
 
 _FORMATOS = [
@@ -465,13 +476,7 @@ class PreferenciasDialog(wx.Dialog):
             self._valores_atajo[accion] = cfg._normalizar_atajo(crudo) or ""
 
         for titulo, acciones in cfg.ATAJOS_GRUPOS:
-            if isinstance(p, wx.Window):
-                caja = wx.StaticBox(p, label=titulo)
-                box = wx.StaticBoxSizer(caja, wx.VERTICAL)
-                padre = caja
-            else:
-                box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
-                padre = p
+            box, padre = caja_de_grupo(p, titulo)
             for accion in acciones:
                 etiqueta = etiqueta_de_accion(accion)
                 fija = accion in cfg.ATAJOS_FIJOS
