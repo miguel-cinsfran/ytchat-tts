@@ -7,6 +7,20 @@ from unittest import mock
 import gui
 
 
+class GrabadorDeVoz:
+    """Ocupa el lugar del lector de pantalla y anota lo que se le diría."""
+
+    def __init__(self):
+        self.hablado = []
+        self.brailleado = []
+
+    def speak(self, texto, interrupt=None):
+        self.hablado.append(texto)
+
+    def braille(self, texto):
+        self.brailleado.append(texto)
+
+
 class TestRegistroEsAnunciable(unittest.TestCase):
 
     def test_descarta_diagnostico_y_sus_hijos(self):
@@ -30,6 +44,32 @@ class TestRegistroEsAnunciable(unittest.TestCase):
                 manejador.emit(registro)
         decidir.assert_called_once_with("diagnostico.hilos")
         anunciar.assert_not_called()
+
+    def test_anunciar_envia_el_texto_completo(self):
+        grabador = GrabadorDeVoz()
+        with mock.patch.object(gui, "_ao2", grabador):
+            gui.anunciar("hola")
+
+        self.assertEqual(grabador.hablado, ["hola"])
+
+    def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
+        grabador = GrabadorDeVoz()
+        registro = logging.LogRecord(
+            "diagnostico.hilos", logging.INFO, __file__, 1, "oculto", (), None)
+        with mock.patch.object(gui, "_ao2", grabador):
+            gui.WxAnnouncingHandler().emit(registro)
+
+        self.assertEqual(grabador.hablado, [])
+        self.assertEqual(grabador.brailleado, [])
+
+    def test_manejador_anuncia_mensaje_de_aplicacion(self):
+        grabador = GrabadorDeVoz()
+        registro = logging.LogRecord(
+            "aplicacion", logging.INFO, __file__, 1, "conectado", (), None)
+        with mock.patch.object(gui, "_ao2", grabador):
+            gui.WxAnnouncingHandler().emit(registro)
+
+        self.assertEqual(grabador.hablado, ["conectado"])
 
 
 if __name__ == "__main__":
