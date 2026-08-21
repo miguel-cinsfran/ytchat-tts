@@ -52,6 +52,7 @@ class PruebasYtdlpBin(unittest.TestCase):
     def test_firma_sha256_devuelve_vacio_si_no_existe(self):
         self.assertEqual("", ytdlp_bin.firma_sha256("a" * 64 + "  otro.exe", "no.exe"))
 
+
     def test_busqueda_prefiere_la_copia_actualizada(self):
         with tempfile.TemporaryDirectory() as carpeta:
             actualizada = Path(carpeta) / "actualizada.exe"
@@ -75,6 +76,23 @@ class PruebasYtdlpBin(unittest.TestCase):
             with patch.object(ytdlp_bin, "_ruta_actualizada", return_value=Path(carpeta) / "no1.exe"), \
                     patch.object(ytdlp_bin, "_ruta_del_paquete", return_value=Path(carpeta) / "no2.exe"):
                 self.assertIsNone(ytdlp_bin.ruta_ytdlp())
+
+    def test_ruta_actualizada_usa_localappdata(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            with patch.dict(ytdlp_bin.os.environ, {"LOCALAPPDATA": carpeta}):
+                self.assertEqual(
+                    Path(carpeta) / ytdlp_bin.SUBDIRECTORIO_DATOS / "yt-dlp.exe",
+                    ytdlp_bin._ruta_actualizada(),
+                )
+
+    def test_ruta_actualizada_usa_carpeta_del_usuario_sin_localappdata(self):
+        with tempfile.TemporaryDirectory() as carpeta, \
+                patch.dict(ytdlp_bin.os.environ, {}, clear=True), \
+                patch.object(Path, "home", return_value=Path(carpeta)):
+            self.assertEqual(
+                Path.home() / ytdlp_bin.SUBDIRECTORIO_DATOS / "yt-dlp.exe",
+                ytdlp_bin._ruta_actualizada(),
+            )
 
     def test_descarga_rechaza_url_que_no_es_https(self):
         with tempfile.TemporaryDirectory() as carpeta:
@@ -137,6 +155,7 @@ class PruebasYtdlpBin(unittest.TestCase):
 
             self.assertTrue(resultado.correcta)
             self.assertEqual(contenido, destino.read_bytes())
+
 
 
 if __name__ == "__main__":
