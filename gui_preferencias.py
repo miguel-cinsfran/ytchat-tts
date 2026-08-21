@@ -748,6 +748,7 @@ _ETIQUETAS_ATAJO = {
     "rep_mute":          "Silenciar o activar audio",
     "rep_vol_menos":     "Bajar volumen del reproductor",
     "rep_vol_mas":       "Subir volumen del reproductor",
+    "descargas_abrir":   "Abrir el gestor de descargas",
     # Conexión y chat
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",

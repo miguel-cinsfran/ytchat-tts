@@ -3,6 +3,7 @@
 import unittest
 
 from config import _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS
+from gui_preferencias import _ETIQUETAS_ATAJO
 
 
 class TestNormalizarAtajo(unittest.TestCase):
@@ -47,6 +48,9 @@ class TestNormalizarAtajo(unittest.TestCase):
 
 
 class TestParsearAtajos(unittest.TestCase):
+
+    def test_todas_las_acciones_tienen_etiqueta(self):
+        self.assertTrue(set(ATAJOS_DEFAULTS) <= set(_ETIQUETAS_ATAJO))
 
     def test_defaults_completos(self):
         atajos = parsear_atajos({})
