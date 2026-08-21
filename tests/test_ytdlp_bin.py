@@ -102,6 +102,27 @@ class PruebasYtdlpBin(unittest.TestCase):
             self.assertEqual(b"binario anterior", destino.read_bytes())
             self.assertEqual([], list(carpeta.glob(".yt-dlp-*.tmp")))
 
+    def test_descarga_rechaza_firma_diferente_en_el_ultimo_caracter(self):
+        contenido = b"binario nuevo"
+        firma = hashlib.sha256(contenido).hexdigest()
+        firma_alterada = firma[:-1] + ("0" if firma[-1] != "0" else "1")
+        with tempfile.TemporaryDirectory() as carpeta:
+            carpeta = Path(carpeta)
+            destino = carpeta / "yt-dlp.exe"
+            destino.write_bytes(b"binario anterior")
+
+            def escribir(_url, temporal):
+                temporal.write_bytes(contenido)
+
+            with patch.object(ytdlp_bin, "_descargar_archivo", side_effect=escribir):
+                resultado = ytdlp_bin.descargar_ytdlp(
+                    "https://ejemplo", firma_alterada, destino
+                )
+
+            self.assertFalse(resultado.correcta)
+            self.assertEqual(b"binario anterior", destino.read_bytes())
+            self.assertEqual([], list(carpeta.glob(".yt-dlp-*.tmp")))
+
     def test_descarga_con_firma_correcta_reemplaza_destino(self):
         contenido = b"binario nuevo"
         firma = hashlib.sha256(contenido).hexdigest()
