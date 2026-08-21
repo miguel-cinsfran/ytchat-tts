@@ -101,6 +101,24 @@ if defined VLCDIR (
   REM primer arranque, que hacia que la app tardara en abrir.
   if exist "%VLCDIR%\vlc-cache-gen.exe" "%VLCDIR%\vlc-cache-gen.exe" "%OUT%\vlc\plugins" >nul 2>nul
 )
+
+echo == Empaquetando ffmpeg (mux audio+video de yt-dlp en el gestor de descargas) ==
+REM imageio-ffmpeg trae un ffmpeg.exe portable en site-packages. Lo copiamos
+REM junto al .exe para que el gestor de descargas (yt-dlp + FFmpegExtractAudio)
+REM pueda muxear sin que el usuario instale nada. Sin parentesis en estos REM,
+REM romperian el bloque IF.
+set "FFDIR="
+for /f "delims=" %%f in ('uv run python -c "import imageio_ffmpeg,os;print(os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe()))"') do set "FFDIR=%%f"
+if defined FFDIR (
+  echo    %FFDIR%
+  robocopy "%FFDIR%" "%OUT%" ffmpeg.exe /NFL /NDL /NJH /NJS /NP >nul
+  REM ffprobe.exe puede o no existir en el paquete de imageio_ffmpeg; si esta,
+  REM lo copiamos tambien (yt-dlp lo usa para merges y para el hook de
+  REM previsualizacion).
+  if exist "%FFDIR%\ffprobe.exe" robocopy "%FFDIR%" "%OUT%" ffprobe.exe /NFL /NDL /NJH /NJS /NP >nul
+) else (
+  echo    AVISO: imageio-ffmpeg no encontrado. El paquete saldra SIN ffmpeg; las descargas de audio fallaran.
+)
 REM config.ini y sounds.ini van SIEMPRE con los valores por defecto de git,
 REM no con los de esta carpeta: los locales llevan los ajustes personales de
 REM quien construye (velocidad de voz, tema...) y no deben viajar en el ZIP.
