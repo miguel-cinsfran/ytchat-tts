@@ -16,7 +16,7 @@ class TestMensajeDeFallo(unittest.TestCase):
     def test_red_sin_respuesta(self):
         self.assertEqual(
             mensaje_de_fallo("Connection timed out"),
-            "No se pudo responder a la consulta por un problema de red. "
+            "No se pudo consultar el vídeo porque la red no responde. "
             "Comprueba la conexión e inténtalo de nuevo.")
 
     def test_video_no_disponible(self):

@@ -13,7 +13,7 @@ def mensaje_de_fallo(motivo) -> str:
                 "Vuelve a intentarlo en unos minutos.")
     if any(señal in texto for señal in (
             "timeout", "timed out", "connection", "getaddrinfo", "network")):
-        return ("No se pudo responder a la consulta por un problema de red. "
+        return ("No se pudo consultar el vídeo porque la red no responde. "
                 "Comprueba la conexión e inténtalo de nuevo.")
     if any(señal in texto for señal in (
             "not available", "private video", "unavailable", "removed")):
