@@ -62,3 +62,6 @@ INFORME_*.md
 *.swp
 Thumbs.db
 desktop.ini
+
+# Logs que manda el amigo para diagnosticar. No se suben.
+todosloslogs.txt

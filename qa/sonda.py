@@ -319,11 +319,14 @@ class Sonda:
                 self.responder(id_orden, True, {"listo": frame is not None})
 
             elif op == "frente":
+                # Solo traer la ventana al frente. NO se toca el foco: mover el
+                # foco al frame se lo quita al control que lo tuviera, y sin
+                # foco dentro de un control los aceleradores no llegan. Cada
+                # escenario pone el foco donde lo necesita, con la orden `foco`.
                 if frame is None:
                     raise RuntimeError("todavía no hay ventana principal")
                 frame.Iconize(False)
                 frame.Raise()
-                frame.SetFocus()
                 self.responder(id_orden, True, {"activa": bool(frame.IsActive())})
 
             elif op == "ventanas":
@@ -339,6 +342,15 @@ class Sonda:
                     except Exception:
                         continue
                 self.responder(id_orden, True, {"ventanas": abiertas})
+
+            elif op == "hilos":
+                # Los hilos vivos, por nombre. Sirve para atar un congelamiento
+                # de la ventana a quien lo esta causando: si `ReproductorWarmup`
+                # sigue vivo mientras los `ping` no vuelven, el precalentamiento
+                # de libVLC y el bloqueo son el mismo suceso y no dos.
+                self.responder(id_orden, True, {
+                    "vivos": sorted(h.name for h in threading.enumerate()),
+                })
 
             elif op == "llamar":
                 # Llama a un método público del frame. Es lo que usa `main.py`

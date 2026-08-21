@@ -74,10 +74,23 @@ class Resultado:
         return not self.fallos
 
 
+class VentanaNoActiva(RuntimeError):
+    """No se pudo dejar la ventana al frente, así que no se tecleó nada.
+
+    Pasa cuando el dueño está usando la máquina, que es lo normal mientras el
+    banco corre. No es un defecto de la aplicación y no se cuenta como tal.
+    """
+
+
+class OrdenRechazada(RuntimeError):
+    """La sonda recibió la orden y dijo que no. No es un fallo de la aplicación."""
+
+
 class Aplicacion:
     """La aplicación corriendo, con el canal de órdenes abierto."""
 
     def __init__(self, carpeta: Path):
+        carpeta.mkdir(parents=True, exist_ok=True)
         self.anuncios_ruta = carpeta / "qa-anuncios.jsonl"
         self.ordenes_ruta = carpeta / "qa-ordenes.jsonl"
         self.resultados_ruta = carpeta / "qa-resultados.jsonl"
@@ -113,13 +126,23 @@ class Aplicacion:
         """Espera a que la ventana principal exista, preguntándoselo a ella."""
         limite = time.time() + segundos
         while time.time() < limite:
+            # Si el proceso ya murió no hay nada que esperar. Pasa cuando otra
+            # instancia sigue abierta: `main.py` avisa y se cierra, y sin esto
+            # el banco agotaba el minuto entero sin saber por qué.
+            if self.proceso is not None and self.proceso.poll() is not None:
+                return False
             try:
-                r = self.pedir("ping", tiempo=3.0)
+                r = self.pedir("ping", tiempo=3.0, tolerar=True)
                 if r.get("ok") and r.get("datos", {}).get("listo"):
                     return True
             except TimeoutError:
                 pass
         return False
+
+    def murio_sola(self) -> bool:
+        """¿Se cerró la aplicación por su cuenta? Normalmente, el guardián de
+        instancia única: ya había otra ventana abierta."""
+        return self.proceso is not None and self.proceso.poll() is not None
 
     def cerrar(self) -> None:
         try:
@@ -135,10 +158,26 @@ class Aplicacion:
                 except Exception: pass
         try:    self._salida.close()
         except Exception: pass
+        # `main.py` solo deja abrir una instancia: si la anterior sigue viva,
+        # la siguiente muere mostrando un aviso y el banco se queda esperando
+        # un `ping` que no va a llegar nunca.
+        self.proceso = None
 
     # ── canal de órdenes ─────────────────────────────────────────────────────
 
-    def pedir(self, op: str, tiempo: float = TIEMPO_ORDEN, **extra) -> dict:
+    def pedir(self, op: str, tiempo: float = TIEMPO_ORDEN,
+              tolerar: bool = False, **extra) -> dict:
+        """Manda una orden y espera la respuesta.
+
+        Una orden rechazada revienta, y eso es a propósito. Antes devolvía el
+        sobre con `ok` en falso y el escenario seguía como si nada: el
+        21/08/2026 el escenario del reproductor dio nueve fallos de
+        accesibilidad que en realidad eran nueve órdenes que la sonda nunca
+        pudo ejecutar. Un banco que confunde «no lo encontré» con «está mal
+        hecho» miente en la dirección más cara.
+
+        `tolerar=True` para los casos en que el rechazo es la respuesta.
+        """
         id_orden = self._siguiente_id
         self._siguiente_id += 1
         orden = {"id": id_orden, "op": op}
@@ -151,6 +190,9 @@ class Aplicacion:
         while time.time() < limite:
             for linea in self._lineas(self.resultados_ruta):
                 if linea.get("id") == id_orden:
+                    if not linea.get("ok") and not tolerar:
+                        raise OrdenRechazada(
+                            f"{op}({extra}): {linea.get('error')}")
                     return linea
             time.sleep(0.05)
         raise TimeoutError(f"la orden {op!r} no contestó en {tiempo} s")
@@ -216,6 +258,26 @@ class Aplicacion:
     def foco(self) -> dict | None:
         return self.pedir("quien_tiene_foco").get("datos", {}).get("control")
 
+    def al_frente(self, segundos: float = 5.0) -> bool:
+        """Trae la ventana al frente y espera a que Windows lo confirme.
+
+        `wx.UIActionSimulator` escribe en la ventana que el sistema tenga al
+        frente, no en la que uno cree. Pedir `frente` y teclear en la línea
+        siguiente funcionaba o no según lo ocupada que estuviera la máquina: el
+        21/08/2026 eso hizo que el banco diera por mudo el volumen del
+        reproductor, que anuncia perfectamente.
+        """
+        limite = time.time() + segundos
+        while time.time() < limite:
+            if self.pedir("frente").get("datos", {}).get("activa"):
+                return True
+            time.sleep(0.2)
+        return False
+
+    def hilos(self) -> list[str]:
+        """Los hilos vivos de la aplicación, por nombre."""
+        return self.pedir("hilos").get("datos", {}).get("vivos", [])
+
     def llamar(self, metodo: str, *args, **kwargs) -> dict:
         """Llama a un método público del frame, como hace `main.py`."""
         return self.pedir("llamar", metodo=metodo, args=list(args),
@@ -251,11 +313,24 @@ class Aplicacion:
         return self.pedir("menu_click", etiqueta=etiqueta, tiempo=10.0)
 
     def teclas(self, *pasos) -> dict:
-        """teclas(("s", ["ctrl"])) para Ctrl+S, o teclas("tab")."""
+        """teclas(("s", ["ctrl"])) para Ctrl+S, o teclas("tab").
+
+        Se asegura de que la ventana esté al frente antes y después. El
+        simulador de wx escribe en la ventana que tenga el sistema al frente,
+        no en la que uno cree: si el dueño se pasó al navegador en medio de la
+        corrida, las teclas van a parar allá y el banco lo reporta como que la
+        aplicación se quedó muda. Prefiere no medir a medir mal.
+        """
+        if not self.al_frente():
+            raise VentanaNoActiva("la ventana no está al frente")
         secuencia = []
         for p in pasos:
             secuencia.append(list(p) if isinstance(p, (list, tuple)) else [p])
-        return self.pedir("teclas", secuencia=secuencia)
+        r = self.pedir("teclas", secuencia=secuencia)
+        if not self.pedir("frente").get("datos", {}).get("activa"):
+            raise VentanaNoActiva("la ventana perdió el frente mientras se "
+                                  "tecleaba, no se puede juzgar lo que pasó")
+        return r
 
 
 # ── Comprobaciones ───────────────────────────────────────────────────────────
@@ -485,6 +560,373 @@ def lista_del_chat(controles):
 
 
 # ── Escenarios ───────────────────────────────────────────────────────────────
+
+def escenario_arranque_frio(app: Aplicacion, args, res: Resultado):
+    """¿Responde la ventana mientras libVLC se precalienta?
+
+    Monta una aplicación aparte y la sondea desde el instante del lanzamiento.
+    Esperar primero a que la ventana conteste no sirve: en una máquina con el
+    caché de plugins caliente el precalentamiento ya terminó para entonces, y
+    la medición llega tarde a lo único que quería medir.
+
+    En el registro que mandó el amigo del dueño, del 19 al 21/08/2026, el hilo
+    `ReproductorWarmup` tardó 56, 92 y 128 segundos, y los tres bloqueos más
+    largos de la interfaz, de 10, 40 y 53 segundos, terminaron en el mismo
+    segundo en que ese hilo terminaba. `reproductor.py:381` da por hecho que
+    crear la instancia cuesta uno o dos segundos.
+
+    Acá el disco está caliente, así que el número va a salir mucho más chico.
+    Lo que se mira no es el número: es si mientras ese hilo vive la ventana
+    deja o no de contestar. Si deja, el mecanismo está confirmado y en la
+    máquina del amigo solo escala.
+    """
+    aparte = Aplicacion(app.anuncios_ruta.parent / "arranque")
+    t0 = time.time()
+    aparte.arrancar()
+    try:
+        primera = None
+        muestras = []          # (t, latencia, contesto, hilos)
+        vio_warmup = False
+        while time.time() - t0 < 150:
+            antes = time.time()
+            try:
+                r = aparte.pedir("ping", tiempo=2.0, tolerar=True)
+                contesto = bool(r.get("ok"))
+            except TimeoutError:
+                contesto = False
+            latencia = time.time() - antes
+            vivos = []
+            if contesto:
+                if primera is None:
+                    primera = antes - t0
+                try:
+                    vivos = aparte.hilos()
+                except Exception:
+                    vivos = []
+            muestras.append((antes - t0, latencia, contesto, vivos))
+
+            if "ReproductorWarmup" in vivos:
+                vio_warmup = True
+            elif vio_warmup and contesto:
+                break          # el precalentamiento terminó
+            elif (primera is not None and not vio_warmup
+                  and antes - t0 > primera + 5):
+                break          # nunca lo vimos: el caché estaba caliente
+            if aparte.murio_sola():
+                break
+            time.sleep(0.1)
+
+        if aparte.murio_sola() and primera is None:
+            res.nota("arranque: la aplicación se cerró sola, casi seguro porque "
+                     "ya había otra instancia abierta; este escenario necesita "
+                     "la máquina para él solo")
+            return
+        if primera is None:
+            res.fallo("arranque: la ventana no contestó ni una vez en 150 s")
+            return
+
+        res.nota("arranque: la ventana contesta por primera vez a los %.1f s"
+                 % primera)
+
+        # Solo cuentan las muestras posteriores a la primera respuesta: antes de
+        # eso «no contesta» quiere decir «todavía no existe», que no es lo mismo
+        # que estar congelada.
+        utiles = [m for m in muestras if m[0] >= primera]
+        peor_t, peor = max(((m[0], m[1]) for m in utiles), key=lambda x: x[1])
+        durante = [m for m in utiles if "ReproductorWarmup" in m[3]]
+
+        if not vio_warmup:
+            res.nota("arranque: el precalentamiento de libVLC ya había terminado "
+                     "antes de la primera respuesta; con el caché de plugins "
+                     "caliente no se lo puede juzgar desde acá")
+        else:
+            ventana = durante[-1][0] - durante[0][0] if len(durante) > 1 else 0.0
+            peor_dentro = max((m[1] for m in durante), default=0.0)
+            res.nota("arranque: ReproductorWarmup vivo durante %.1f s, y la peor "
+                     "respuesta mientras tanto fue de %.1f s"
+                     % (ventana, peor_dentro))
+            if peor_dentro > 2.0:
+                res.fallo("arranque: la ventana estuvo %.1f s sin responder "
+                          "mientras libVLC se precalentaba" % peor_dentro)
+
+        res.nota("arranque: %d sondeos, peor respuesta %.1f s a los %.1f s"
+                 % (len(utiles), peor, peor_t))
+        if peor > 2.0 and not vio_warmup:
+            res.fallo("arranque: la ventana estuvo %.1f s sin responder" % peor)
+    finally:
+        aparte.cerrar()
+
+
+# Cuánto puede tardar una acción del reproductor antes de que se note. Medio
+# segundo no lo percibe nadie; a partir de uno la ventana ya "va dura", y por
+# encima de dos, sin ver la pantalla, no se sabe si la tecla entró.
+BLOQUEO_SOSPECHOSO = 1.0
+BLOQUEO_INACEPTABLE = 2.0
+# Y cuánto puede tardar en hablar. Un anuncio que llega tarde es peor que uno
+# que no llega: para entonces la persona ya pulsó otra cosa.
+VOZ_LENTA = 1.5
+
+
+def medir_accion(app: Aplicacion, hacer, espera: float = 3.0):
+    """Hace algo y mide las dos cosas que producen «torpeza».
+
+    La primera es cuánto tarda la ventana en volver a atender a nadie. Como la
+    sonda despacha con `wx.CallAfter`, un `ping` que vuelve es la prueba de que
+    el hilo de interfaz está libre otra vez; lo que tarde en volver es tiempo
+    en el que la aplicación no responde a una tecla.
+
+    La segunda es cuánto tarda en decir algo. Devuelve
+    `(bloqueo, latencia_de_voz, lo_que_dijo)`, con la latencia en `None` si no
+    llegó a hablar.
+    """
+    antes = len(app.anuncios)
+    t0 = time.time()
+    hacer()
+    app.pedir("ping", tiempo=120)
+    bloqueo = time.time() - t0
+
+    latencia = None
+    limite = time.time() + espera
+    while time.time() < limite:
+        if any(a["canal"] == "voz" for a in app.anuncios[antes:]):
+            latencia = time.time() - t0
+            break
+        time.sleep(0.05)
+    dichos = [a["texto"] for a in app.anuncios[antes:] if a["canal"] == "voz"]
+    return bloqueo, latencia, dichos
+
+
+def juzgar_accion(res: Resultado, donde: str, que: str, medida) -> bool:
+    """Convierte una medida en veredicto. Devuelve si habló."""
+    bloqueo, latencia, dichos = medida
+    if not dichos:
+        res.fallo(f"{donde}: {que} no dice nada")
+        hablo = False
+    else:
+        hablo = True
+        detalle = dichos[0][:58]
+        if latencia is not None and latencia > VOZ_LENTA:
+            res.fallo(f"{donde}: {que} tarda {latencia:.1f} s en decir "
+                      f"«{detalle}»")
+        else:
+            res.nota(f"{donde}: {que} dice «{detalle}»"
+                     + (f", a los {latencia:.2f} s" if latencia else ""))
+
+    if bloqueo > BLOQUEO_INACEPTABLE:
+        res.fallo(f"{donde}: {que} deja la ventana {bloqueo:.1f} s sin responder")
+    elif bloqueo > BLOQUEO_SOSPECHOSO:
+        res.nota(f"{donde}: ojo, {que} tarda {bloqueo:.1f} s en devolver la "
+                 f"ventana")
+    return hablo
+
+
+# Los seis botones de transporte, por la etiqueta con la que se los encuentra.
+BOTONES_REPRODUCTOR = (
+    ("Reproducir", "el botón de reproducir"),
+    ("Retroceder 1 min", "el botón de retroceder"),
+    ("Avanzar 1 min", "el botón de avanzar"),
+    ("Detener", "el botón de detener"),
+    ("Silenciar audio", "el botón de silenciar"),
+    ("Pantalla completa", "el botón de pantalla completa"),
+)
+
+# Y los atajos, que son el camino que de verdad usa quien no ve la pantalla:
+# `AGENTS.md` cuenta que los botones vienen ocultos justamente porque se maneja
+# por teclado. Son los de `config.ATAJOS_DEFAULTS`, área Ctrl.
+ATAJOS_REPRODUCTOR = (
+    (("p", ["ctrl"]), "Ctrl+P, reproducir o pausa"),
+    (("left", ["ctrl"]), "Ctrl+Izquierda, retroceder"),
+    (("right", ["ctrl"]), "Ctrl+Derecha, avanzar"),
+    (("m", ["ctrl"]), "Ctrl+M, silenciar"),
+    (("up", ["ctrl"]), "Ctrl+Arriba, subir volumen"),
+    (("down", ["ctrl"]), "Ctrl+Abajo, bajar volumen"),
+    (("d", ["ctrl"]), "Ctrl+D, detener"),
+)
+
+
+def bateria_reproductor(app: Aplicacion, res: Resultado, donde: str) -> None:
+    """Maltrata el reproductor entero y mide cada golpe.
+
+    Se usa dos veces: sin nada cargado, que es como arranca la aplicación, y
+    contra un directo de verdad desde `escenario_directo_youtube`. Las dos
+    situaciones tienen que hablar; la segunda además tiene que ser rápida.
+    """
+    # ── los seis botones ────────────────────────────────────────────────────
+    for etiqueta, quien in BOTONES_REPRODUCTOR:
+        medida = medir_accion(app, lambda e=etiqueta: app.pedir("pulsar", nombre=e))
+        juzgar_accion(res, donde, quien, medida)
+
+        # Pantalla completa abre una ventana nueva que se queda con el foco y
+        # con el teclado. Hay que volver, o todo lo que se mida después se mide
+        # sobre la ventana equivocada.
+        if etiqueta == "Pantalla completa":
+            ctrl = app.foco() or {}
+            nombre = (ctrl.get("nombre") or ctrl.get("etiqueta") or "").strip()
+            if not nombre:
+                res.fallo(f"{donde}: en pantalla completa el foco queda en un "
+                          f"control sin nombre ({ctrl.get('clase')})")
+            else:
+                res.nota(f"{donde}: en pantalla completa el foco va a «{nombre}»")
+            medida = medir_accion(
+                app, lambda e=etiqueta: app.pedir("pulsar", nombre=e))
+            juzgar_accion(res, donde, "salir de pantalla completa", medida)
+            ctrl = app.foco() or {}
+            nombre = (ctrl.get("nombre") or ctrl.get("etiqueta") or "").strip()
+            if not nombre:
+                res.fallo(f"{donde}: al salir de pantalla completa el foco "
+                          f"queda en el aire ({ctrl.get('clase')})")
+            else:
+                res.nota(f"{donde}: al salir, el foco vuelve a «{nombre}»")
+
+    # ── dos pulsaciones seguidas, que es lo que hace cualquiera cuando la
+    #    primera no contestó ─────────────────────────────────────────────────
+    antes = len(app.anuncios)
+    app.pedir("pulsar", nombre="Reproducir")
+    medida = medir_accion(app, lambda: app.pedir("pulsar", nombre="Reproducir"))
+    if not medida[2]:
+        res.fallo(f"{donde}: pulsar reproducir dos veces seguidas deja la "
+                  f"segunda muda")
+    else:
+        res.nota(f"{donde}: la segunda pulsación de reproducir también habla")
+    del antes
+
+    # ── los siete atajos ────────────────────────────────────────────────────
+    # Antes de juzgar los atajos hay que saber si el menú que los sostiene está
+    # encendido. `gui.py:1769` apaga el menú Reproductor entero mientras no hay
+    # conexión (`mb.EnableTop`), y un menú apagado se lleva por delante a sus
+    # siete aceleradores aunque cada ítem se declare habilitado. Sin esto, el
+    # banco daba siete atajos por rotos cuando lo que pasaba es que estaban
+    # apagados a propósito.
+    menu_vivo = None
+    for m in app.menus():
+        if m["camino"].strip().lower() == "reproductor":
+            menu_vivo = bool(m.get("habilitado"))
+            break
+    if menu_vivo is False:
+        res.nota(f"{donde}: el menú Reproductor está apagado, así que sus siete "
+                 f"atajos no pueden funcionar")
+        # Y ahí está lo que sí es un defecto: los botones de la ventana siguen
+        # encendidos y respondiendo. Dos caminos para lo mismo, uno vivo y otro
+        # muerto, sin que nada se lo diga a quien no ve la pantalla.
+        encendidos = [c.get("etiqueta") or c.get("nombre")
+                      for c in app.arbol()
+                      if c.get("clase") in ("Button", "BitmapButton")
+                      and c.get("habilitado") and c.get("en_pantalla")
+                      and (c.get("etiqueta") or "") in
+                      [e for e, _ in BOTONES_REPRODUCTOR]]
+        if encendidos:
+            res.fallo(f"{donde}: con el menú Reproductor apagado, sus atajos no "
+                      f"hacen nada pero estos botones siguen encendidos y "
+                      f"funcionando: " + ", ".join(encendidos))
+
+    # Los aceleradores solo llegan si el foco está DENTRO de un control, no en
+    # el frame. Se ancla a propósito para que el resultado no dependa de dónde
+    # lo haya dejado la comprobación anterior.
+    for candidato in ("Volumen del reproductor", "URL", "Chat en vivo"):
+        try:
+            app.pedir("foco", nombre=candidato)
+            break
+        except OrdenRechazada:
+            continue
+
+    for combo, quien in ATAJOS_REPRODUCTOR:
+        try:
+            medida = medir_accion(app, lambda c=combo: app.teclas(c))
+        except VentanaNoActiva as exc:
+            res.nota(f"{donde}: no se pudo probar {quien}, {exc}")
+            continue
+        if menu_vivo is False:
+            if medida[2]:
+                res.nota(f"{donde}: {quien} habla aun con el menú apagado")
+            continue
+        juzgar_accion(res, donde, quien, medida)
+
+    # ── los dos deslizadores, con las flechas ───────────────────────────────
+    for nombre_ctrl, teclas, quien in (
+            ("Posición de reproducción", ("right", "left"), "la posición"),
+            ("Volumen del reproductor", ("up", "down"), "el volumen")):
+        try:
+            app.pedir("foco", nombre=nombre_ctrl)
+        except OrdenRechazada as exc:
+            res.fallo(f"{donde}: no se llega a {quien}, {exc}")
+            continue
+        for tecla in teclas:
+            try:
+                medida = medir_accion(app, lambda t=tecla: app.teclas(t))
+            except VentanaNoActiva as exc:
+                res.nota(f"{donde}: no se pudo probar {quien}, {exc}")
+                break
+            juzgar_accion(res, donde, f"{quien} con la flecha {tecla}", medida)
+
+
+def escenario_reproductor(app: Aplicacion, args, res: Resultado):
+    """El reproductor sin nada cargado, que es como arranca la aplicación.
+
+    Nunca lo probó nadie: `reproductor.py` son 1.059 líneas con cinco pruebas,
+    y las cinco son del parser de atajos. El recorrido de Tab lo pasaba de largo
+    porque los seis botones vienen ocultos de fábrica.
+
+    Va primero de todos los escenarios y no es capricho: en cuanto `chat` o
+    `tiktok` simulan una sesión, el estado «sin nada cargado» no vuelve sin
+    reiniciar, y el botón de reproducir pasa la comprobación por el motivo
+    equivocado.
+
+    La regla que se comprueba no admite matices: un control que se activa y no
+    dice nada es indistinguible, para quien no ve la pantalla, de una
+    aplicación colgada. Y uno que tarda dos segundos en contestar, también.
+    """
+    if not app.al_frente():
+        res.nota("reproductor: Windows no puso la ventana al frente")
+
+    # Sin python-vlc el panel no se construye: en su lugar va un aviso de una
+    # línea. Juzgar los botones ahí daría seis fallos de accesibilidad que en
+    # realidad son una dependencia que falta.
+    todo = " ".join(((c.get("etiqueta") or "") + " " + (c.get("nombre") or ""))
+                    for c in app.arbol())
+    if "AvisoReproductor" in todo or "no disponible" in todo.lower():
+        res.nota("reproductor: no hay panel; falta VLC o yt-dlp en este "
+                 "entorno, así que no se juzga nada. Correlo con el intérprete "
+                 "del proyecto, .venv/Scripts/python.exe")
+        return
+
+    # Los botones vienen ocultos («minimalista»), y ocultos wx los saca del
+    # recorrido de Tab. Hay que mostrarlos para poder probarlos como los prueba
+    # una persona. Se anota cómo estaban para dejarlo igual al terminar.
+    # Se pregunta por la etiqueta del propio interruptor, que dice «Ocultar…»
+    # cuando están visibles y «Mostrar…» cuando no. Mirar `en_pantalla` de los
+    # botones no sirve: `IsShownOnScreen` da falso también cuando la ventana
+    # está tapada o minimizada, y entonces el banco creía que estaban ocultos,
+    # los ocultaba, y encima le dejaba la preferencia cambiada al dueño.
+    estaban_visibles = any(
+        (c.get("etiqueta") or "").lower().startswith("ocultar botones")
+        for c in app.arbol())
+    if not estaban_visibles:
+        medida = medir_accion(
+            app, lambda: app.pedir("pulsar", nombre="AlternarBotonesReproductor"))
+        juzgar_accion(res, "reproductor", "mostrar los botones", medida)
+
+    faltan = []
+    visibles = " ".join(((c.get("etiqueta") or "") + " " + (c.get("nombre") or ""))
+                        for c in app.arbol()).lower()
+    for etiqueta, quien in BOTONES_REPRODUCTOR:
+        if etiqueta.lower() not in visibles:
+            faltan.append(quien)
+    if faltan:
+        res.fallo("reproductor: no aparecen " + ", ".join(faltan))
+        return
+
+    bateria_reproductor(app, res, "reproductor")
+
+    orden = recorrer_tab(app, res, "reproductor", vueltas=12)
+    res.nota("reproductor, orden de Tab, %d paradas: %s"
+             % (len(orden), " > ".join(orden)))
+
+    # Dejarlo como estaba: el banco no puede cambiarle la ventana al dueño. La
+    # visibilidad de los botones se guarda en `config.ini`, así que sin esto
+    # cada corrida le deja la aplicación distinta de como la encontró.
+    if not estaban_visibles:
+        app.pedir("pulsar", nombre="AlternarBotonesReproductor")
+
 
 def escenario_principal(app: Aplicacion, args, res: Resultado):
     """La ventana con la que se encuentra alguien al abrir la aplicación."""
@@ -723,10 +1165,17 @@ def escenario_preferencias(app: Aplicacion, args, res: Resultado):
             if roles and cajas_radio:
                 sueltos = roles.get("RadioButton", 0) - len(radios)
                 if sueltos <= 0:
-                    res.fallo(
-                        "preferencias/%s: hay %d agrupación(es) de radios y "
-                        "Windows no expone ninguna opción como RadioButton"
-                        % (nombre, len(cajas_radio)))
+                    # Nota y no fallo, a propósito. Esta misma cuenta dio la
+                    # alarma del 21/08/2026 y el dueño la desmintió probándolo
+                    # con NVDA: se lee bien. La medición depende de cuándo
+                    # Windows termine de redibujar la pestaña, así que da
+                    # números distintos en corridas seguidas. Mientras no se
+                    # sepa medirla estable, no puede acusar a nadie.
+                    res.nota(
+                        "preferencias/%s: %d agrupación(es) de radios y Windows "
+                        "no expone ninguna opción como RadioButton; la medida "
+                        "es inestable y ya se desmintió con NVDA, así que no "
+                        "cuenta como fallo" % (nombre, len(cajas_radio)))
                 else:
                     res.nota(
                         "preferencias/%s: %d agrupación(es) de radios, y "
@@ -1154,6 +1603,8 @@ ESCENARIOS = {
     "tiktok": escenario_tiktok,
     "avisos_wx": escenario_avisos_wx,
     "diagnostico": escenario_diagnostico,
+    "reproductor": escenario_reproductor,
+    "arranque_frio": escenario_arranque_frio,
     "directo_youtube": escenario_directo_youtube,
     "directo_tiktok": escenario_directo_tiktok,
 }
@@ -1176,7 +1627,12 @@ def main() -> int:
 
     pedidos = args.escenario or ["todos"]
     if "todos" in pedidos:
-        pedidos = ["menus", "principal", "descargas", "preferencias",
+        # `reproductor` va primero y no es capricho: comprueba qué dice la
+        # aplicación con NADA cargado, y en cuanto `chat` o `tiktok` simulan una
+        # sesión ese estado ya no vuelve sin reiniciar. Corrido después, el
+        # botón de reproducir pasa la comprobación por el motivo equivocado.
+        pedidos = ["arranque_frio", "reproductor",
+                   "menus", "principal", "descargas", "preferencias",
                    "historial", "ayuda", "dialogos_ayuda", "chat",
                    "tiktok", "avisos_wx", "diagnostico"]
 
@@ -1188,6 +1644,17 @@ def main() -> int:
     carpeta.mkdir(parents=True, exist_ok=True)
     app = Aplicacion(carpeta)
     res = Resultado()
+
+    # El arranque en frío monta su propia aplicación, y `main.py` no admite dos
+    # a la vez. Va antes de levantar la compartida, y no dentro del bucle.
+    if "arranque_frio" in pedidos:
+        pedidos = [n for n in pedidos if n != "arranque_frio"]
+        print()
+        print("--- escenario: arranque_frio ---")
+        try:
+            escenario_arranque_frio(app, args, res)
+        except Exception as exc:
+            res.fallo(f"arranque_frio: el escenario reventó, {exc!r}")
 
     print("Arrancando la aplicación con la sonda puesta. No va a hablar.")
     app.arrancar()
