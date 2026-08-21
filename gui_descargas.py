@@ -48,6 +48,17 @@ def _es_formato_audio(formato: str) -> bool:
     return (formato or "").lower() in ("mp3", "m4a")
 
 
+def nombrar_selector_carpeta(selector) -> None:
+    if hasattr(selector, "GetTextCtrl"):
+        nombre_accesible(
+            selector.GetTextCtrl(),
+            "Carpeta de destino de las descargas")
+    if hasattr(selector, "GetPickerCtrl"):
+        boton_carpeta = selector.GetPickerCtrl()
+        boton_carpeta.SetLabel("Examinar…")
+        nombre_accesible(boton_carpeta, "Examinar…")
+
+
 class GestorDescargasDialog(wx.Dialog):
     """Diálogo principal del gestor de descargas."""
 
@@ -121,14 +132,7 @@ class GestorDescargasDialog(wx.Dialog):
             parent, path=self._opciones.get("carpeta") or str(cfg.app_dir() / "Descargas"),
             name="Carpeta destino", message="Elige la carpeta de descargas")
         _tc(self.dir_carpeta)
-        if hasattr(self.dir_carpeta, "GetTextCtrl"):
-            nombre_accesible(
-                self.dir_carpeta.GetTextCtrl(),
-                "Carpeta de destino de las descargas")
-        if hasattr(self.dir_carpeta, "GetPickerCtrl"):
-            boton_carpeta = self.dir_carpeta.GetPickerCtrl()
-            boton_carpeta.SetLabel("Examinar…")
-            nombre_accesible(boton_carpeta, "Examinar…")
+        nombrar_selector_carpeta(self.dir_carpeta)
         fila_carp.Add(self.dir_carpeta, 1, wx.EXPAND)
         box.Add(fila_carp, 0, wx.EXPAND | wx.ALL, 6)
 
