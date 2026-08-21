@@ -24,6 +24,53 @@ class _YoutubeDL:
 
 class TestObtenerInfoVideo(unittest.TestCase):
 
+    def test_fallo_de_yt_dlp_llega_al_mensaje(self):
+        motivo = "Sign in to confirm you're not a bot"
+        modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(
+            side_effect=RuntimeError(motivo)))
+
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main, "_descargar_watch", return_value=""):
+            _, _, metadatos = main.obtener_info_video("A" * 11)
+
+        self.assertEqual(
+            metadatos["fallo"],
+            "El servicio está recibiendo demasiadas solicitudes. "
+            "Vuelve a intentarlo en unos minutos.")
+
+    def test_fallo_de_descarga_html_llega_al_mensaje(self):
+        modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(side_effect=RuntimeError(
+            "Sign in to confirm you're not a bot")))
+
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(
+                    main.urllib.request, "urlopen",
+                    side_effect=RuntimeError("HTTP Error 429: Too Many Requests")), \
+                mock.patch.object(
+                    main.avisos_red, "mensaje_de_fallo",
+                    side_effect=lambda motivo: (
+                        "Mensaje que corresponde a los dos fallos"
+                        if "Sign in to confirm you're not a bot" in motivo
+                        and "HTTP Error 429: Too Many Requests" in motivo
+                        else "Mensaje incompleto")):
+            _, _, metadatos = main.obtener_info_video("A" * 11)
+
+        self.assertEqual(
+            metadatos["fallo"],
+            "Mensaje que corresponde a los dos fallos")
+
+    def test_respaldo_con_titulo_no_anuncia_fallo(self):
+        modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(side_effect=RuntimeError(
+            "Sign in to confirm you're not a bot")))
+        html = '<title>Vídeo de respaldo - YouTube</title>'
+
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main, "_descargar_watch", return_value=html):
+            titulo, _, metadatos = main.obtener_info_video("A" * 11)
+
+        self.assertEqual(titulo, "Vídeo de respaldo")
+        self.assertNotIn("fallo", metadatos)
+
     def test_fallo_de_los_dos_caminos_va_a_los_metadatos(self):
         modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(side_effect=RuntimeError(
             "Sign in to confirm you're not a bot")))
