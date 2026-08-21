@@ -5,6 +5,7 @@ import unittest
 from unittest import mock
 
 import gui
+import ytdlp_bin
 
 
 class GrabadorDeVoz:
@@ -105,6 +106,52 @@ class TestMenusPorConexion(unittest.TestCase):
         gui.YTChatFrame._actualizar_menus_por_conexion(frame)
 
         self.assertEqual(barra.llamadas, [])
+
+
+class TestActualizarYtdlp(unittest.TestCase):
+
+    def _ejecutar(self, resultado, ruta=None, version="2026.08.20"):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        anuncios = []
+        hilo = mock.Mock()
+        hilo.start.side_effect = lambda: hilo.target()
+
+        def crear(target, nombre):
+            hilo.target = target
+            return hilo
+
+        with mock.patch.object(gui, "anunciar", side_effect=anuncios.append), \
+                mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
+                mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(ytdlp_bin, "ruta_ytdlp", return_value=ruta), \
+                mock.patch.object(ytdlp_bin, "version_ytdlp", return_value=version), \
+                mock.patch.object(ytdlp_bin, "asegurar_ytdlp", return_value=resultado):
+            gui.YTChatFrame._on_actualizar_ytdlp(frame, None)
+        return anuncios, hilo
+
+    def test_activar_anuncia_antes_de_empezar(self):
+        anuncios, hilo = self._ejecutar(ytdlp_bin.ResultadoDescarga(True, ""))
+        self.assertEqual("Buscando la última versión de yt-dlp", anuncios[0])
+        hilo.start.assert_called_once()
+
+    def test_cada_desenlace_anuncia_su_texto(self):
+        casos = (
+            (ytdlp_bin.ResultadoDescarga(True, ""), None, "actualizó"),
+            (ytdlp_bin.ResultadoDescarga(True, ""), "yt-dlp.exe", "al día"),
+            (ytdlp_bin.ResultadoDescarga(False, "no se pudo consultar la última versión"), None, "conexión"),
+            (ytdlp_bin.ResultadoDescarga(False, "la firma no coincide"), None, "No se instaló nada"),
+            (ytdlp_bin.ResultadoDescarga(False, "permiso denegado"), None, "permiso denegado"),
+        )
+        for resultado, ruta, esperado in casos:
+            with self.subTest(esperado=esperado):
+                anuncios, _ = self._ejecutar(resultado, ruta)
+                self.assertTrue(any(esperado in texto for texto in anuncios))
+
+    def test_fallo_de_red_no_propaga_excepcion_y_anuncia(self):
+        anuncios, hilo = self._ejecutar(
+            ytdlp_bin.ResultadoDescarga(False, "no se pudo consultar la última versión"))
+        self.assertIn("conexión", anuncios[-1])
+        hilo.start.assert_called_once()
 
 
 if __name__ == "__main__":
