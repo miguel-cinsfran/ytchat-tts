@@ -200,3 +200,38 @@ def asegurar_ytdlp(destino: str | os.PathLike | None = None) -> ResultadoDescarg
     if not firma:
         return ResultadoDescarga(False, "no se encontró la firma de yt-dlp.exe")
     return descargar_ytdlp(url_ejecutable, firma, destino)
+
+
+def actualizar_ytdlp(avisar_antes_descarga=None) -> tuple[str, str, str]:
+    """Compara con la última publicada y actualiza si hace falta.
+
+    Devuelve (estado, versión instalada, versión nueva).
+    """
+    ruta = ruta_ytdlp()
+    version_instalada = version_ytdlp(ruta) if ruta else ""
+    ultima = ultima_version_ytdlp()
+    if ultima is None:
+        return "sin_conexion", version_instalada, ""
+
+    version_nueva, url_ejecutable, url_firmas = ultima
+    if ruta and version_instalada == version_nueva:
+        return "ya_al_dia", version_instalada, version_nueva
+
+    try:
+        solicitud = Request(url_firmas, headers={"User-Agent": USER_AGENT})
+        with urlopen(solicitud, timeout=TIEMPO_ESPERA) as respuesta:
+            texto_firmas = respuesta.read().decode("utf-8")
+    except (HTTPError, URLError, OSError, UnicodeError):
+        return "sin_conexion", version_instalada, version_nueva
+
+    firma = firma_sha256(texto_firmas, NOMBRE_BINARIO)
+    if not firma:
+        return "otro_fallo", version_instalada, version_nueva
+    if avisar_antes_descarga is not None:
+        avisar_antes_descarga()
+    resultado = descargar_ytdlp(url_ejecutable, firma, _ruta_actualizada())
+    if resultado.correcta:
+        return "actualizado", version_instalada, version_nueva
+    if "firma" in resultado.motivo.lower():
+        return "firma_incorrecta", version_instalada, version_nueva
+    return "otro_fallo", version_instalada, version_nueva

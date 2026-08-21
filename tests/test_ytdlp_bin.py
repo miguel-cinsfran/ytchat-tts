@@ -245,6 +245,69 @@ class PruebasYtdlpBin(unittest.TestCase):
             self.assertFalse(destino.exists())
             descargar.assert_not_called()
 
+    def _ultima(self, version="2026.08.21"):
+        return (version, "https://ejemplo/yt-dlp.exe", "https://ejemplo/SHA2-256SUMS")
+
+    def test_actualizar_misma_version_no_descarga(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.21"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()), \
+                patch.object(ytdlp_bin, "descargar_ytdlp") as descargar:
+            resultado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual(("ya_al_dia", "2026.08.21", "2026.08.21"), resultado)
+        descargar.assert_not_called()
+
+    def test_actualizar_version_distinta_descarga(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.20"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()), \
+                patch.object(ytdlp_bin, "urlopen") as abrir, \
+                patch.object(ytdlp_bin, "descargar_ytdlp", return_value=ytdlp_bin.ResultadoDescarga(True, "")) as descargar:
+            abrir.return_value.__enter__.return_value.read.return_value = b"a" * 64 + b"  yt-dlp.exe\n"
+            resultado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual("actualizado", resultado[0])
+        descargar.assert_called_once()
+
+    def test_actualizar_sin_binario_descarga(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value=None), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()), \
+                patch.object(ytdlp_bin, "urlopen") as abrir, \
+                patch.object(ytdlp_bin, "descargar_ytdlp", return_value=ytdlp_bin.ResultadoDescarga(True, "")) as descargar:
+            abrir.return_value.__enter__.return_value.read.return_value = b"a" * 64 + b"  yt-dlp.exe\n"
+            resultado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual(("actualizado", "", "2026.08.21"), resultado)
+        descargar.assert_called_once()
+
+    def test_actualizar_sin_ultima_version_no_descarga(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.20"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=None), \
+                patch.object(ytdlp_bin, "descargar_ytdlp") as descargar:
+            resultado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual(("sin_conexion", "2026.08.20", ""), resultado)
+        descargar.assert_not_called()
+
+    def test_actualizar_avisa_antes_de_descargar(self):
+        orden = []
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.20"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()), \
+                patch.object(ytdlp_bin, "urlopen") as abrir, \
+                patch.object(ytdlp_bin, "descargar_ytdlp", side_effect=lambda *a: (orden.append("descarga"), ytdlp_bin.ResultadoDescarga(True, ""))[1]):
+            abrir.return_value.__enter__.return_value.read.return_value = b"a" * 64 + b"  yt-dlp.exe\n"
+            resultado = ytdlp_bin.actualizar_ytdlp(lambda: orden.append("aviso"))
+        self.assertEqual("actualizado", resultado[0])
+        self.assertEqual(["aviso", "descarga"], orden)
+
+    def test_actualizar_no_avisa_si_no_hay_descarga(self):
+        aviso = mock = MagicMock()
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.21"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=self._ultima()):
+            resultado = ytdlp_bin.actualizar_ytdlp(aviso)
+        self.assertEqual("ya_al_dia", resultado[0])
+        aviso.assert_not_called()
+
 
 
 if __name__ == "__main__":
