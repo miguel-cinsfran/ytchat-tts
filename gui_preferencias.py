@@ -465,14 +465,20 @@ class PreferenciasDialog(wx.Dialog):
             self._valores_atajo[accion] = cfg._normalizar_atajo(crudo) or ""
 
         for titulo, acciones in cfg.ATAJOS_GRUPOS:
-            box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
+            if isinstance(p, wx.Window):
+                caja = wx.StaticBox(p, label=titulo)
+                box = wx.StaticBoxSizer(caja, wx.VERTICAL)
+                padre = caja
+            else:
+                box = wx.StaticBoxSizer(wx.VERTICAL, p, titulo)
+                padre = p
             for accion in acciones:
                 etiqueta = etiqueta_de_accion(accion)
                 fija = accion in cfg.ATAJOS_FIJOS
                 valor = self._valores_atajo.get(accion, "")
                 sufijo = " (fija)" if fija else ""
                 btn = wx.Button(
-                    p, name=f"Atajo_{accion}",
+                    padre, name=f"Atajo_{accion}",
                     label=f"{etiqueta}: {_mostrar_atajo(valor)}{sufijo}")
                 btn.SetBackgroundColour(_T.btn); btn.SetForegroundColour(_T.btn_t)
                 if fija:
