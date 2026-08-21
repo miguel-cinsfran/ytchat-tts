@@ -72,6 +72,29 @@ class TestCapturaAtajos(unittest.TestCase):
         finally:
             frame.Destroy()
 
+    def test_los_atajos_cuelgan_de_su_caja_de_grupo(self):
+        import wx
+        import config as cfg
+        dialogo = self.gp.PreferenciasDialog(None, {})
+        try:
+            controles = []
+            pendientes = list(dialogo.GetChildren())
+            while pendientes:
+                control = pendientes.pop()
+                pendientes.extend(control.GetChildren())
+                if (isinstance(control, wx.Button) and
+                        control.GetName().startswith("Atajo_")):
+                    controles.append(control)
+
+            self.assertEqual(len(controles), 20)
+            titulos = {titulo for titulo, _acciones in cfg.ATAJOS_GRUPOS}
+            for boton in controles:
+                caja = boton.GetParent()
+                self.assertIsInstance(caja, wx.StaticBox)
+                self.assertIn(caja.GetLabel(), titulos)
+        finally:
+            dialogo.Destroy()
+
 
 if __name__ == "__main__":
     unittest.main()
