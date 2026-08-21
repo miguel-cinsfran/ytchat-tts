@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import sys
 
 import ytdlp_bin
@@ -51,6 +51,20 @@ class PruebasYtdlpBin(unittest.TestCase):
 
     def test_firma_sha256_devuelve_vacio_si_no_existe(self):
         self.assertEqual("", ytdlp_bin.firma_sha256("a" * 64 + "  otro.exe", "no.exe"))
+
+    def test_firma_sha256_distingue_ejecutable_de_version_x86(self):
+        texto = (
+            "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a  yt-dlp.exe\n"
+            "a8f91bd41452506bc81ebd2f369b186fea0ee7075413ba00cef9fd346a0a5d0c  yt-dlp_x86.exe\n"
+        )
+        self.assertEqual(
+            "66674953fe251b89f4d08c5f0e35e0728679bd67ab3d7d05c0562af101dd3e7a",
+            ytdlp_bin.firma_sha256(texto, "yt-dlp.exe"),
+        )
+        self.assertEqual(
+            "a8f91bd41452506bc81ebd2f369b186fea0ee7075413ba00cef9fd346a0a5d0c",
+            ytdlp_bin.firma_sha256(texto, "yt-dlp_x86.exe"),
+        )
 
 
     def test_busqueda_prefiere_la_copia_actualizada(self):
@@ -155,6 +169,31 @@ class PruebasYtdlpBin(unittest.TestCase):
 
             self.assertTrue(resultado.correcta)
             self.assertEqual(contenido, destino.read_bytes())
+
+    def test_asegurar_no_instala_sin_firma_publicada(self):
+        respuesta = MagicMock()
+        respuesta.__enter__.return_value.read.return_value = (
+            b"a" * 64 + b"  yt-dlp_x86.exe\n"
+        )
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "yt-dlp.exe"
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value=None), \
+                    patch.object(
+                        ytdlp_bin,
+                        "ultima_version_ytdlp",
+                        return_value=(
+                            "2026.08.19",
+                            "https://ejemplo/yt-dlp.exe",
+                            "https://ejemplo/SHA2-256SUMS",
+                        ),
+                    ), \
+                    patch.object(ytdlp_bin, "urlopen", return_value=respuesta), \
+                    patch.object(ytdlp_bin, "descargar_ytdlp") as descargar:
+                resultado = ytdlp_bin.asegurar_ytdlp(destino)
+
+            self.assertFalse(resultado.correcta)
+            self.assertFalse(destino.exists())
+            descargar.assert_not_called()
 
 
 
