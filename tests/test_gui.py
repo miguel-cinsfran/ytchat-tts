@@ -72,5 +72,39 @@ class TestRegistroEsAnunciable(unittest.TestCase):
         self.assertEqual(grabador.hablado, ["conectado"])
 
 
+class _BarraDeMenu:
+
+    def __init__(self):
+        self.llamadas = []
+
+    def EnableTop(self, *args):
+        self.llamadas.append(args)
+
+
+class _ControlMenu:
+
+    def Enable(self, habilitado):
+        pass
+
+
+class TestMenusPorConexion(unittest.TestCase):
+
+    def test_no_apaga_menu_reproductor_sin_conexion(self):
+        frame = mock.Mock()
+        frame._conectado = False
+        frame._mi_ver_conexion = []
+        frame._mi_voz_conexion = []
+        frame._mi_filtro_sub = _ControlMenu()
+        frame._es_tiktok = False
+        frame._rep_panel = None
+        frame.mi_descargar_este = _ControlMenu()
+        barra = _BarraDeMenu()
+        frame.GetMenuBar.return_value = barra
+
+        gui.YTChatFrame._actualizar_menus_por_conexion(frame)
+
+        self.assertEqual(barra.llamadas, [])
+
+
 if __name__ == "__main__":
     unittest.main()

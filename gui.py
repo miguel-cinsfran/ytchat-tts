@@ -1755,19 +1755,15 @@ class YTChatFrame(wx.Frame):
 
     def _actualizar_menus_por_conexion(self) -> None:
         """Deshabilita en la barra de menú lo que solo aplica con una conexión
-        activa: navegar por paneles, el filtro, todo el menú Reproductor y las
-        acciones de voz sobre una lectura en curso. Así el usuario no llega por
-        el menú a paneles que no existen aún. Los ajustes de voz y «Ir a URL» /
+        activa: navegar por paneles, el filtro y las acciones de voz sobre una
+        lectura en curso. Así el usuario no llega por el menú a paneles que no
+        existen aún. Los ajustes de voz y «Ir a URL» /
         «Anunciar estado» quedan siempre disponibles.
 
         El ítem «Descargar este vídeo» sigue las reglas del diseño: solo se
         habilita con conexión YouTube NO-live (TikTok y live están deshabilitados
         en v1). Si la URL no se puede obtener del reproductor, se deshabilita."""
         con = bool(self._conectado)
-        mb = self.GetMenuBar()
-        if mb is not None:
-            try:    mb.EnableTop(POS_MENU_REPRODUCTOR, con)
-            except Exception: pass
         for it in getattr(self, "_mi_ver_conexion", []):
             try:    it.Enable(con)
             except Exception: pass
