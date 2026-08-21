@@ -33,6 +33,7 @@ import sound_player as _snd
 import deteccion
 import tiktok_captura
 import diagnostico
+import avisos_red
 
 
 # Traducción pytchat → tipos internos.
@@ -97,7 +98,7 @@ def extraer_video_id(entrada: str) -> str:
     return entrada
 
 
-def _descargar_watch(video_id: str, timeout: float = 8.0) -> str:
+def _descargar_watch(video_id: str, timeout: float = 8.0, al_fallar=None) -> str:
     """Descarga (parcial) el HTML del watch. Cadena vacía si falla."""
     try:
         req = urllib.request.Request(
@@ -113,6 +114,8 @@ def _descargar_watch(video_id: str, timeout: float = 8.0) -> str:
             return r.read(200_000).decode("utf-8", errors="ignore")
     except Exception as exc:
         logger.debug("_descargar_watch: %s", exc)
+        if al_fallar:
+            al_fallar(exc)
         return ""
 
 
@@ -193,6 +196,7 @@ def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
     `live_status` y la metadata del panel de información (canal, vistas,
     descripción…). Si no está yt-dlp, se cae al scraping (que puede no funcionar
     y deja la metadata vacía, con solo el título si se pudo sacar)."""
+    fallos = []
     try:
         import yt_dlp
         # socket_timeout: que una red lenta no cuelgue indefinidamente la
@@ -208,13 +212,18 @@ def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
             return titulo, tipo, _metadatos_desde_ytdlp(info)
     except Exception as exc:
         logger.debug("obtener_info_video (yt-dlp): %s", exc)
+        fallos.append(exc)
 
-    html = _descargar_watch(video_id)
+    html = _descargar_watch(video_id, al_fallar=fallos.append)
     titulo = _parsear_titulo(html)
     tipo = deteccion.clasificar_desde_html(html)
     if tipo == deteccion.DESCONOCIDO:
         tipo = _clasificar_por_api(video_id)
-    return titulo, tipo, {"titulo": titulo}
+    metadatos = {"titulo": titulo}
+    if not html and fallos:
+        metadatos["fallo"] = avisos_red.mensaje_de_fallo(
+            " ".join(str(fallo) for fallo in fallos))
+    return titulo, tipo, metadatos
 
 
 def _resolver_live_chat_id(video_id: str) -> None:
