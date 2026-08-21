@@ -44,6 +44,10 @@ claude.md
 AGENTS.md
 MD/
 herramientas/
+
+# El banco de QA si se versiona; sus grabaciones no. Llevan la salida
+# cruda de la aplicacion, con el identificador del video que se estuvo viendo.
+qa/salida/
 prompts/
 INFORME_*.md
 
