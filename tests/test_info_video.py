@@ -24,6 +24,27 @@ class _YoutubeDL:
 
 class TestObtenerInfoVideo(unittest.TestCase):
 
+    def test_obtener_info_video_con_programa_usa_titulo_y_tipo(self):
+        info = {"title": "Vídeo del programa", "live_status": "is_live"}
+        with mock.patch.object(main.ytdlp_bin, "info_video", return_value=info), \
+                mock.patch.dict(sys.modules, {"yt_dlp": None}), \
+                mock.patch.object(main, "_descargar_watch") as respaldo:
+            titulo, tipo, _ = main.obtener_info_video("A" * 11)
+
+        self.assertEqual((titulo, tipo),
+                         ("Vídeo del programa", main.deteccion.LIVE))
+        respaldo.assert_not_called()
+
+    def test_obtener_info_video_sin_programa_usa_el_modulo(self):
+        modulo = types.SimpleNamespace(YoutubeDL=_YoutubeDL)
+        with mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
+                mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main, "_descargar_watch") as respaldo:
+            titulo, tipo, _ = main.obtener_info_video("A" * 11)
+
+        self.assertEqual((titulo, tipo), ("Vídeo de prueba", main.deteccion.VOD))
+        respaldo.assert_not_called()
+
     def test_fallo_de_yt_dlp_llega_al_mensaje(self):
         motivo = "Sign in to confirm you're not a bot"
         modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(

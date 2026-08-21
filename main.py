@@ -34,6 +34,7 @@ import deteccion
 import tiktok_captura
 import diagnostico
 import avisos_red
+import ytdlp_bin
 
 
 # Traducción pytchat → tipos internos.
@@ -198,14 +199,17 @@ def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
     y deja la metadata vacía, con solo el título si se pudo sacar)."""
     fallos = []
     try:
-        import yt_dlp
-        # socket_timeout: que una red lenta no cuelgue indefinidamente la
-        # detección live/VOD al conectar (sin él yt-dlp puede esperar mucho).
-        opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-                "noplaylist": True, "socket_timeout": 20}
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}",
-                                    download=False, process=False)
+        info = ytdlp_bin.info_video(video_id)
+        if info is None:
+            import yt_dlp
+            # socket_timeout: que una red lenta no cuelgue indefinidamente la
+            # detección live/VOD al conectar (sin él yt-dlp puede esperar mucho).
+            opts = {"quiet": True, "no_warnings": True, "skip_download": True,
+                    "noplaylist": True, "socket_timeout": 20}
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(
+                    f"https://www.youtube.com/watch?v={video_id}",
+                    download=False, process=False)
         titulo = (info.get("title") or "").strip()
         tipo = _tipo_desde_ytdlp(info)
         if titulo or tipo != deteccion.DESCONOCIDO:
