@@ -9,6 +9,30 @@ import ytdlp_bin
 
 
 class PruebasYtdlpBin(unittest.TestCase):
+    def test_mensaje_ya_al_dia(self):
+        self.assertEqual(
+            "Ya tienes yt-dlp al día, versión 2026.08.20.",
+            ytdlp_bin.mensaje_de_actualizacion("ya_al_dia", "2026.08.20"),
+        )
+
+    def test_mensaje_actualizado(self):
+        self.assertEqual(
+            "yt-dlp se actualizó a la versión 2026.08.20.",
+            ytdlp_bin.mensaje_de_actualizacion("actualizado", version_nueva="2026.08.20"),
+        )
+
+    def test_mensaje_sin_conexion(self):
+        self.assertIn("última versión", ytdlp_bin.mensaje_de_actualizacion("sin_conexion"))
+
+    def test_mensaje_firma_incorrecta_avisa_que_no_instalo(self):
+        self.assertIn("No se instaló nada", ytdlp_bin.mensaje_de_actualizacion("firma_incorrecta"))
+
+    def test_mensaje_otro_fallo_incluye_motivo(self):
+        self.assertEqual(
+            "No se pudo actualizar yt-dlp: permiso denegado.",
+            ytdlp_bin.mensaje_de_actualizacion("otro_fallo", motivo="permiso denegado"),
+        )
+
     def test_info_video_devuelve_el_json_del_programa(self):
         respuesta = MagicMock(returncode=0, stdout='{"title": "Prueba"}')
         with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \

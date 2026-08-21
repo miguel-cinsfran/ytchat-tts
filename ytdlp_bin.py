@@ -29,6 +29,22 @@ class ResultadoDescarga(NamedTuple):
     motivo: str
 
 
+def mensaje_de_actualizacion(estado, version_actual="", version_nueva="",
+                             motivo="") -> str:
+    """Elige el anuncio breve para cada resultado de la actualización."""
+    if estado == "ya_al_dia":
+        return f"Ya tienes yt-dlp al día, versión {version_actual or version_nueva}."
+    if estado == "actualizado":
+        return f"yt-dlp se actualizó a la versión {version_nueva or version_actual}."
+    if estado == "sin_conexion":
+        return "No pude comprobar la última versión de yt-dlp. Revisa tu conexión."
+    if estado == "firma_incorrecta":
+        return ("La descarga de yt-dlp no pasó una comprobación de seguridad. "
+                "No se instaló nada.")
+    mensaje = "No se pudo actualizar yt-dlp"
+    return f"{mensaje}: {motivo}." if motivo else f"{mensaje}."
+
+
 def _ruta_actualizada() -> Path:
     local_app_data = os.environ.get("LOCALAPPDATA")
     if local_app_data:
