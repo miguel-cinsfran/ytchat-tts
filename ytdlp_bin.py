@@ -68,6 +68,30 @@ def version_ytdlp(ruta: str | os.PathLike) -> str:
     return resultado.stdout.strip()
 
 
+def info_video(video_id: str) -> dict | None:
+    """Datos del vídeo pedidos al programa. None si no se pudo."""
+    ruta = ruta_ytdlp()
+    if ruta is None:
+        return None
+    try:
+        resultado = subprocess.run(
+            [ruta, "--dump-json", "--quiet", "--no-warnings",
+             "--skip-download", "--no-playlist", "--socket-timeout", "20",
+             f"https://www.youtube.com/watch?v={video_id}"],
+            capture_output=True,
+            text=True,
+            timeout=TIEMPO_ESPERA,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            check=False,
+        )
+        if resultado.returncode:
+            return None
+        datos = json.loads(resultado.stdout)
+        return datos if isinstance(datos, dict) else None
+    except (OSError, subprocess.SubprocessError, TypeError, ValueError):
+        return None
+
+
 def ultima_version_ytdlp() -> tuple[str, str, str] | None:
     """Devuelve versión, descarga del ejecutable y descarga de sus firmas."""
     try:

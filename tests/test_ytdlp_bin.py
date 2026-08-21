@@ -9,6 +9,32 @@ import ytdlp_bin
 
 
 class PruebasYtdlpBin(unittest.TestCase):
+    def test_info_video_devuelve_el_json_del_programa(self):
+        respuesta = MagicMock(returncode=0, stdout='{"title": "Prueba"}')
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin.subprocess, "run", return_value=respuesta) as ejecutar:
+            self.assertEqual({"title": "Prueba"}, ytdlp_bin.info_video("A" * 11))
+        ejecutar.assert_called_once()
+        self.assertEqual("20", ejecutar.call_args.args[0][-2])
+
+    def test_info_video_devuelve_none_si_falla_el_programa(self):
+        respuesta = MagicMock(returncode=1, stdout="")
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin.subprocess, "run", return_value=respuesta):
+            self.assertIsNone(ytdlp_bin.info_video("A" * 11))
+
+    def test_info_video_devuelve_none_si_el_programa_no_entrega_json(self):
+        respuesta = MagicMock(returncode=0, stdout="no es json")
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                patch.object(ytdlp_bin.subprocess, "run", return_value=respuesta):
+            self.assertIsNone(ytdlp_bin.info_video("A" * 11))
+
+    def test_info_video_no_intenta_ejecutar_si_no_hay_programa(self):
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value=None), \
+                patch.object(ytdlp_bin.subprocess, "run") as ejecutar:
+            self.assertIsNone(ytdlp_bin.info_video("A" * 11))
+        ejecutar.assert_not_called()
+
     def test_desde_codigo_fuente_no_usa_ejecutable_de_la_carpeta_del_interprete(self):
         with tempfile.TemporaryDirectory() as carpeta:
             interprete = Path(carpeta) / "Scripts"
