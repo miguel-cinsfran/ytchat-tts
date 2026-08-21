@@ -476,8 +476,6 @@ def obtener_opciones_descarga() -> dict:
                    if p.has_section("descargas") else "")
     if not carpeta_raw:
         carpeta = str(app_dir() / "Descargas")
-        if ruta.exists():
-            guardar_opcion(ruta, "descargas", "carpeta", carpeta)
     else:
         carpeta = carpeta_raw
 

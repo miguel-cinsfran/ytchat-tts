@@ -83,6 +83,16 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("Descargas", op["carpeta"])
         self.assertFalse(op["enumerar"])
 
+    def test_obtener_opciones_no_persiste_carpeta_por_defecto(self):
+        import config
+        ruta = Path(self._tmp.name) / "config.ini"
+        contenido = "[descargas]\nformato = mp4\nbitrate = 192\nenumerar = false\n"
+        ruta.write_text(contenido, encoding="utf-8")
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+            op = config.obtener_opciones_descarga()
+        self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
+        self.assertEqual(ruta.read_text(encoding="utf-8"), contenido)
+
     def test_guardar_opciones_descarga_persiste(self):
         import config
         with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
