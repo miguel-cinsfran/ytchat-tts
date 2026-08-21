@@ -226,6 +226,13 @@ def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
     return titulo, tipo, metadatos
 
 
+def _anunciar_fallo_video(metadatos: dict, call_after) -> None:
+    fallo = (metadatos or {}).get("fallo")
+    if fallo:
+        from gui import anunciar
+        call_after(anunciar, fallo)
+
+
 def _resolver_live_chat_id(video_id: str) -> None:
     """Si hay API key, resuelve el id del chat en vivo y se lo pasa al GUI.
 
@@ -677,6 +684,7 @@ def main():
                 return
             frame = _gm._gui_frame
             if frame:
+                _anunciar_fallo_video(metadatos, wx.CallAfter)
                 if titulo:
                     wx.CallAfter(frame.set_titulo_stream, titulo)
                 wx.CallAfter(frame.set_tipo_video, tipo, vid)
