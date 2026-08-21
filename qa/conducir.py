@@ -1629,6 +1629,79 @@ def escenario_directo_tiktok(app: Aplicacion, args, res: Resultado):
     app.llamar("set_conectado", False)
 
 
+def _hilos_de_captura(app: Aplicacion) -> list:
+    """Los hilos de captura de chat vivos, por nombre."""
+    vivos = app.hilos()
+    return [h for h in vivos if h in ("Chat", "TikTok")]
+
+
+def escenario_dos_conexiones(app: Aplicacion, args, res: Resultado):
+    """Conectar dos veces sin desconectar no deja el hilo viejo girando.
+
+    El 21/08/2026 los registros de un usuario real mostraron diez hilos `Chat`
+    arrancados y nueve terminados: al conectar a otro vídeo, el anterior se
+    quedaba pidiendo el chat para siempre porque nadie ponía su evento de
+    parada. Esto lo comprueba con la aplicación de verdad, que es donde se vio.
+
+    El camino por el que pasa de verdad, leído en `gui.py:872` el 21/08/2026:
+    el botón alterna, así que estando conectado no se puede conectar otra vez.
+    Pero un error de red hace `set_conectado(False)` y rehabilita el botón
+    MIENTRAS el hilo de captura sigue vivo reintentando, y ahí una pulsación
+    abre la segunda sesión. Por eso el escenario llama a `set_conectado(False)`
+    en medio: es exactamente lo que la aplicación se hace a sí misma cuando
+    pytchat pierde la conexión, y lo que le pasó al usuario a las 12:23 y a las
+    12:30.
+
+    Vale con conectar dos veces al MISMO directo: la conexión no compara el
+    vídeo, abre una sesión nueva igual.
+    """
+    url = getattr(args, "url_youtube", None) or DIRECTO_YOUTUBE
+    res.nota(f"dos conexiones: {url}")
+
+    if not conectar_de_verdad(app, res, url, "dos conexiones (primera)"):
+        return
+    # Esperar a que el hilo de captura exista de verdad antes de medir: si se
+    # mide antes de que arranque, el conteo da cero y el escenario pasa sin
+    # haber probado nada.
+    limite = time.time() + 30
+    while time.time() < limite and not _hilos_de_captura(app):
+        time.sleep(0.5)
+    primeros = _hilos_de_captura(app)
+    if not primeros:
+        res.fallo("dos conexiones: la primera no llegó a arrancar ningún hilo "
+                  "de captura en 30 s; sin eso no se puede medir nada")
+        return
+    res.nota(f"dos conexiones: tras la primera hay {len(primeros)} "
+             f"({', '.join(primeros)})")
+
+    # Lo que hace la aplicación sola al perder la conexión: apaga la interfaz
+    # y deja el hilo reintentando. No mata nada.
+    app.llamar("set_conectado", False)
+    time.sleep(1.0)
+    if not conectar_de_verdad(app, res, url, "dos conexiones (segunda)"):
+        return
+    # El hilo viejo puede tardar en morir: está dentro de una lectura de red y
+    # no ve la parada hasta que vuelve. Se le da margen y se toma el mínimo,
+    # porque un solape de un segundo es correcto y quedarse pegado no lo es.
+    limite = time.time() + 45
+    minimo = 99
+    while time.time() < limite:
+        minimo = min(minimo, len(_hilos_de_captura(app)))
+        if minimo <= 1:
+            break
+        time.sleep(1.0)
+
+    if minimo <= 1:
+        res.nota(f"dos conexiones: el hilo de la primera murió, quedó {minimo}")
+    else:
+        vivos = _hilos_de_captura(app)
+        res.fallo(f"dos conexiones: quedaron {minimo} hilos de captura vivos "
+                  f"tras 45 s ({', '.join(vivos)}); el de la sesión vieja no "
+                  f"se paró y va a seguir pidiendo el chat hasta que se cierre "
+                  f"la aplicación")
+    app.llamar("set_conectado", False)
+
+
 ESCENARIOS = {
     "menus": escenario_menus,
     "principal": escenario_principal,
@@ -1644,6 +1717,7 @@ ESCENARIOS = {
     "reproductor": escenario_reproductor,
     "arranque_frio": escenario_arranque_frio,
     "directo_youtube": escenario_directo_youtube,
+    "dos_conexiones": escenario_dos_conexiones,
     "directo_tiktok": escenario_directo_tiktok,
 }
 

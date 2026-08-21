@@ -13,6 +13,7 @@ mira qué pasa.
     python qa/conducir.py                          # todos los escenarios
     python qa/conducir.py --escenario descargas    # solo uno
     python qa/conducir.py --escenario directo_youtube --url-youtube URL
+    python qa/conducir.py --escenario dos_conexiones
 
 Arranca la aplicación de verdad, así que hace falta Windows con wxPython. La
 ventana aparece y se mueve sola durante la corrida.
@@ -33,6 +34,22 @@ ejecuta en el hilo de interfaz.
 
 `conducir.py` es quien manda las órdenes y juzga lo que vuelve. Cada escenario
 es una función que abre algo, lo recorre con Tab, y comprueba una cosa concreta.
+
+`dos_conexiones` también toca la red, aunque no se llame así, y merece un
+párrafo porque es el único que mide un defecto en vez de un anuncio.
+
+Comprueba que conectar dos veces sin desconectar no deja el hilo de captura
+viejo girando. El camino no es evidente: el botón alterna, así que estando
+conectado no se puede conectar otra vez. Lo que lo abre es un error de red, que
+llama a `set_conectado(False)` y rehabilita el botón mientras el hilo sigue
+vivo reintentando. El escenario provoca eso a propósito llamando a
+`set_conectado(False)` en medio.
+
+Mide hilos vivos, no anuncios, así que se prueba mutando el arreglo: quitar el
+`set()` de `sesiones.abrir()` tiene que hacerlo decir «quedaron 2 hilos de
+captura vivos tras 45 s (Chat, Chat)». Si sigue en verde, el instrumento se
+rompió. Ojo con eso: la primera versión leía mal el sobre de la sonda, contaba
+cero hilos siempre y habría pasado en verde para siempre.
 
 Los escenarios que terminan en `directo_` son los únicos que tocan la red. No
 entran en la corrida completa: gastan minutos y dependen de que haya alguien
