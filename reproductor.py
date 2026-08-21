@@ -112,6 +112,15 @@ def disponible() -> bool:
     return vlc_disponible() and ytdlp_disponible()
 
 
+def aviso_reproductor(hay_reproductor: bool, hay_medio: bool) -> str:
+    """Devuelve el aviso adecuado cuando un control no puede actuar."""
+    if not hay_reproductor:
+        return "El reproductor no está disponible"
+    if not hay_medio:
+        return "No hay ningún video cargado"
+    return ""
+
+
 # Argumentos de la instancia: solo los imprescindibles. Cualquier opción que
 # libVLC no reconozca hace que libvlc_new devuelva NULL (instancia None), así
 # que el ajuste de buffer va como opción POR MEDIO (más tolerante), no aquí.
@@ -841,6 +850,10 @@ class ReproductorPanel(wx.Panel):
 
     def _toggle_play(self):
         if not self._asegurar_player():
+            aviso = aviso_reproductor(
+                self._listo, bool(self._video_id or self._url_flujo))
+            if aviso:
+                anunciar(aviso)
             return
         st = self._player.get_state()
         if st == _vlc.State.Playing:
@@ -864,6 +877,11 @@ class ReproductorPanel(wx.Panel):
                 self.cargar(reproducir=True)
             elif self._url_flujo:
                 self._reproducir_flujo()
+            else:
+                aviso = aviso_reproductor(
+                    self._listo, bool(self._video_id or self._url_flujo))
+                if aviso:
+                    anunciar(aviso)
 
     def _detener(self, silencioso: bool = False, en_segundo_plano: bool = False):
         # Invalida cualquier carga en vuelo (yt-dlp) y desbloquea futuras cargas:
@@ -905,6 +923,10 @@ class ReproductorPanel(wx.Panel):
 
     def _buscar_rel(self, delta_ms: int):
         if self._player is None:
+            aviso = aviso_reproductor(
+                self._listo, bool(self._video_id or self._url_flujo))
+            if aviso:
+                anunciar(aviso)
             return
         dur = self._player.get_length()
         if dur <= 0:
@@ -916,6 +938,10 @@ class ReproductorPanel(wx.Panel):
 
     def _toggle_mute(self):
         if self._player is None:
+            aviso = aviso_reproductor(
+                self._listo, bool(self._video_id or self._url_flujo))
+            if aviso:
+                anunciar(aviso)
             return
         self._muted = not self._muted
         self._player.audio_set_mute(self._muted)
@@ -939,6 +965,10 @@ class ReproductorPanel(wx.Panel):
 
     def alternar_pantalla_completa(self):
         if not self._asegurar_player():
+            aviso = aviso_reproductor(
+                self._listo, bool(self._video_id or self._url_flujo))
+            if aviso:
+                anunciar(aviso)
             return
         if self._fs is None:
             self._fs = _PantallaCompleta(self)
