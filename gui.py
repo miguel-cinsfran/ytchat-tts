@@ -308,8 +308,16 @@ class WxAnnouncingHandler(logging.Handler):
         self.setFormatter(logging.Formatter("%(message)s"))
 
     def emit(self, record):
+        if not registro_es_anunciable(record.name):
+            return
         try:    anunciar(self.format(record))
         except Exception: pass
+
+
+def registro_es_anunciable(nombre_logger: str | None) -> bool:
+    """Decide si un registro del log debe llegar al lector de pantalla."""
+    return nombre_logger not in ("diagnostico",) and not (
+        nombre_logger or "").startswith("diagnostico.")
 
 
 # ── Frame principal ──────────────────────────────────────────────────────────
