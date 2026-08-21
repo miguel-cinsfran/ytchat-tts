@@ -1,8 +1,10 @@
 """Tests del parseo de atajos de teclado (config.parsear_atajos)."""
 
 import unittest
+from unittest import mock
 
 from config import _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS
+import gui_preferencias
 from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
@@ -48,6 +50,31 @@ class TestNormalizarAtajo(unittest.TestCase):
 
 
 class TestParsearAtajos(unittest.TestCase):
+
+    def test_pagina_de_atajos_usa_etiqueta_de_accion(self):
+        dialogo = gui_preferencias.PreferenciasDialog.__new__(
+            gui_preferencias.PreferenciasDialog)
+        dialogo._config = {"atajos_raw": {}}
+        panel = mock.Mock()
+        boton = mock.Mock()
+        sizer = mock.Mock()
+        crear_boton = mock.Mock(return_value=boton)
+        with mock.patch.object(dialogo, "_make_panel", return_value=panel), \
+                mock.patch.object(gui_preferencias.wx, "BoxSizer", return_value=sizer), \
+                mock.patch.object(gui_preferencias.wx, "StaticBoxSizer", return_value=sizer), \
+                mock.patch.object(gui_preferencias.wx, "StaticText", return_value=mock.Mock()), \
+                mock.patch.object(gui_preferencias.wx, "Button", crear_boton), \
+                mock.patch.object(gui_preferencias, "etiqueta_de_accion",
+                                  return_value="Acción desconocida") as etiqueta:
+            with mock.patch.object(gui_preferencias.cfg, "ATAJOS_DEFAULTS",
+                                   {"accion_nueva": "ctrl+a"}), \
+                    mock.patch.object(gui_preferencias.cfg, "ATAJOS_GRUPOS",
+                                      [("Grupo", ["accion_nueva"])]), \
+                    mock.patch.object(gui_preferencias.cfg, "ATAJOS_FIJOS", set()):
+                dialogo._pag_atajos(object())
+        etiqueta.assert_called_once_with("accion_nueva")
+        self.assertEqual(crear_boton.call_args.kwargs["label"],
+                         "Acción desconocida: Ctrl+A")
 
     def test_todas_las_acciones_tienen_etiqueta(self):
         self.assertTrue(set(ATAJOS_DEFAULTS) <= set(_ETIQUETAS_ATAJO))

@@ -51,6 +51,7 @@ class TestRegistroEsAnunciable(unittest.TestCase):
             gui.anunciar("hola")
 
         self.assertEqual(grabador.hablado, ["hola"])
+        self.assertEqual(grabador.brailleado, ["hola"])
 
     def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
         grabador = GrabadorDeVoz()

@@ -87,5 +87,13 @@ class TestAvisoAlReproducir(unittest.TestCase):
             panel._toggle_play()
         anunciar.assert_called_once_with("No hay ningún vídeo cargado")
 
+    def test_reproducir_con_flujo_no_anuncia_falta_de_medio(self):
+        panel = self._panel_sin_medio()
+        panel._url_flujo = "https://flujo.example/stream"
+        panel._asegurar_player = lambda: False
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._toggle_play()
+        anunciar.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()
