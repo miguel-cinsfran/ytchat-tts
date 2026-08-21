@@ -15,13 +15,30 @@ import descargas
 from descargas import (
     DownloadCancelled,
     GestorDescargas,
+    INTERVALO_PROGRESO_S,
     ItemDescarga,
     analizar_url,
     construir_outtmpl,
+    debe_emitir_progreso,
     descargar,
     formato_a_ydl,
     tiene_ffmpeg,
 )
+
+
+class TestDebeEmitirProgreso(unittest.TestCase):
+    def test_primer_aviso(self):
+        self.assertTrue(debe_emitir_progreso(None, 10.0, 0.0))
+
+    def test_aviso_final_ignora_el_intervalo(self):
+        self.assertTrue(debe_emitir_progreso(10.0, 10.01, 100.0))
+
+    def test_aviso_al_cumplir_intervalo(self):
+        self.assertTrue(debe_emitir_progreso(
+            10.0, 10.0 + INTERVALO_PROGRESO_S, 40.0))
+
+    def test_aviso_dentro_del_intervalo(self):
+        self.assertFalse(debe_emitir_progreso(10.0, 10.01, 40.0))
 
 
 # ── formato_a_ydl: selector que se pasa a YoutubeDL ──────────────────────────
@@ -203,6 +220,33 @@ class TestCancelarDescarga(unittest.TestCase):
 
 
 # ── GestorDescargas: cola de ítems ───────────────────────────────────────────
+
+class TestCableadoProgreso(unittest.TestCase):
+    def test_descargar_agrupa_avisos_del_hook(self):
+        progresos = []
+        marcas = iter((10.0, 10.4, 10.5, 10.6))
+
+        with mock.patch.object(descargas, "yt_dlp") as ytdlp, \
+                mock.patch.object(descargas, "tiene_ffmpeg", return_value=True), \
+                mock.patch.object(descargas.time, "monotonic", side_effect=marcas):
+            fake_ydl = mock.MagicMock()
+
+            def _fake_download(urls):
+                args, kwargs = ytdlp.YoutubeDL.call_args
+                opts = args[0] if args else kwargs.get("params", {})
+                hook = opts["progress_hooks"][0]
+                for descargado in (0, 10, 20, 100):
+                    hook({"status": "downloading", "downloaded_bytes": descargado,
+                          "total_bytes": 100, "filename": "x"})
+
+            fake_ydl.download.side_effect = _fake_download
+            ytdlp.YoutubeDL.return_value.__enter__.return_value = fake_ydl
+            descargar("https://example.com/v", {"formato": "mp4"},
+                      lambda *args: progresos.append(args),
+                      lambda *_args: None, threading.Event())
+
+        self.assertEqual([p[0] for p in progresos], [0.0, 20.0, 100.0])
+
 
 class TestGestorDescargas(unittest.TestCase):
     """La cola: cada ítem corre en su propio hilo (daemon). cancelar() marca

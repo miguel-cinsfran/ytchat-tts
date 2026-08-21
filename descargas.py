@@ -22,6 +22,7 @@ import os
 import shutil
 import sys
 import threading
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,6 +57,14 @@ class ItemDescarga:
 
 
 # ── Helpers puros (testeables en Linux) ──────────────────────────────────────
+
+INTERVALO_PROGRESO_S = 0.5
+
+
+def debe_emitir_progreso(ultimo_ts, ahora, pct):
+    """Decide si toca avisar del progreso, para no inundar la interfaz."""
+    return (ultimo_ts is None or pct >= 100.0 or
+            ahora - ultimo_ts >= INTERVALO_PROGRESO_S)
 
 def formato_a_ydl(formato: str, bitrate: int) -> str:
     """Selector que se pasa a YoutubeDL como `format`.
@@ -177,8 +186,10 @@ def descargar(url: str, opciones: dict,
     fmt = formato_a_ydl(formato, bitrate)
     outtmpl = construir_outtmpl(opciones, enumerar)
     postprocs = _postprocessors_para(formato, bitrate)
+    ultimo_progreso_ts = None
 
     def _hook(d):
+        nonlocal ultimo_progreso_ts
         # El hook se ejecuta dentro del hilo de yt-dlp. Si el evento está
         # marcado, levantamos DownloadCancelled; yt-dlp la propaga y la
         # capturamos fuera del `with` para terminar limpio.
@@ -189,6 +200,10 @@ def descargar(url: str, opciones: dict,
         total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
         descargado = d.get("downloaded_bytes") or 0
         pct = (descargado * 100.0 / total) if total else 0.0
+        ahora = time.monotonic()
+        if not debe_emitir_progreso(ultimo_progreso_ts, ahora, pct):
+            return
+        ultimo_progreso_ts = ahora
         try:
             progreso_cb(pct, d.get("speed"), d.get("eta"), d.get("filename", ""))
         except Exception as exc:
