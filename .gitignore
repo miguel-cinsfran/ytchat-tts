@@ -20,6 +20,10 @@ venv/
 
 # Logs
 ytchat.log
+# Registros del diagnóstico. Llevan volcado de entorno y trazas: no se suben.
+ytchat-debug.log
+ytchat-debug.log.*
+ytchat-fallos.log
 
 # Secretos de la API de YouTube (los gestiona la app desde Configuración)
 credenciales.json
