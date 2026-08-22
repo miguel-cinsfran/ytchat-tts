@@ -127,6 +127,17 @@ class TestDescargar(unittest.TestCase):
             descargar("url", {"formato": "mp4"}, callback, lambda *a: None, threading.Event())
         callback.assert_not_called()
 
+    def test_frena_progresos_seguidos(self):
+        lineas = ["PROG 5 10 NA 2 3 nombre.mp4\n"] * 20
+        proceso = self.proceso(lineas)
+        progreso = mock.Mock()
+        with self.preparar(proceso)[0], self.preparar(proceso)[1], \
+                self.preparar(proceso)[2], \
+                mock.patch.object(descargas.time, "monotonic", return_value=10):
+            descargar("url", {"formato": "mp4"}, progreso, lambda *a: None,
+                      threading.Event())
+        self.assertLess(progreso.call_count, len(lineas))
+
     def test_cancelar_mata_el_proceso(self):
         proceso = self.proceso([]); evento = threading.Event(); evento.set(); estados = []
         with self.preparar(proceso)[0], self.preparar(proceso)[1], self.preparar(proceso)[2]:
