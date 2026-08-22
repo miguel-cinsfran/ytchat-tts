@@ -93,7 +93,8 @@ class TestArgumentosDescarga(unittest.TestCase):
     def test_no_lleva_quiet(self):
         self.assertNotIn("--quiet", argumentos_descarga("https://example.com/v", self.opciones("mp4"), False))
     def test_url_al_final(self):
-        self.assertEqual(argumentos_descarga("-url", self.opciones("mp4"), False)[-1], "-url")
+        self.assertEqual(argumentos_descarga("-url", self.opciones("mp4"), False)[-2:],
+                         ["--", "-url"])
     def test_lleva_plantilla_y_salida(self):
         args = argumentos_descarga("url", self.opciones("mp4"), True)
         self.assertIn("--progress-template", args); self.assertIn("-o", args)
