@@ -98,6 +98,22 @@ class TestArgumentosDescarga(unittest.TestCase):
     def test_lleva_plantilla_y_salida(self):
         args = argumentos_descarga("url", self.opciones("mp4"), True)
         self.assertIn("--progress-template", args); self.assertIn("-o", args)
+    def test_usa_ruta_de_ffmpeg_recibida(self):
+        args = argumentos_descarga("url", self.opciones("mp3"), False,
+                                   r"C:\ffmpeg")
+        indice = args.index("--ffmpeg-location")
+        self.assertEqual(args[indice:indice + 2], ["--ffmpeg-location", r"C:\ffmpeg"])
+
+    def test_sin_empaquetar_no_agrega_ffmpeg(self):
+        args = argumentos_descarga("url", self.opciones("mp3"), False)
+        self.assertNotIn("--ffmpeg-location", args)
+
+    def test_empaquetado_usa_directorio_de_la_app(self):
+        with mock.patch.object(descargas.sys, "frozen", True, create=True), \
+                mock.patch.object(descargas, "app_dir", return_value=Path(r"C:\app")):
+            args = argumentos_descarga("url", self.opciones("mp3"), False)
+        indice = args.index("--ffmpeg-location")
+        self.assertEqual(args[indice + 1], r"C:\app")
 
 
 class TestDescargar(unittest.TestCase):

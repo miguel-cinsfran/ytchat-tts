@@ -132,7 +132,7 @@ def _sin_ventana() -> int:
     return getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
-def argumentos_descarga(url, opciones, enumerar) -> list[str]:
+def argumentos_descarga(url, opciones, enumerar, ffmpeg_location=None) -> list[str]:
     """Arma los argumentos de una descarga, sin ejecutar programas."""
     f = (opciones.get("formato") or "mp4").lower().strip()
     bitrate = int(opciones.get("bitrate") or 192)
@@ -142,8 +142,10 @@ def argumentos_descarga(url, opciones, enumerar) -> list[str]:
     if f in ("mp3", "m4a"):
         argumentos.extend(["-x", "--audio-format", f,
                            "--audio-quality", f"{bitrate}K"])
-    if getattr(sys, "frozen", False):
-        argumentos.extend(["--ffmpeg-location", str(app_dir())])
+    if ffmpeg_location is None and getattr(sys, "frozen", False):
+        ffmpeg_location = app_dir()
+    if ffmpeg_location is not None:
+        argumentos.extend(["--ffmpeg-location", str(ffmpeg_location)])
     argumentos.extend(["--", url])
     return argumentos
 
