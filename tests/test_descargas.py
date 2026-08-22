@@ -146,6 +146,31 @@ class TestDescargar(unittest.TestCase):
         self.assertEqual(estados[-1], ("cancelado", "Descarga cancelada"))
         proceso.kill.assert_called_once()
 
+    def test_cancelar_durante_progreso_mata_el_proceso(self):
+        proceso = self.proceso([
+            "PROG 5 10 NA 2 3 nombre.mp4\n",
+            "PROG 6 10 NA 2 3 nombre.mp4\n",
+        ])
+        evento = threading.Event(); estados = []
+
+        def progreso(*args):
+            evento.set()
+
+        with self.preparar(proceso)[0], self.preparar(proceso)[1], self.preparar(proceso)[2]:
+            descargar("url", {"formato": "mp4"}, progreso,
+                      lambda *a: estados.append(a), evento)
+        self.assertEqual(estados[-1], ("cancelado", "Descarga cancelada"))
+        proceso.kill.assert_called_once()
+
+    def test_cancelar_despues_de_terminar_marca_estado(self):
+        proceso = self.proceso([]); evento = threading.Event(); estados = []
+        proceso.wait.side_effect = evento.set
+        with self.preparar(proceso)[0], self.preparar(proceso)[1], self.preparar(proceso)[2]:
+            descargar("url", {"formato": "mp4"}, lambda *a: None,
+                      lambda *a: estados.append(a), evento)
+        self.assertEqual(estados[-1], ("cancelado", "Descarga cancelada"))
+        proceso.kill.assert_not_called()
+
     def test_codigo_no_cero_es_error(self):
         proceso = self.proceso([]); proceso.returncode = 2; estados = []
         with self.preparar(proceso)[0], self.preparar(proceso)[1], self.preparar(proceso)[2]:
