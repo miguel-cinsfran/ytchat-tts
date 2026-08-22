@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10" />
+  <meta name="generator" content="pandoc 3.10.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>YTChat TTS — Novedades</title>
   <style>
@@ -41,7 +41,6 @@
       body {
         background-color: transparent;
         color: black;
-        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -220,6 +219,53 @@
 <h1 id="novedades-de-ytchat-tts">Novedades de YTChat TTS</h1>
 <p>Qué cambia en cada versión, en lenguaje llano. El detalle técnico
 está en el historial de git.</p>
+<h2 id="201--agosto-de-2026">2.0.1 — agosto de 2026</h2>
+<p>Versión de arreglos. No trae funciones nuevas grandes: trae que las
+que ya había molesten menos y avisen mejor.</p>
+<ul>
+<li><strong>El diagnóstico dejó de hablar solo.</strong> Cada treinta
+segundos anunciaba por voz cuántos hilos había vivos. Era información
+para arreglar problemas, no para escucharla mientras miras un directo.
+Ahora se sigue guardando en el registro, pero callado.</li>
+<li><strong>Los controles del reproductor ya no se quedan
+mudos.</strong> Pulsar reproducir, silenciar o buscar sin tener un vídeo
+cargado no hacía absolutamente nada, ni siquiera decirlo. Ahora
+contestan «No hay ningún vídeo cargado» o «El reproductor no está
+disponible», según el caso.</li>
+<li><strong>Los atajos del reproductor funcionan siempre.</strong>
+Estaban apagados hasta conectarte a algo, así que las siete
+combinaciones de Control parecían rotas.</li>
+<li><strong>Avisa al pulsar reproducir.</strong> Antes había un silencio
+largo mientras cargaba, que parecía que se había colgado. Ahora dice
+«Cargando vídeo».</li>
+<li><strong>Avisos claros cuando falla la red.</strong> Antes, si
+YouTube no contestaba o el vídeo era privado, no se oía nada. Ahora lo
+dice con palabras: que la red no responde, que el vídeo no está
+disponible, o que hay que esperar unos minutos porque se hicieron
+demasiadas consultas.</li>
+<li><strong>Los atajos de Preferencias van agrupados.</strong> Los
+veinte botones colgaban sueltos; ahora el lector anuncia a qué grupo
+pertenece cada uno, «Reproductor» o «Conexión y chat».</li>
+<li><strong>yt-dlp se puede actualizar desde la aplicación.</strong>
+Menú Herramientas → Actualizar yt-dlp. Es la pieza que se rompe cuando
+YouTube cambia algo por dentro, y hasta ahora había que esperar a una
+versión nueva del programa entero. Comprueba qué versión hay publicada,
+la compara con la instalada y la descarga solo si hace falta,
+verificando que el archivo sea el auténtico.</li>
+<li><strong>Las descargas usan ese mismo yt-dlp.</strong> Antes el
+gestor de descargas llevaba su propia copia por dentro, que se quedaba
+vieja aunque actualizaras. Ahora todo usa el mismo, y la versión que
+muestra la aplicación es la de verdad.</li>
+<li><strong>Se arregló una fuga que dejaba el chat leyéndose dos veces
+por dentro.</strong> Si te reconectabas a otro directo sin desconectar
+antes, la conexión anterior seguía viva pidiéndole mensajes a YouTube
+para siempre, en silencio, hasta cerrar el programa.</li>
+<li><strong>La carpeta de descargas ya no se guarda sola.</strong> Se
+escribía en la configuración una ruta de la máquina donde se compiló el
+programa.</li>
+<li>Se quitó una entrada de menú que ya no llevaba a ninguna parte, y
+los avisos también salen por línea braille.</li>
+</ul>
 <h2 id="200--julio-de-2026">2.0.0 — julio de 2026</h2>
 <ul>
 <li><strong>Directos de TikTok, ya finos.</strong> La primera versión
