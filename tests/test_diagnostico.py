@@ -94,6 +94,35 @@ class DiagnosticoTest(unittest.TestCase):
             diagnostico.vigilar_hilo_interfaz(lambda: 0.0, Parada())
         registrar.assert_called_once()
 
+    def test_vigilante_retrata_el_hilo_principal_desde_otro_hilo(self):
+        principal = threading.main_thread().ident
+        identificadores = []
+
+        class Parada:
+            def __init__(self):
+                self.llamadas = 0
+
+            def wait(self, _intervalo):
+                self.llamadas += 1
+                return self.llamadas > 1
+
+        def recordar(_marcos, identificador):
+            identificadores.append(identificador)
+            return "pila"
+
+        with patch.object(diagnostico.time, "monotonic", return_value=1.0), \
+                patch.object(diagnostico.sys, "_current_frames", return_value={}), \
+                patch.object(diagnostico, "pila_hilo_interfaz", side_effect=recordar), \
+                patch.object(diagnostico.logger, "warning"):
+            hilo = threading.Thread(
+                target=diagnostico.vigilar_hilo_interfaz,
+                args=(lambda: 0.0, Parada()))
+            hilo.start()
+            hilo.join()
+
+        self.assertEqual(identificadores, [principal])
+        self.assertNotEqual(principal, hilo.ident)
+
     def test_hilo_de_aplicacion_registra_inicio_y_fin(self):
         llamadas = []
         with patch.object(diagnostico.logger, "info") as registrar:

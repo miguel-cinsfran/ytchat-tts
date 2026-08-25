@@ -313,6 +313,54 @@ class TestCierreVentana(unittest.TestCase):
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
 
+    def test_al_cerrar_detiene_el_vigilante_de_interfaz(self):
+        frame = self._frame()
+        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+                mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.diagnostico.logger, "info"):
+            frame._on_close(None)
+
+        frame._diagnostico_parada.set.assert_called_once_with()
+
+    def test_el_timer_actualiza_la_marca_del_vigilante(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._alive = True
+        frame._diagnostico_marca = 10.0
+        frame._diagnostico_censo = 10.0
+        with mock.patch.object(gui.time, "monotonic", return_value=12.5), \
+                mock.patch.object(gui.diagnostico, "debe_censar_hilos", return_value=None):
+            frame._on_diagnostico_timer(None)
+
+        self.assertEqual(frame._diagnostico_marca, 12.5)
+
+    def test_el_vigilante_se_arranca_con_nombre_propio(self):
+        hilos = []
+        hilo = mock.Mock()
+
+        def crear(target, nombre):
+            hilos.append((target, nombre))
+            return hilo
+
+        configuracion = mock.Mock()
+        configuracion.get.return_value = {}
+        with mock.patch.object(gui.wx.Frame, "__init__", return_value=None), \
+                mock.patch.object(gui.YTChatFrame, "_build_menubar"), \
+                mock.patch.object(gui.YTChatFrame, "_build_ui"), \
+                mock.patch.object(gui.YTChatFrame, "_bind_events"), \
+                mock.patch.object(gui.YTChatFrame, "_init_timer"), \
+                mock.patch.object(gui.YTChatFrame, "SetBackgroundColour"), \
+                mock.patch.object(gui.YTChatFrame, "Centre"), \
+                mock.patch.object(gui, "anunciar_conflictos_atajos"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear):
+            gui.YTChatFrame(None, configuracion, None, None, None, None)
+
+        self.assertEqual(len(hilos), 1)
+        self.assertEqual(hilos[0][1], "VigilanteInterfaz")
+        hilo.start.assert_called_once_with()
+
+    def test_el_nombre_del_vigilante_no_es_de_captura(self):
+        self.assertNotIn("VigilanteInterfaz", apagado.NOMBRES_HILOS_CAPTURA)
+
     def test_el_tope_del_cierre_sale_de_apagado(self):
         self.assertEqual(apagado.TOPE_ESPERA_CIERRE, 3.0)
         frame = self._frame()
