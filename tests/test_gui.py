@@ -240,6 +240,53 @@ class TestCierreVentana(unittest.TestCase):
 
         self.assertEqual(frame._cierre_tope, apagado.TOPE_ESPERA_CIERRE)
 
+    def test_comprobar_cierre_con_hilos_vivos_reprograma_y_no_destruye(self):
+        frame = self._frame()
+        frame._cierre_inicio = 100.0
+        frame._cierre_tope = 3.0
+        hilo = mock.Mock(name="Chat")
+        hilo.name = "Chat"
+        hilo.is_alive.return_value = True
+        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+                mock.patch.object(gui.time, "monotonic", return_value=101.0), \
+                mock.patch.object(gui.wx, "CallLater") as call_later:
+            frame._comprobar_cierre()
+
+        call_later.assert_called_once_with(200, frame._comprobar_cierre)
+        frame.Destroy.assert_not_called()
+
+    def test_comprobar_cierre_sin_hilos_destruye_y_registra_cierre_limpio(self):
+        frame = self._frame()
+        frame._cierre_inicio = 100.0
+        frame._cierre_tope = 3.0
+        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+                mock.patch.object(gui.time, "monotonic", return_value=101.0), \
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.diagnostico.logger, "info") as registrar:
+            frame._comprobar_cierre()
+
+        call_later.assert_not_called()
+        frame.Destroy.assert_called_once_with()
+        registrar.assert_called_once_with("%s", "CIERRE captura limpia")
+
+    def test_comprobar_cierre_con_tope_vencido_destruye_y_registra_hilos(self):
+        frame = self._frame()
+        frame._cierre_inicio = 100.0
+        frame._cierre_tope = 3.0
+        hilo = mock.Mock(name="TikTok")
+        hilo.name = "TikTok"
+        hilo.is_alive.return_value = True
+        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+                mock.patch.object(gui.time, "monotonic", return_value=104.0), \
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.diagnostico.logger, "info") as registrar:
+            frame._comprobar_cierre()
+
+        call_later.assert_not_called()
+        frame.Destroy.assert_called_once_with()
+        registrar.assert_called_once_with(
+            "%s", "CIERRE por tope=3.0s hilos vivos=TikTok")
+
 
 if __name__ == "__main__":
     unittest.main()
