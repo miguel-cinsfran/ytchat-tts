@@ -17,6 +17,7 @@ import wx
 
 import config as cfg
 import estado_sesion
+import programados
 import sound_player as _snd
 import credenciales
 import youtube_api
@@ -206,6 +207,7 @@ class PreferenciasDialog(wx.Dialog):
                          name="DialogoPreferencias")
         self._config = config
         self._ruta = cfg.app_dir() / "config.ini"
+        self._iniciar_programados()
         self._cambios = False
         self.SetBackgroundColour(_T.bg)
         self._build_ui()
@@ -227,6 +229,7 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
+        self.nb.AddPage(self._pag_programados(self.nb), "Mensajes automáticos")
         # Anunciar la pestaña al cambiar (Ctrl+Tab no lo verbaliza solo).
         self.nb.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._on_pestana)
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
@@ -565,6 +568,145 @@ class PreferenciasDialog(wx.Dialog):
         self._api_refrescar_estado()
         return p
 
+    def _iniciar_programados(self):
+        self._ruta_programados = cfg.app_dir() / "mensajes_programados.json"
+        self._mensajes_programados = programados.cargar(self._ruta_programados)
+
+    def _pag_programados(self, parent):
+        p = self._make_panel(parent, "PagProgramados")
+        vs = wx.BoxSizer(wx.VERTICAL)
+        intro = wx.StaticText(p, name="IntroProgramados", label=(
+            "Envía mensajes al chat de tu directo cada cierto tiempo. Necesita "
+            "sesión de Google iniciada y un directo de YouTube conectado. El "
+            "intervalo mínimo son 5 minutos y cada mensaje admite 200 caracteres. "
+            "YouTube suele bloquear los enlaces en el chat en vivo: conviene "
+            "escribir el nombre de usuario en vez de la dirección completa."))
+        intro.SetForegroundColour(_T.dim)
+        intro.Wrap(560)
+        vs.Add(intro, 0, wx.ALL, 10)
+
+        self.chk_programados = wx.CheckBox(
+            p, label="&Activar los mensajes automáticos", name="ActivarProgramados")
+        self.chk_programados.SetValue(bool(self._config.get("programados_activo", False)))
+        vs.Add(self.chk_programados, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.lista_programados = wx.ListBox(p, choices=[
+            programados.describir_mensaje(m) for m in self._mensajes_programados
+        ], name="ListaProgramados")
+        vs.Add(self.lista_programados, 1, wx.EXPAND | wx.LEFT | wx.RIGHT, 10)
+
+        vs.Add(self._fila_label(p, "&Texto del mensaje"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self.txt_programado = wx.TextCtrl(p, name="TextoProgramado")
+        self.txt_programado.SetMaxLength(200)
+        vs.Add(self.txt_programado, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        vs.Add(self._fila_label(p, "Cada, &mínimo (minutos)"), 0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_min_programado = wx.SpinCtrl(
+            p, min=5, max=240, initial=10, name="MinutosMin")
+        vs.Add(self.sp_min_programado, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        vs.Add(self._fila_label(p, "y &máximo (minutos)"), 0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_max_programado = wx.SpinCtrl(
+            p, min=5, max=240, initial=10, name="MinutosMax")
+        vs.Add(self.sp_max_programado, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        self.chk_mensaje_activo = wx.CheckBox(
+            p, label="&Enviar este mensaje", name="MensajeActivo")
+        vs.Add(self.chk_mensaje_activo, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
+        fila = wx.BoxSizer(wx.HORIZONTAL)
+        self.btn_programado_agregar = wx.Button(p, label="&Agregar", name="AgregarProgramado")
+        self.btn_programado_guardar = wx.Button(
+            p, label="&Guardar cambios", name="GuardarProgramado")
+        self.btn_programado_quitar = wx.Button(p, label="&Quitar", name="QuitarProgramado")
+        for boton in (self.btn_programado_agregar, self.btn_programado_guardar,
+                      self.btn_programado_quitar):
+            boton.SetBackgroundColour(_T.btn)
+            boton.SetForegroundColour(_T.btn_t)
+            fila.Add(boton, 0, wx.RIGHT, 6)
+        vs.Add(fila, 0, wx.ALL, 10)
+
+        p.SetSizer(vs)
+        self.lista_programados.Bind(wx.EVT_LISTBOX, self._programado_elegido)
+        self.btn_programado_agregar.Bind(wx.EVT_BUTTON, self._agregar_programado)
+        self.btn_programado_guardar.Bind(wx.EVT_BUTTON, self._guardar_programado)
+        self.btn_programado_quitar.Bind(wx.EVT_BUTTON, self._quitar_programado)
+        return p
+
+    def _programado_elegido(self, event):
+        indice = self.lista_programados.GetSelection()
+        if indice != wx.NOT_FOUND:
+            mensaje = self._mensajes_programados[indice]
+            self.txt_programado.SetValue(mensaje.get("texto", ""))
+            self.sp_min_programado.SetValue(mensaje.get("minutos_min", 10))
+            self.sp_max_programado.SetValue(mensaje.get("minutos_max", 10))
+            self.chk_mensaje_activo.SetValue(mensaje.get("activo", False))
+            anunciar(programados.describir_mensaje(mensaje))
+        event.Skip()
+
+    def _datos_programado(self):
+        return {
+            "texto": self.txt_programado.GetValue(),
+            "minutos_min": self.sp_min_programado.GetValue(),
+            "minutos_max": self.sp_max_programado.GetValue(),
+            "activo": self.chk_mensaje_activo.GetValue(),
+            "proximo": 0.0,
+        }
+
+    def _validar_programado(self, mensaje):
+        error, aviso = programados.validar_mensaje(
+            mensaje["texto"], mensaje["minutos_min"], mensaje["minutos_max"])
+        if error:
+            anunciar(error)
+            if not mensaje["texto"].strip() or len(mensaje["texto"]) > programados.MAX_CARACTERES:
+                self.txt_programado.SetFocus()
+            elif mensaje["minutos_min"] < programados.MINUTOS_MINIMOS:
+                self.sp_min_programado.SetFocus()
+            else:
+                self.sp_max_programado.SetFocus()
+            return False
+        if aviso:
+            anunciar(aviso)
+        return True
+
+    def _refrescar_programados(self, indice=-1):
+        self.lista_programados.Set([programados.describir_mensaje(m)
+                                    for m in self._mensajes_programados])
+        if indice >= 0:
+            self.lista_programados.SetSelection(indice)
+
+    def _agregar_programado(self, event):
+        mensaje = self._datos_programado()
+        if not self._validar_programado(mensaje):
+            return
+        self._mensajes_programados.append(mensaje)
+        programados.guardar(self._ruta_programados, self._mensajes_programados)
+        self._refrescar_programados(len(self._mensajes_programados) - 1)
+        anunciar("Mensaje agregado")
+
+    def _guardar_programado(self, event):
+        indice = self.lista_programados.GetSelection()
+        if indice == wx.NOT_FOUND:
+            anunciar("Elegí primero un mensaje de la lista")
+            return
+        mensaje = self._datos_programado()
+        if not self._validar_programado(mensaje):
+            return
+        mensaje["proximo"] = self._mensajes_programados[indice].get("proximo", 0.0)
+        self._mensajes_programados[indice] = mensaje
+        programados.guardar(self._ruta_programados, self._mensajes_programados)
+        self._refrescar_programados(indice)
+        anunciar("Mensaje guardado")
+
+    def _quitar_programado(self, event):
+        indice = self.lista_programados.GetSelection()
+        if indice == wx.NOT_FOUND:
+            anunciar("Elegí primero un mensaje de la lista")
+            return
+        self._mensajes_programados.pop(indice)
+        programados.guardar(self._ruta_programados, self._mensajes_programados)
+        self._refrescar_programados(min(indice, len(self._mensajes_programados) - 1))
+        anunciar("Mensaje quitado")
+
     def _fila_api(self, p, grid, etiqueta, nombre, valor, password=False):
         lbl = wx.StaticText(p, label=etiqueta)
         lbl.SetForegroundColour(_T.text)
@@ -657,6 +799,10 @@ class PreferenciasDialog(wx.Dialog):
         # que aquí solo se guardan; no hace falta revalidar por escritura.
 
         # Interfaz
+        programados_activo = self.chk_programados.GetValue()
+        self._set("programados", "activo", "true" if programados_activo else "false")
+        c["programados_activo"] = programados_activo
+
         fuente = str(self.sp_fuente.GetValue())
         self._set("ui", "tamanio_fuente_chat", fuente)
         c["tamanio_fuente_chat"] = int(fuente)

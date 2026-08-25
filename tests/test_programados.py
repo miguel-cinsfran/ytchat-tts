@@ -26,10 +26,14 @@ class TestValidarMensaje(unittest.TestCase):
         self.assertEqual(error, "El intervalo máximo no puede ser menor que el mínimo.")
 
     def test_avisa_url_sin_rechazar(self):
-        error, aviso = programados.validar_mensaje("Visita https://ejemplo.com", 10, 10)
-        self.assertEqual(error, "")
-        self.assertEqual(aviso, "YouTube suele bloquear los enlaces en el chat en vivo. "
-                         "Conviene poner el nombre de usuario en vez de la dirección completa.")
+        aviso_esperado = ("YouTube suele bloquear los enlaces en el chat en vivo. "
+                          "Conviene poner el nombre de usuario en vez de la dirección completa.")
+        for prefijo in ("http://", "https://", "www."):
+            with self.subTest(prefijo=prefijo):
+                error, aviso = programados.validar_mensaje(
+                    f"Visita {prefijo}ejemplo.com", 10, 10)
+                self.assertEqual(error, "")
+                self.assertEqual(aviso, aviso_esperado)
 
 
 class TestCalcularProximo(unittest.TestCase):
@@ -64,6 +68,10 @@ class TestElegirEnvio(unittest.TestCase):
     def test_no_devuelve_si_no_hay_vencidos(self):
         self.assertIsNone(self._elegir(70))
 
+    def test_considera_vencido_el_mensaje_que_vence_exactamente_ahora(self):
+        self.mensajes[1]["activo"] = False
+        self.assertIs(self._elegir(90), self.mensajes[0])
+
     def _elegir(self, ahora, ultimo_envio=None):
         return programados.elegir_envio(self.mensajes, ahora, ultimo_envio)
 
@@ -87,6 +95,29 @@ class TestDescribirProximo(unittest.TestCase):
                     {"activo": True, "proximo": 500}]
         self.assertEqual(programados.describir_proximo(mensajes, 0),
                          "Próximo mensaje programado en 6 minutos")
+
+
+class TestDescribirMensaje(unittest.TestCase):
+    def test_intervalo_fijo_y_estado(self):
+        self.assertEqual(programados.describir_mensaje({
+            "activo": True, "minutos_min": 10, "minutos_max": 10,
+            "texto": "Seguime en Instagram, arroba loquesea",
+        }), "Activo, cada 10 minutos: Seguime en Instagram, arroba loquesea")
+
+    def test_intervalo_variable_y_singular(self):
+        self.assertEqual(programados.describir_mensaje({
+            "activo": False, "minutos_min": 8, "minutos_max": 10,
+            "texto": "Hoy jugamos",
+        }), "Pausado, entre 8 y 10 minutos: Hoy jugamos")
+        self.assertEqual(programados.describir_mensaje({
+            "activo": False, "minutos_min": 1, "minutos_max": 1,
+            "texto": "Ahora",
+        }), "Pausado, cada 1 minuto: Ahora")
+
+    def test_recorta_el_texto_largo(self):
+        self.assertEqual(programados.describir_mensaje({
+            "minutos_min": 10, "minutos_max": 10, "texto": "x" * 61,
+        }), "Pausado, cada 10 minutos: " + "x" * 57 + "...")
 
 
 class TestAlmacenamiento(unittest.TestCase):

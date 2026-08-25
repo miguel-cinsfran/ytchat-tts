@@ -63,6 +63,25 @@ def elegir_envio(mensajes: list[dict], ahora: float,
     return min(vencidos, key=lambda mensaje: mensaje["proximo"]) if vencidos else None
 
 
+def describir_mensaje(mensaje: dict) -> str:
+    """Devuelve la línea accesible que representa un mensaje."""
+    estado = "Activo" if mensaje.get("activo", False) else "Pausado"
+    minimo = mensaje.get("minutos_min", 10)
+    maximo = mensaje.get("minutos_max", minimo)
+    if minimo == maximo:
+        intervalo = f"cada {minimo} {_unidad_minutos(minimo)}"
+    else:
+        intervalo = f"entre {minimo} y {maximo} minutos"
+    texto = str(mensaje.get("texto", ""))
+    if len(texto) > 60:
+        texto = texto[:57] + "..."
+    return f"{estado}, {intervalo}: {texto}"
+
+
+def _unidad_minutos(valor: int) -> str:
+    return "minuto" if valor == 1 else "minutos"
+
+
 def describir_proximo(mensajes: list[dict], ahora: float) -> str:
     """Describe cuándo vence el siguiente mensaje activo."""
     activos = [

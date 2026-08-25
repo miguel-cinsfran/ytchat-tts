@@ -46,6 +46,13 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("[overlay]", texto)
         self.assertIn("puerto = 8730", texto)
 
+    def test_programados_arranca_apagado_y_se_persiste_en_el_ejemplo(self):
+        cfg = self._cargar_en(config._CONFIG_FALLBACK)
+        self.assertFalse(cfg["programados_activo"])
+        texto = (Path(self._tmp.name) / "config.ini").read_text(encoding="utf-8")
+        self.assertIn("[programados]", texto)
+        self.assertIn("activo = false", texto)
+
     def test_overlay_puerto_tiene_minimo_uno(self):
         cfg = self._cargar_en("[overlay]\nactivo = true\npuerto = 0\n")
         self.assertTrue(cfg["overlay_activo"])

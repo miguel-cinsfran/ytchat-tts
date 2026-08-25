@@ -293,6 +293,7 @@ _DEF = {
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
     "mostrar_botones_reproductor": "false", "mostrar_metadatos": "true",
     "anunciar_entradas": "false",
+    "programados_activo": "false",
     # Gestor de descargas (yt-dlp). El formato y la carpeta se eligen en el
     # diálogo; el bitrate solo aplica a audio (mp3/m4a); enumerar prefijá
     # 01_, 02_... a los ítems de una playlist.
@@ -365,6 +366,8 @@ silenciar_lectura = false
 # Leer por voz quien entra al directo (solo TikTok). En directos grandes puede
 # ser muchisimo, por eso viene desactivado. Editable en Preferencias > Lectura.
 anunciar_entradas = false
+[programados]
+activo = false
 # Registro detallado temporal para diagnosticar una instalación concreta.
 [diagnostico]
 registro_detallado = true
@@ -638,6 +641,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "overlay", "activo", "false")
     if not p.has_option("overlay", "puerto"):
         guardar_opcion(ruta, "overlay", "puerto", "8730")
+    if not p.has_option("programados", "activo"):
+        guardar_opcion(ruta, "programados", "activo", "false")
 
     # Inyectar la sección [descargas] con defaults si falta cualquiera de sus
     # claves. `obtener_opciones_descarga` también lo hace standalone, pero
@@ -701,6 +706,7 @@ def cargar_configuracion() -> dict:
         "guardar_historial": guardar,
         "silenciar_lectura": _pb(p, "sesion", "silenciar_lectura"),
         "tiktok_anunciar_entradas": _pb(p, "tiktok", "anunciar_entradas"),
+        "programados_activo": _pb(p, "programados", "activo"),
         "overlay_activo": _pb(p, "overlay", "activo"),
         "overlay_puerto": _pi(p, "overlay", "puerto", lo=1),
         "estado_toggles": estado_toggles,
