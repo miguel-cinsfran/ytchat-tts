@@ -5,7 +5,8 @@ import inspect
 from unittest import mock
 
 from config import (
-    _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS, ATAJOS_AREA,
+    _normalizar_atajo, parsear_atajos, detectar_conflictos_atajos,
+    ATAJOS_DEFAULTS, ATAJOS_AREA,
     ATAJOS_FIJOS, ATAJOS_FIJOS_DEFAULTS, ATAJOS_GRUPOS, todos_los_atajos_default,
 )
 import gui_preferencias
@@ -172,6 +173,30 @@ class TestParsearAtajos(unittest.TestCase):
         self.assertIn('self._accel("pantalla_completa")', fuente)
         self.assertNotIn("\\tAlt+L", fuente)
         self.assertNotIn("\\tCtrl+F", fuente)
+
+    def test_conflicto_incluye_las_fijas(self):
+        self.assertEqual(
+            detectar_conflictos_atajos({"pausa": "f6"}),
+            [("pausa", "region_siguiente", "f6")])
+
+    def test_captura_rechaza_fija_incluso_si_la_gramatica_no_la_admite(self):
+        dialogo = gui_preferencias._CapturaAtajoDialog.__new__(
+            gui_preferencias._CapturaAtajoDialog)
+        dialogo._accion = "ir_lista"
+        dialogo._area = "alt"
+        dialogo._valores = {"ir_lista": "alt+l", "salir": "alt+f4"}
+        dialogo._fijar = mock.Mock()
+        dialogo._evaluar("alt+f4")
+        dialogo._fijar.assert_called_once_with("Ya lo usa: Salir de la aplicación. Elige otra.", None)
+
+    def test_arranque_anuncia_la_accion_que_pierde(self):
+        anuncios = []
+        with mock.patch.object(gui, "anunciar", side_effect=anuncios.append):
+            gui.anunciar_conflictos_atajos({"pausa": "f6"})
+        self.assertEqual(anuncios, [
+            "Conflicto de atajos: pausa se quedó sin atajo porque "
+            "region_siguiente usa f6."
+        ])
 
 
 if __name__ == "__main__":

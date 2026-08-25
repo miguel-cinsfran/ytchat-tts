@@ -163,6 +163,12 @@ class _CapturaAtajoDialog(wx.Dialog):
         self._evaluar(combo)
 
     def _evaluar(self, combo):
+        combo_normalizado = combo.strip().lower().replace(" ", "") if combo else ""
+        for otra, val in self._valores.items():
+            if otra != self._accion and val and val == combo_normalizado:
+                etq = etiqueta_de_accion(otra)
+                self._fijar(f"Ya lo usa: {etq}. Elige otra.", None)
+                return
         norm = cfg._normalizar_atajo(combo) if combo else None
         if norm is None:
             self._fijar("Esa combinación no es válida.", None)

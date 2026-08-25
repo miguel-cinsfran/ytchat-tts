@@ -21,7 +21,8 @@ from config import (
     TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO, TIPO_ENTRADA,
     FILTROS,
 )
-from config import parsear_atajos, ATAJOS_DEFAULTS, app_dir, guardar_opcion
+from config import (parsear_atajos, detectar_conflictos_atajos, ATAJOS_DEFAULTS,
+                    app_dir, guardar_opcion)
 import deteccion
 import metadatos
 import estado_sesion
@@ -109,6 +110,13 @@ def anunciar(texto: str) -> None:
         _ao2.braille(texto)
     except Exception:
         pass
+
+
+def anunciar_conflictos_atajos(raw: dict | None) -> None:
+    for perdedora, conservada, combinacion in detectar_conflictos_atajos(raw):
+        anunciar(
+            f"Conflicto de atajos: {perdedora} se quedó sin atajo porque "
+            f"{conservada} usa {combinacion}.")
 
 
 # ── Nombre accesible reforzado (MSAA) ─────────────────────────────────────────
@@ -367,6 +375,7 @@ class YTChatFrame(wx.Frame):
         self.on_desconectar_cb = None
 
         self._atajos = parsear_atajos(config.get("atajos_raw", {}))
+        anunciar_conflictos_atajos(config.get("atajos_raw", {}))
         self._diagnostico_marca = time.monotonic()
         self._diagnostico_censo = self._diagnostico_marca
 

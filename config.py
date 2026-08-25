@@ -254,6 +254,29 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
     return resultado
 
 
+def detectar_conflictos_atajos(raw: dict | None) -> list[tuple[str, str, str]]:
+    """Devuelve (acción que pierde, acción que conserva, combinación)."""
+    raw = {} if raw is None else {k.lower(): v for k, v in raw.items()}
+    conflictos = []
+    teclas_usadas: dict[str, str] = {}
+    for accion, default in todos_los_atajos_default().items():
+        fija = accion in ATAJOS_FIJOS
+        valor_usuario = raw.get(accion)
+        if not fija and valor_usuario is not None and valor_usuario.strip() == "":
+            continue
+        normalizado = default if fija else _normalizar_atajo(valor_usuario)
+        if not fija and normalizado is None:
+            normalizado = _normalizar_atajo(default)
+        if normalizado is None:
+            continue
+        anterior = teclas_usadas.get(normalizado)
+        if anterior is not None:
+            conflictos.append((accion, anterior, normalizado))
+            continue
+        teclas_usadas[normalizado] = accion
+    return conflictos
+
+
 # ── Carga de config.ini ──────────────────────────────────────────────────────
 
 _DEF = {
