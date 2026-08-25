@@ -3,6 +3,8 @@
 import diagnostico
 import sound_player as _snd
 import tiktok_captura
+import overlay_servidor
+from overlay_datos import evento_de_mensaje
 
 from sesiones import RegistroSesiones
 
@@ -44,6 +46,8 @@ class Conexiones:
         def _on_msg(autor, mensaje, hora, tipo=main.TIPO_TEXTO, monto="", canal_id=""):
             if not self._registro.vigente(gen):
                 return  # mensaje de una sesión anterior: descartar
+            overlay_servidor.difundir(
+                evento_de_mensaje(autor, mensaje, "youtube", monto or None))
             if _gm._gui_frame and _gm._gui_frame._alive:
                 import wx
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
@@ -128,6 +132,8 @@ class Conexiones:
         def _on_msg(autor, mensaje, hora, tipo=main.TIPO_TEXTO, monto="", canal_id=""):
             if not self._registro.vigente(gen):
                 return
+            overlay_servidor.difundir(
+                evento_de_mensaje(autor, mensaje, "tiktok", monto or None))
             if _gm._gui_frame and _gm._gui_frame._alive:
                 import wx
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,

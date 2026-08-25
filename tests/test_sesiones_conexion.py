@@ -25,6 +25,14 @@ class HiloInerte:
         return None
 
 
+class HiloEjecuta:
+    def __init__(self, objetivo):
+        self.objetivo = objetivo
+
+    def start(self):
+        self.objetivo()
+
+
 def crear_hilo_inerte(*args, **kwargs):
     return HiloInerte()
 
@@ -84,6 +92,58 @@ class PruebasCableadoConexiones(unittest.TestCase):
         self.conexiones.conectar("dQw4w9WgXcQ")
         self.conexiones.desconectar()
         self.assertTrue(self.registro.sesiones[0].parada.is_set())
+
+    def test_youtube_difunde_solo_despues_del_guard_de_sesion(self):
+        import main
+        callbacks = {}
+        def hilo(objetivo, nombre, **kwargs):
+            return HiloInerte() if nombre == "LiveChatId" else HiloEjecuta(objetivo)
+        def captura(*args, **kwargs):
+            callbacks.update(kwargs)
+        with mock.patch.object(main, "obtener_info_video",
+                               return_value=("Título", main.deteccion.LIVE, {})), \
+                mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
+                mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
+                mock.patch("overlay_servidor.difundir") as difundir:
+            self.conexiones._crear_hilo = hilo
+            self.conexiones.conectar("dQw4w9WgXcQ")
+            callbacks["on_message"]("Ana", "Hola", "12:00", monto="US$ 5")
+        difundir.assert_called_once()
+        self.assertEqual(difundir.call_args.args[0]["plataforma"], "youtube")
+        self.assertEqual(difundir.call_args.args[0]["monto"], "US$ 5")
+
+    def test_tiktok_difunde_el_regalo(self):
+        import main
+        callbacks = {}
+        def hilo(objetivo, nombre, **kwargs):
+            return HiloEjecuta(objetivo)
+        def captura(*args, **kwargs):
+            callbacks.update(kwargs)
+        self.conexiones._crear_hilo = hilo
+        with mock.patch.object(main, "procesar_entrante", side_effect=lambda *a, **k: k["on_message"](
+                "Ana", "Hola", main.TIPO_TEXTO, "regalo", "")), \
+                mock.patch.object(__import__("tiktok_captura"), "capturar_con_reconexion", side_effect=captura), \
+                mock.patch("overlay_servidor.difundir") as difundir:
+            self.conexiones._conectar_tiktok("pepe")
+            callbacks["on_evento"]("Ana", "Hola", main.TIPO_TEXTO, "regalo", "")
+        self.assertEqual(difundir.call_args.args[0]["plataforma"], "tiktok")
+
+    def test_youtube_sesion_vieja_no_difunde(self):
+        import main
+        callbacks = {}
+        def captura(*args, **kwargs):
+            callbacks.update(kwargs)
+        with mock.patch.object(main, "obtener_info_video",
+                               return_value=("Título", main.deteccion.LIVE, {})), \
+                mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
+                mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
+                mock.patch("overlay_servidor.difundir") as difundir:
+            self.conexiones._crear_hilo = lambda objetivo, nombre, **kwargs: (
+                HiloInerte() if nombre == "LiveChatId" else HiloEjecuta(objetivo))
+            self.conexiones.conectar("dQw4w9WgXcQ")
+            self.registro.abrir()
+            callbacks["on_message"]("Ana", "viejo", "12:00")
+        difundir.assert_not_called()
 
 
 if __name__ == "__main__":
