@@ -243,6 +243,34 @@ class TestActualizarYtdlp(unittest.TestCase):
         self.assertIn("actualizó", mensaje.call_args.args[0])
 
 
+    def test_sondeo_de_cancelacion_se_reprograma(self):
+        dialogo = self.Dialogo()
+        hilo = mock.Mock()
+        hilo.start.side_effect = lambda: hilo.target()
+
+        def crear(target, nombre):
+            hilo.target = target
+            return hilo
+
+        def actualizar(antes, _progreso, _cancelar):
+            antes()
+            return "cancelado", "2026.08.20", "2026.08.21"
+
+        with mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
+                mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.wx, "ProgressDialog", return_value=dialogo), \
+                mock.patch.object(gui.wx, "MessageBox"), \
+                mock.patch.object(ytdlp_bin, "actualizar_ytdlp", side_effect=actualizar):
+            gui.YTChatFrame._on_actualizar_ytdlp(
+                gui.YTChatFrame.__new__(gui.YTChatFrame), None)
+
+        call_later.assert_called_once()
+        self.assertEqual(call_later.call_args.args[0], 100)
+        self.assertTrue(callable(call_later.call_args.args[1]))
+
+
 class TestCierreVentana(unittest.TestCase):
 
     def _frame(self):

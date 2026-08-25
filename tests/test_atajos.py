@@ -133,6 +133,14 @@ class TestParsearAtajos(unittest.TestCase):
         atajos = parsear_atajos({"pausa": ""})
         self.assertNotIn("pausa", atajos)
 
+    def test_las_fijas_sobreviven_a_un_valor_vacio(self):
+        atajos = parsear_atajos({accion: "" for accion in ATAJOS_FIJOS})
+        for accion, esperado in ATAJOS_FIJOS_DEFAULTS.items():
+            self.assertEqual(atajos[accion].texto, esperado)
+        for accion in ("velocidad_menos", "velocidad_mas",
+                       "volumen_menos", "volumen_mas"):
+            self.assertEqual(atajos[accion].texto, ATAJOS_DEFAULTS[accion])
+
     def test_valor_invalido_cae_al_default(self):
         atajos = parsear_atajos({"pausa": "ctrl+shift+x"})
         # Inválido -> usa el default de pausa (f5).
@@ -197,6 +205,22 @@ class TestParsearAtajos(unittest.TestCase):
             "Conflicto de atajos: pausa se quedó sin atajo porque "
             "region_siguiente usa f6."
         ])
+
+
+    def test_construccion_del_frame_anuncia_los_conflictos(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        configuracion = {"atajos_raw": {"pausa": "f6"}}
+        with mock.patch.object(gui.wx.Frame, "__init__", return_value=None), \
+                mock.patch.object(gui.YTChatFrame, "SetBackgroundColour"), \
+                mock.patch.object(gui.YTChatFrame, "_build_menubar"), \
+                mock.patch.object(gui.YTChatFrame, "_build_ui"), \
+                mock.patch.object(gui.YTChatFrame, "_bind_events"), \
+                mock.patch.object(gui.YTChatFrame, "_init_timer"), \
+                mock.patch.object(gui.YTChatFrame, "Centre"), \
+                mock.patch.object(gui, "anunciar_conflictos_atajos") as anunciar:
+            gui.YTChatFrame.__init__(frame, None, configuracion, None, None, None, None)
+
+        anunciar.assert_called_once_with(configuracion["atajos_raw"])
 
 
 if __name__ == "__main__":
