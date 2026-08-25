@@ -86,7 +86,12 @@ class TestCapturaAtajos(unittest.TestCase):
                         control.GetName().startswith("Atajo_")):
                     controles.append(control)
 
-            self.assertEqual(len(controles), 20)
+            defaults = cfg.todos_los_atajos_default()
+            botones_esperados = sum(
+                accion in defaults
+                for _titulo, acciones in cfg.ATAJOS_GRUPOS
+                for accion in acciones)
+            self.assertEqual(len(controles), botones_esperados)
             titulos = {titulo for titulo, _acciones in cfg.ATAJOS_GRUPOS}
             for boton in controles:
                 caja = boton.GetParent()
