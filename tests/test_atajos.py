@@ -3,7 +3,10 @@
 import unittest
 from unittest import mock
 
-from config import _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS
+from config import (
+    _normalizar_atajo, parsear_atajos, ATAJOS_DEFAULTS, ATAJOS_AREA,
+    ATAJOS_FIJOS, ATAJOS_FIJOS_DEFAULTS, ATAJOS_GRUPOS, todos_los_atajos_default,
+)
 import gui_preferencias
 from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
@@ -78,11 +81,36 @@ class TestParsearAtajos(unittest.TestCase):
                          "Acción desconocida: Ctrl+A")
 
     def test_todas_las_acciones_tienen_etiqueta(self):
-        self.assertTrue(set(ATAJOS_DEFAULTS) <= set(_ETIQUETAS_ATAJO))
+        self.assertTrue(set(todos_los_atajos_default()) <= set(_ETIQUETAS_ATAJO))
 
     def test_etiquetas_de_defaults_no_exponen_guiones_bajos(self):
-        for accion in ATAJOS_DEFAULTS:
+        for accion in todos_los_atajos_default():
             self.assertNotIn("_", etiqueta_de_accion(accion))
+
+    def test_todos_los_atajos_tienen_metadatos_y_no_colisionan(self):
+        todos = todos_los_atajos_default()
+        grupos = {accion for _, acciones in ATAJOS_GRUPOS for accion in acciones}
+        self.assertEqual(set(todos), set(ATAJOS_AREA))
+        self.assertEqual(set(todos), grupos)
+        self.assertEqual(set(todos), set(_ETIQUETAS_ATAJO))
+        self.assertEqual(len(todos), len(set(todos.values())))
+        for accion, valor in todos.items():
+            self.assertTrue(etiqueta_de_accion(accion))
+            if accion in ATAJOS_FIJOS_DEFAULTS:
+                normalizado = valor
+            else:
+                normalizado = _normalizar_atajo(valor)
+            area = ATAJOS_AREA[accion]
+            if accion == "region_anterior":
+                self.assertEqual(normalizado, "shift+f6")
+                continue
+            if area == "f":
+                self.assertRegex(normalizado, r"^f(1[0-2]|[1-9])$")
+            else:
+                self.assertTrue(normalizado.startswith(area + "+"))
+        self.assertEqual(set(ATAJOS_FIJOS_DEFAULTS) | {
+            "velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas"
+        }, ATAJOS_FIJOS)
 
     def test_etiqueta_desconocida_es_frase(self):
         self.assertEqual(
@@ -91,7 +119,12 @@ class TestParsearAtajos(unittest.TestCase):
     def test_defaults_completos(self):
         atajos = parsear_atajos({})
         # Todas las acciones por defecto quedan resueltas.
-        self.assertEqual(set(atajos.keys()), set(ATAJOS_DEFAULTS.keys()))
+        self.assertEqual(set(atajos.keys()), set(todos_los_atajos_default().keys()))
+
+    def test_fija_reserva_su_combinacion(self):
+        atajos = parsear_atajos({"pausa": "f6"})
+        self.assertEqual(atajos["region_siguiente"].texto, "f6")
+        self.assertNotIn("pausa", atajos)
 
     def test_desactivar_con_valor_vacio(self):
         atajos = parsear_atajos({"pausa": ""})

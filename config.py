@@ -98,9 +98,8 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 # Se muestran como aceleradores en la barra de menú (NVDA los lee). No chocan
 # con los mnemónicos de menú (Alt+inicial) porque usamos otras letras.
 #
-# Fijos (no editables): F9/F10 velocidad y F11/F12 volumen del TTS, y la
-# navegación entre regiones F6 / Shift+F6 (esta última no está aquí: la gestiona
-# la ventana directamente).
+# Fijos (no editables): F9/F10 velocidad, F11/F12 volumen del TTS, Alt+F4 para
+# cerrar y F6 / Shift+F6 para navegar entre regiones.
 
 ATAJOS_DEFAULTS = {
     # Reproductor (Ctrl)
@@ -128,8 +127,19 @@ ATAJOS_DEFAULTS = {
     "anunciar_estado":   "f2",
 }
 
+# Estas combinaciones se reservan aunque la gramática editable no admita
+# Alt+F4 ni Shift+F6.
+ATAJOS_FIJOS_DEFAULTS = {
+    "salir": "alt+f4",
+    "region_siguiente": "f6",
+    "region_anterior": "shift+f6",
+}
+
 # Acciones cuya tecla NO debe poder cambiarse en el editor de atajos.
-ATAJOS_FIJOS = {"velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas"}
+ATAJOS_FIJOS = {
+    "velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas",
+    *ATAJOS_FIJOS_DEFAULTS,
+}
 
 # Agrupación para el editor de Preferencias (título de grupo, acciones).
 ATAJOS_GRUPOS = [
@@ -137,11 +147,12 @@ ATAJOS_GRUPOS = [
      ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
       "rep_vol_menos", "rep_vol_mas", "descargas_abrir"]),
     ("Conexión y chat (Alt)",
-     ["conectar", "desconectar", "enviar_chat"]),
+     ["conectar", "desconectar", "enviar_chat", "salir"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",
-      "silenciar_sonidos", "anunciar_estado"]),
+      "silenciar_sonidos", "anunciar_estado", "region_siguiente",
+      "region_anterior"]),
 ]
 
 # Modificador obligatorio por acción: reproductor → Ctrl, app → Alt, voz → F.
@@ -164,6 +175,11 @@ class Atajo:
     accion: str
     texto:  str
     tecla:  str
+
+
+def todos_los_atajos_default() -> dict[str, str]:
+    """Devuelve las combinaciones reservadas por la aplicación."""
+    return {**ATAJOS_FIJOS_DEFAULTS, **ATAJOS_DEFAULTS}
 
 
 def _normalizar_atajo(valor: str | None) -> str | None:
@@ -208,17 +224,18 @@ def parsear_atajos(raw: dict | None) -> dict[str, Atajo]:
     resultado: dict[str, Atajo] = {}
     teclas_usadas: dict[str, str] = {}
 
-    for accion, default in ATAJOS_DEFAULTS.items():
+    for accion, default in todos_los_atajos_default().items():
         valor_usuario = raw.get(accion)
-        if valor_usuario is not None and valor_usuario.strip() == "":
+        fija = accion in ATAJOS_FIJOS
+        if not fija and valor_usuario is not None and valor_usuario.strip() == "":
             continue  # desactivado explícitamente
 
-        normalizado = _normalizar_atajo(valor_usuario)
-        if valor_usuario is not None and normalizado is None:
+        normalizado = default if fija else _normalizar_atajo(valor_usuario)
+        if not fija and valor_usuario is not None and normalizado is None:
             logger.warning("atajos: valor inválido para %r: %r. Usando default %r.",
                            accion, valor_usuario, default)
             normalizado = _normalizar_atajo(default)
-        elif normalizado is None:
+        elif not fija and normalizado is None:
             normalizado = _normalizar_atajo(default)
         if normalizado is None:
             continue

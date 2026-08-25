@@ -450,8 +450,8 @@ class PreferenciasDialog(wx.Dialog):
             "Cada área tiene su modificador: Ctrl para el reproductor, Alt para "
             "conexión y chat, y teclas F para la voz. Pulsa un botón y luego la "
             "combinación que quieras: se comprueba sola que sea válida y que no "
-            "choque con otra. F9 a F12 son fijas. La navegación entre regiones "
-            "(F6 y Shift+F6) no se cambia aquí."),
+            "choque con otra. F9 a F12, Alt+F4, F6 y Shift+F6 son fijas. "
+            "Las fijas se muestran para que no se puedan pisar."),
             name="NotaAtajos")
         nota.SetForegroundColour(_T.dim)
         nota.Wrap(560)
@@ -461,9 +461,11 @@ class PreferenciasDialog(wx.Dialog):
         raw = self._config.get("atajos_raw", {})
         self._valores_atajo: dict[str, str] = {}
         self._botones_atajo: dict[str, wx.Button] = {}
-        for accion in cfg.ATAJOS_DEFAULTS:
-            crudo = raw.get(accion, cfg.ATAJOS_DEFAULTS[accion])
-            self._valores_atajo[accion] = cfg._normalizar_atajo(crudo) or ""
+        for accion, default in cfg.todos_los_atajos_default().items():
+            crudo = raw.get(accion, default)
+            self._valores_atajo[accion] = (
+                default if accion in cfg.ATAJOS_FIJOS
+                else cfg._normalizar_atajo(crudo) or "")
 
         for titulo, acciones in cfg.ATAJOS_GRUPOS:
             box, padre = caja_de_grupo(p, titulo)
@@ -754,7 +756,7 @@ _ETIQUETAS_ATAJO = {
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",
     "enviar_chat":       "Enviar mensaje al chat",
-    "ir_url":            "Ir al campo URL",
+    "salir":             "Salir de la aplicación",
     # Voz / lectura
     "pausa":             "Pausar o reanudar lectura",
     "detener_tts":       "Detener voz actual",
@@ -765,6 +767,8 @@ _ETIQUETAS_ATAJO = {
     "silenciar_lectura": "Silenciar lectura TTS",
     "silenciar_sonidos": "Silenciar sonidos",
     "anunciar_estado":   "Anunciar estado",
+    "region_siguiente":  "Región siguiente",
+    "region_anterior":   "Región anterior",
 }
 
 
