@@ -273,6 +273,18 @@ class TestActualizarYtdlp(unittest.TestCase):
 
 class TestCierreVentana(unittest.TestCase):
 
+    def test_el_precalentamiento_se_arranca_solo_con_la_ventana_viva(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._alive = True
+        frame._rep_panel = mock.Mock()
+        frame._arrancar_precalentamiento()
+        frame._rep_panel._precalentar.assert_called_once_with()
+
+        frame._alive = False
+        frame._rep_panel._precalentar.reset_mock()
+        frame._arrancar_precalentamiento()
+        frame._rep_panel._precalentar.assert_not_called()
+
     def _frame(self):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         frame._apagando = False

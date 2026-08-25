@@ -814,6 +814,10 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_TIMER, self._on_diagnostico_timer, self._diagnostico_timer)
         self._diagnostico_timer.Start(TIMER_DIAGNOSTICO_MS)
 
+    def _arrancar_precalentamiento(self) -> None:
+        if self._alive:
+            self._rep_panel._precalentar()
+
     # ── Navegación de paneles ────────────────────────────────────────────────
 
     def _navegar_region(self, delta: int):
@@ -2066,6 +2070,7 @@ def iniciar_gui(config, cola, stats, worker, parada,
 
     frame.Show()
     _snd.reproducir("app_inicio")
+    wx.CallAfter(frame._arrancar_precalentamiento)
 
     if url_inicial and iniciar_captura_cb:
         wx.CallAfter(frame.auto_conectar)

@@ -390,12 +390,12 @@ class ReproductorPanel(wx.Panel):
         self._marca_extraccion = None
         self._marca_url = None
         self._fs = None        # ventana de pantalla completa, si está activa
+        self._precalentamiento_cancelado = False
 
         self.SetBackgroundColour(_T.bg)
         self.SetForegroundColour(_T.text)
         if self._listo:
             self._build_ui()
-            self._precalentar()
         else:
             self._build_aviso()
 
@@ -426,16 +426,23 @@ class ReproductorPanel(wx.Panel):
         return self._inst is not None
 
     def _precalentar(self) -> None:
-        """Crea la instancia de libVLC en segundo plano apenas se construye el
-        panel, para que el primer «Conectar» no congele la ventana. Nadie espera
-        este hilo: si el usuario conecta antes de que termine, `_asegurar_player`
-        comparte la misma instancia vía lock."""
+        """Crea la instancia de libVLC después de mostrar la ventana."""
+        if self._precalentamiento_cancelado:
+            return
         def _run():
             try:
-                self._asegurar_instancia()
+                listo = self._asegurar_instancia()
             except Exception as exc:
                 logger.debug("precalentar VLC: %s", exc)
+                return
+            if listo:
+                wx.CallAfter(self._anunciar_precalentamiento_listo)
+        anunciar("Preparando el reproductor")
         diagnostico.crear_hilo(_run, "ReproductorWarmup").start()
+
+    def _anunciar_precalentamiento_listo(self) -> None:
+        if not self._precalentamiento_cancelado:
+            anunciar("Reproductor listo")
 
     def _asegurar_player(self) -> bool:
         # La instancia (lenta) puede venir ya precalentada; el reproductor y el
@@ -692,6 +699,7 @@ class ReproductorPanel(wx.Panel):
             self.lbl_estado.SetLabel("Este directo no trae vídeo reproducible.")
 
     def detener_todo(self) -> None:
+        self._precalentamiento_cancelado = True
         # Olvidar el vídeo actual: al desconectar el reproductor queda en blanco,
         # como recién abierta la app (sin un id viejo que pudiera relanzarse).
         self._video_id = ""

@@ -58,6 +58,82 @@ class TestAvisoReproductor(unittest.TestCase):
 
 class TestPrecalentamiento(unittest.TestCase):
 
+    def _panel(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._precalentamiento_cancelado = False
+        return panel
+
+    def test_anuncia_antes_del_trabajo_y_al_terminar(self):
+        panel = self._panel()
+        orden = []
+        hilo = mock.Mock()
+
+        def crear(target, _nombre):
+            hilo.target = target
+            return hilo
+
+        def iniciar():
+            hilo.target()
+
+        hilo.start.side_effect = iniciar
+        panel._asegurar_instancia = lambda: orden.append("trabajo") or True
+        with mock.patch.object(reproductor, "anunciar",
+                               side_effect=lambda texto: orden.append(texto)), \
+                mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                                  side_effect=crear), \
+                mock.patch.object(reproductor.wx, "CallAfter",
+                                  side_effect=lambda fn: fn()):
+            panel._precalentar()
+
+        self.assertEqual(orden, [
+            "Preparando el reproductor", "trabajo", "Reproductor listo"])
+
+    def test_si_falla_no_anuncia_que_esta_listo(self):
+        panel = self._panel()
+        hilo = mock.Mock()
+        def crear(target, _nombre):
+            hilo.target = target
+            return hilo
+        hilo.start.side_effect = lambda: hilo.target()
+        panel._asegurar_instancia = mock.Mock(side_effect=RuntimeError("fallo"))
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                                  side_effect=crear):
+            panel._precalentar()
+
+        anunciar.assert_called_once_with("Preparando el reproductor")
+
+    def test_si_se_cierra_no_anuncia_que_esta_listo(self):
+        panel = self._panel()
+        callbacks = []
+        hilo = mock.Mock()
+        def crear(target, _nombre):
+            hilo.target = target
+            return hilo
+        hilo.start.side_effect = lambda: hilo.target()
+        panel._asegurar_instancia = mock.Mock(return_value=True)
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                                  side_effect=crear), \
+                mock.patch.object(reproductor.wx, "CallAfter",
+                                  side_effect=lambda fn: callbacks.append(fn)):
+            panel._precalentar()
+            panel._precalentamiento_cancelado = True
+            callbacks[0]()
+
+        anunciar.assert_called_once_with("Preparando el reproductor")
+
+    def test_el_constructor_no_precalienta(self):
+        with mock.patch.object(reproductor.wx.Panel, "__init__", return_value=None), \
+                mock.patch.object(reproductor.ReproductorPanel, "SetBackgroundColour"), \
+                mock.patch.object(reproductor.ReproductorPanel, "SetForegroundColour"), \
+                mock.patch.object(reproductor, "disponible", return_value=True), \
+                mock.patch.object(reproductor.ReproductorPanel, "_build_ui"), \
+                mock.patch.object(reproductor.ReproductorPanel, "_precalentar") as precalentar:
+            reproductor.ReproductorPanel(None, {})
+
+        precalentar.assert_not_called()
+
     def test_preparar_dll_registra_su_tramo(self):
         anterior = reproductor._VLC_PREPARADO
         try:
