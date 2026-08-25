@@ -298,6 +298,7 @@ _DEF = {
     # 01_, 02_... a los ítems de una playlist.
     "descargas_formato": "mp4", "descargas_bitrate": "192",
     "descargas_enumerar": "false",
+    "activo": "false", "puerto": "8730",
 }
 
 _CONFIG_FALLBACK = """\
@@ -367,6 +368,9 @@ anunciar_entradas = false
 # Registro detallado temporal para diagnosticar una instalación concreta.
 [diagnostico]
 registro_detallado = true
+[overlay]
+activo = false
+puerto = 8730
 # Componentes que anuncia F2 (estado de sesion). Editable en
 # Preferencias > Estado (F2). true = se dice; false = no.
 [estado]
@@ -379,6 +383,7 @@ aportes = true
 en_cola = false
 voz = false
 lectura_silenciada = true
+overlay = true
 
 # Gestor de descargas con yt-dlp. Formato: mp4 | webm | mp3 | m4a (mp3/m4a
 # requieren ffmpeg). Bitrate solo aplica a audio. Enumerar prefijá 01_, 02_...
@@ -629,6 +634,10 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "voz", "multivoz", "false")
     if not p.has_option("voz", "voz_eventos"):
         guardar_opcion(ruta, "voz", "voz_eventos", "0")
+    if not p.has_option("overlay", "activo"):
+        guardar_opcion(ruta, "overlay", "activo", "false")
+    if not p.has_option("overlay", "puerto"):
+        guardar_opcion(ruta, "overlay", "puerto", "8730")
 
     # Inyectar la sección [descargas] con defaults si falta cualquiera de sus
     # claves. `obtener_opciones_descarga` también lo hace standalone, pero
@@ -692,6 +701,8 @@ def cargar_configuracion() -> dict:
         "guardar_historial": guardar,
         "silenciar_lectura": _pb(p, "sesion", "silenciar_lectura"),
         "tiktok_anunciar_entradas": _pb(p, "tiktok", "anunciar_entradas"),
+        "overlay_activo": _pb(p, "overlay", "activo"),
+        "overlay_puerto": _pi(p, "overlay", "puerto", lo=1),
         "estado_toggles": estado_toggles,
         "atajos_raw": atajos_raw,
         "ruta_config": ruta,

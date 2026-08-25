@@ -38,6 +38,19 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(cfg["estrategia"], "limite")
         self.assertTrue(cfg["reconectar"])
 
+    def test_overlay_tiene_defaults_y_se_persiste_en_el_ejemplo(self):
+        cfg = self._cargar_en(config._CONFIG_FALLBACK)
+        self.assertFalse(cfg["overlay_activo"])
+        self.assertEqual(cfg["overlay_puerto"], 8730)
+        texto = (Path(self._tmp.name) / "config.ini").read_text(encoding="utf-8")
+        self.assertIn("[overlay]", texto)
+        self.assertIn("puerto = 8730", texto)
+
+    def test_overlay_puerto_tiene_minimo_uno(self):
+        cfg = self._cargar_en("[overlay]\nactivo = true\npuerto = 0\n")
+        self.assertTrue(cfg["overlay_activo"])
+        self.assertEqual(cfg["overlay_puerto"], 1)
+
     def test_clamp_velocidad(self):
         cfg = self._cargar_en("[voz]\nvelocidad = 9000\n")
         self.assertEqual(cfg["velocidad"], 500)

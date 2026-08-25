@@ -42,6 +42,8 @@ class SnapshotSesion:
     voz_velocidad: int = 0
     voz_volumen: int = 0
     lectura_silenciada: bool = False
+    overlay_puerto: int | None = None
+    overlay_clientes: int = 0
 
 
 # Orden canónico de los componentes: estado → contenido → actividad → ajustes.
@@ -55,6 +57,7 @@ COMPONENTES: tuple[str, ...] = (
     "en_cola",
     "voz",
     "lectura_silenciada",
+    "overlay",
 )
 
 # Activos por defecto: lo relevante para quien mira un directo. Lo técnico
@@ -62,6 +65,7 @@ COMPONENTES: tuple[str, ...] = (
 ACTIVOS_DEFECTO: frozenset[str] = frozenset({
     "estado", "titulo", "canal", "espectadores", "mensajes_leidos", "aportes",
     "lectura_silenciada",
+    "overlay",
 })
 
 # Etiquetas para el editor de Preferencias.
@@ -75,6 +79,7 @@ ETIQUETAS = {
     "en_cola":            "Mensajes en cola de lectura",
     "voz":                "Velocidad y volumen de la voz",
     "lectura_silenciada": "Aviso de lectura silenciada",
+    "overlay":            "Panel de chat para transmitir",
 }
 
 
@@ -134,6 +139,14 @@ def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
 
     if nombre == "lectura_silenciada":
         return "Lectura silenciada" if s.lectura_silenciada else ""
+
+    if nombre == "overlay":
+        if s.overlay_puerto is None:
+            return ""
+        if s.overlay_clientes:
+            return f"Panel de chat activo en el puerto {s.overlay_puerto}, mostrándose"
+        return (f"Panel de chat activo en el puerto {s.overlay_puerto}, pero nadie "
+                "lo está mostrando")
 
     return ""
 

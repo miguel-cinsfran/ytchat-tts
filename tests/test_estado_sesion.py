@@ -89,6 +89,20 @@ class TestCoherencia(unittest.TestCase):
         for nombre in ACTIVOS_DEFECTO:
             self.assertIn(nombre, COMPONENTES)
 
+    def test_panel_apagado_no_agrega_estado(self):
+        s = SnapshotSesion(overlay_puerto=None)
+        self.assertEqual(formatear_estado(s, {"overlay"}), "")
+
+    def test_panel_activo_distingue_clientes(self):
+        s = SnapshotSesion(overlay_puerto=9000, overlay_clientes=1)
+        self.assertEqual(
+            formatear_estado(s, {"overlay"}),
+            "Panel de chat activo en el puerto 9000, mostrándose.")
+        s = SnapshotSesion(overlay_puerto=9000, overlay_clientes=0)
+        self.assertEqual(
+            formatear_estado(s, {"overlay"}),
+            "Panel de chat activo en el puerto 9000, pero nadie lo está mostrando.")
+
 
 if __name__ == "__main__":
     unittest.main()
