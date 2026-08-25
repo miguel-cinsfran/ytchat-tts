@@ -158,6 +158,32 @@ class EnvoltorioOverlayTests(unittest.TestCase):
         overlay_servidor.apagar()
         self.assertEqual(overlay_servidor.cuantos_miran(), 0)
 
+    def test_cuantos_miran_cuenta_un_cliente_sse(self):
+        puerto = puerto_libre()
+        overlay_servidor.encender(puerto)
+        respuesta = urlopen(f"http://127.0.0.1:{puerto}/eventos", timeout=3)
+        try:
+            limite = time.monotonic() + 2
+            while time.monotonic() < limite and overlay_servidor.cuantos_miran() != 1:
+                time.sleep(0.01)
+            self.assertEqual(overlay_servidor.cuantos_miran(), 1)
+        finally:
+            respuesta.close()
+
+    def test_puerto_actual_es_none_con_el_panel_apagado(self):
+        self.assertIsNone(overlay_servidor.puerto_actual())
+
+    def test_encender_dos_veces_conserva_la_misma_instancia(self):
+        puerto = puerto_libre()
+        try:
+            overlay_servidor.encender(puerto)
+            instancia = overlay_servidor._INSTANCIA
+            overlay_servidor.encender(puerto)
+            self.assertIs(overlay_servidor._INSTANCIA, instancia)
+        finally:
+            overlay_servidor.apagar()
+        self.assertFalse(overlay_servidor.esta_encendido())
+
 
 if __name__ == "__main__":
     unittest.main()
