@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 import webbrowser
 
@@ -32,6 +33,7 @@ import credenciales
 import youtube_api
 import diagnostico
 import ytdlp_bin
+import apagado
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -334,6 +336,7 @@ class YTChatFrame(wx.Frame):
         self._worker    = worker
         self._parada    = parada
         self._alive     = True
+        self._apagando  = False
         self._conectado = False
         self._titulo_stream = ""
         self._tipo_video = deteccion.DESCONOCIDO
@@ -1357,6 +1360,9 @@ class YTChatFrame(wx.Frame):
     # ── Cierre y timer ───────────────────────────────────────────────────────
 
     def _on_close(self, event):
+        if self._apagando:
+            return
+        self._apagando = True
         self._alive = False
         try:    self._timer.Stop()
         except Exception: pass
@@ -1364,6 +1370,12 @@ class YTChatFrame(wx.Frame):
             try:    self._pendientes_timer.Stop()
             except Exception: pass
             self._pendientes_timer = None
+        hilos = apagado.hilos_captura_vivos(
+            tuple(hilo.name for hilo in threading.enumerate() if hilo.is_alive()))
+        if hilos:
+            anunciar("Cerrando")
+        try:    self.Hide()
+        except Exception: pass
         if self.on_desconectar_cb:
             try:    self.on_desconectar_cb()
             except Exception: pass
@@ -1379,6 +1391,22 @@ class YTChatFrame(wx.Frame):
         except Exception: pass
         try:    _snd.cerrar()
         except Exception: pass
+        if hilos:
+            self._cierre_inicio = time.monotonic()
+            self._cierre_tope = 3.0
+            wx.CallLater(200, self._comprobar_cierre)
+        else:
+            diagnostico.logger.info("%s", apagado.componer_resultado_cierre((), 3.0))
+            self.Destroy()
+
+    def _comprobar_cierre(self):
+        nombres = tuple(hilo.name for hilo in threading.enumerate() if hilo.is_alive())
+        transcurrido = time.monotonic() - self._cierre_inicio
+        if apagado.hay_que_seguir_esperando(nombres, transcurrido, self._cierre_tope):
+            wx.CallLater(200, self._comprobar_cierre)
+            return
+        diagnostico.logger.info(
+            "%s", apagado.componer_resultado_cierre(nombres, self._cierre_tope))
         self.Destroy()
 
     def _on_timer(self, event):
