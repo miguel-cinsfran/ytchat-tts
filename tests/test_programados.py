@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+import tempfile
 
 import programados
 
@@ -85,6 +87,47 @@ class TestDescribirProximo(unittest.TestCase):
                     {"activo": True, "proximo": 500}]
         self.assertEqual(programados.describir_proximo(mensajes, 0),
                          "Próximo mensaje programado en 6 minutos")
+
+
+class TestAlmacenamiento(unittest.TestCase):
+    def setUp(self):
+        self.temporal = tempfile.TemporaryDirectory()
+        self.ruta = Path(self.temporal.name) / "mensajes_programados.json"
+        self.addCleanup(self.temporal.cleanup)
+
+    def test_cargar_archivo_inexistente(self):
+        self.assertEqual(programados.cargar(self.ruta), [])
+
+    def test_cargar_archivo_vacio(self):
+        self.ruta.write_text("", encoding="utf-8")
+        self.assertEqual(programados.cargar(self.ruta), [])
+
+    def test_cargar_json_invalido(self):
+        self.ruta.write_text("{ roto", encoding="utf-8")
+        self.assertEqual(programados.cargar(self.ruta), [])
+
+    def test_cargar_json_que_no_es_lista(self):
+        self.ruta.write_text("{}", encoding="utf-8")
+        self.assertEqual(programados.cargar(self.ruta), [])
+
+    def test_cargar_filtra_y_completa_elementos(self):
+        self.ruta.write_text('[{"texto": "Hola"}, "basura"]', encoding="utf-8")
+        self.assertEqual(programados.cargar(self.ruta), [{
+            "texto": "Hola", "minutos_min": 10, "minutos_max": 10,
+            "activo": False, "proximo": 0.0,
+        }])
+
+    def test_guardar_y_cargar_conserva_los_mensajes(self):
+        mensajes = [{"texto": "Redes", "minutos_min": 10, "minutos_max": 12,
+                     "activo": True, "proximo": 600.0}]
+        programados.guardar(self.ruta, mensajes)
+        self.assertEqual(programados.cargar(self.ruta), mensajes)
+
+    def test_guardar_reemplaza_de_forma_atomica(self):
+        self.ruta.write_text("mensaje anterior", encoding="utf-8")
+        programados.guardar(self.ruta, [])
+        self.assertEqual(programados.cargar(self.ruta), [])
+        self.assertEqual(list(self.ruta.parent.glob("*.tmp")), [])
 
 
 if __name__ == "__main__":

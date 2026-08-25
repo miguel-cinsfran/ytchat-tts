@@ -77,3 +77,46 @@ def describir_proximo(mensajes: list[dict], ahora: float) -> str:
     minutos = math.ceil(restante / 60)
     unidad = "minuto" if minutos == 1 else "minutos"
     return f"Próximo mensaje programado en {minutos} {unidad}"
+
+
+def _normalizar_mensaje(mensaje: dict) -> dict:
+    resultado = dict(VALORES_POR_DEFECTO)
+    resultado.update(mensaje)
+    return resultado
+
+
+def cargar(ruta) -> list[dict]:
+    """Carga mensajes y devuelve una lista segura aunque el archivo esté roto."""
+    try:
+        with open(ruta, "r", encoding="utf-8") as archivo:
+            datos = json.load(archivo)
+        if not isinstance(datos, list):
+            return []
+        return [_normalizar_mensaje(mensaje) for mensaje in datos
+                if isinstance(mensaje, dict)]
+    except Exception:
+        return []
+
+
+def guardar(ruta, mensajes: list[dict]) -> None:
+    """Guarda mensajes mediante un temporal para conservar el archivo anterior."""
+    ruta = os.fspath(ruta)
+    directorio = os.path.dirname(os.path.abspath(ruta))
+    temporal = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=directorio,
+                prefix="mensajes_programados_", suffix=".tmp", delete=False) as archivo:
+            temporal = archivo.name
+            json.dump(mensajes, archivo, ensure_ascii=False, indent=2)
+            archivo.write("\n")
+            archivo.flush()
+            os.fsync(archivo.fileno())
+        os.replace(temporal, ruta)
+        temporal = None
+    finally:
+        if temporal is not None:
+            try:
+                os.unlink(temporal)
+            except OSError:
+                pass
