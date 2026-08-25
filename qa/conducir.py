@@ -37,6 +37,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -1722,6 +1723,38 @@ ESCENARIOS = {
 }
 
 
+_ESCENARIO_EN_CURSO = "ninguno todavía"
+
+
+def _armar_tope_global(minutos: float, app) -> None:
+    """Mata la corrida entera si se cuelga, diciendo en qué escenario fue.
+
+    Cada espera del banco tiene su propio tope, pero la corrida no tenía
+    ninguno. El 25/08/2026 se colgó con el diálogo de Preferencias abierto y se
+    quedó así hasta que alguien lo mató a mano, con la máquina del dueño
+    secuestrada. Un banco que puede no terminar no se puede dejar corriendo.
+
+    Sale con `os._exit` a propósito: si el hilo principal está bloqueado dentro
+    de una llamada nativa, una excepción no lo despierta.
+    """
+    def _matar():
+        print()
+        print(f"TOPE: la corrida pasó de {minutos:g} minutos y se corta.")
+        print(f"Se colgó en el escenario: {_ESCENARIO_EN_CURSO}")
+        print("La aplicación se cierra igual. Esto es un fallo del banco o del")
+        print("escenario, no necesariamente de la aplicación.")
+        try:
+            app.cerrar()
+        except Exception:
+            pass
+        sys.stdout.flush()
+        os._exit(2)
+
+    temporizador = threading.Timer(minutos * 60, _matar)
+    temporizador.daemon = True
+    temporizador.start()
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--escenario", action="append", default=None,
@@ -1735,6 +1768,9 @@ def main() -> int:
                    help="permite abrir el navegador de verdad")
     p.add_argument("--carpeta", default=None,
                    help="dónde dejar las grabaciones")
+    p.add_argument("--tope-minutos", dest="tope_minutos", type=float,
+                   default=20.0,
+                   help="corta la corrida entera si se cuelga (0 lo desactiva)")
     args = p.parse_args()
 
     pedidos = args.escenario or ["todos"]
@@ -1756,6 +1792,8 @@ def main() -> int:
     carpeta.mkdir(parents=True, exist_ok=True)
     app = Aplicacion(carpeta)
     res = Resultado()
+    if args.tope_minutos > 0:
+        _armar_tope_global(args.tope_minutos, app)
 
     # El arranque en frío monta su propia aplicación, y `main.py` no admite dos
     # a la vez. Va antes de levantar la compartida, y no dentro del bucle.
@@ -1780,6 +1818,8 @@ def main() -> int:
             print("AVISO: la sonda no dejó constancia. Podría estar hablando.")
 
         for nombre in pedidos:
+            global _ESCENARIO_EN_CURSO
+            _ESCENARIO_EN_CURSO = nombre
             print()
             print(f"--- escenario: {nombre} ---")
             try:
