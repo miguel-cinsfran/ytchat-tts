@@ -1813,6 +1813,69 @@ def escenario_overlay(app: Aplicacion, args, res: Resultado):
         app.abrir_por_menu(etiqueta)   # se deja como estaba
 
 
+def escenario_programados(app: Aplicacion, args, res: Resultado):
+    """La pestaña de mensajes automáticos, control por control.
+
+    Interesa sobre todo por los dos `wx.SpinCtrl`: son controles COMPUESTOS
+    (una caja de texto más dos flechas), y en Windows el `name=` de wx no
+    siempre llega al servicio de accesibilidad. Un intervalo que el lector
+    anuncia como «cuadro de edición» a secas, sin decir si es el mínimo o el
+    máximo, deja al usuario adivinando cuál de los dos está tocando.
+    """
+    etiqueta_pag = "Mensajes automáticos"
+    app.pedir("frente")
+    try:
+        app.abrir_por_menu("Preferencias")
+    except Exception as exc:
+        res.fallo(f"programados: no se pudo abrir Preferencias, {exc}")
+        return
+    if app.esperar_ventana("Preferencias", segundos=15) is None:
+        res.fallo("programados: Preferencias no abrió")
+        return
+
+    try:
+        paginas = app.pedir("pestanas", ventana="Preferencias").get(
+            "datos", {}).get("paginas", [])
+        if etiqueta_pag not in paginas:
+            res.fallo(f"programados: no existe la pestaña «{etiqueta_pag}»; "
+                      f"hay {paginas}")
+            return
+        res.nota(f"pestaña encontrada, es la {paginas.index(etiqueta_pag) + 1} "
+                 f"de {len(paginas)}")
+        app.pedir("pestanas", ventana="Preferencias",
+                  indice=paginas.index(etiqueta_pag))
+        time.sleep(0.4)
+
+        controles = app.arbol("Preferencias")
+        visibles = [c for c in controles if c.get("en_pantalla")]
+        revisar_nombres(visibles, res, "programados")
+
+        # El texto de introducción es donde se explican los límites de la API.
+        # Si desaparece, el usuario no tiene dónde enterarse.
+        textos = " ".join((c.get("etiqueta") or "") + " " + (c.get("nombre") or "")
+                          for c in controles)
+        for clave, que in (("5 minutos", "el intervalo mínimo"),
+                           ("200 caracteres", "el límite de caracteres"),
+                           ("enlaces", "el aviso sobre los enlaces")):
+            if clave not in textos:
+                res.fallo(f"programados: la introducción no menciona {que}")
+        if all(k in textos for k in ("5 minutos", "200 caracteres", "enlaces")):
+            res.nota("la introducción explica intervalo, longitud y enlaces")
+
+        # Los controles que tienen que estar, por su name= de wx.
+        esperados = ("ActivarProgramados", "ListaProgramados", "TextoProgramado",
+                     "MinutosMin", "MinutosMax", "MensajeActivo",
+                     "AgregarProgramado", "GuardarProgramado", "QuitarProgramado")
+        nombres = {(c.get("nombre") or "") for c in controles}
+        faltan = [n for n in esperados if n not in nombres]
+        if faltan:
+            res.fallo(f"programados: no aparecen en el árbol: {faltan}")
+        else:
+            res.nota(f"los {len(esperados)} controles de la pestaña están")
+    finally:
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+
+
 ESCENARIOS = {
     "menus": escenario_menus,
     "principal": escenario_principal,
@@ -1831,6 +1894,7 @@ ESCENARIOS = {
     "dos_conexiones": escenario_dos_conexiones,
     "directo_tiktok": escenario_directo_tiktok,
     "overlay": escenario_overlay,
+    "programados": escenario_programados,
 }
 
 
