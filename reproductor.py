@@ -35,6 +35,11 @@ _vlc = None          # binding python-vlc; se importa perezosamente
 _VLC_PREPARADO = False
 
 
+def _registrar_tiempo_precalentamiento(tramo: str, inicio: float, fin: float) -> None:
+    diagnostico.logger.info(
+        "VLC_PRECALENTAMIENTO tramo=%s ms=%.0f", tramo, (fin - inicio) * 1000)
+
+
 def _carpeta_vlc_empaquetada() -> str | None:
     if getattr(sys, "frozen", False):
         base = os.path.join(os.path.dirname(sys.executable), "vlc")
@@ -48,11 +53,13 @@ def _preparar_vlc() -> None:
     la copia de VLC junto al .exe y PRECARGA libvlccore para que el cargador de
     PyInstaller no falle al resolver la dependencia."""
     global _VLC_PREPARADO
+    inicio = time.monotonic()
     if _VLC_PREPARADO:
         return
     _VLC_PREPARADO = True
     base = _carpeta_vlc_empaquetada()
     if not base:
+        _registrar_tiempo_precalentamiento("preparar_dll", inicio, time.monotonic())
         return
     lib = os.path.join(base, "libvlc.dll")
     plugins = os.path.join(base, "plugins")
@@ -72,6 +79,7 @@ def _preparar_vlc() -> None:
         ctypes.CDLL(os.path.join(base, "libvlccore.dll"))
     except Exception as exc:
         logger.debug("preload libvlccore: %s", exc)
+    _registrar_tiempo_precalentamiento("preparar_dll", inicio, time.monotonic())
 
 
 def _cargar_vlc() -> bool:
@@ -80,11 +88,14 @@ def _cargar_vlc() -> bool:
     if _vlc is not None:
         return True
     _preparar_vlc()
+    inicio = time.monotonic()
     try:
         import vlc
         _vlc = vlc
+        _registrar_tiempo_precalentamiento("importar_modulo", inicio, time.monotonic())
         return True
     except Exception as exc:
+        _registrar_tiempo_precalentamiento("importar_modulo", inicio, time.monotonic())
         logger.warning("No se pudo cargar libVLC: %s", exc)
         return False
 
@@ -402,11 +413,16 @@ class ReproductorPanel(wx.Panel):
             return False
         with self._inst_lock:
             if self._inst is None:
+                inicio = time.monotonic()
                 try:
                     self._inst = _vlc.Instance(*_VLC_ARGS)
                 except Exception as exc:
+                    _registrar_tiempo_precalentamiento(
+                        "crear_instancia", inicio, time.monotonic())
                     logger.warning("No se pudo crear la instancia de VLC: %s", exc)
                     return False
+                _registrar_tiempo_precalentamiento(
+                    "crear_instancia", inicio, time.monotonic())
         return self._inst is not None
 
     def _precalentar(self) -> None:

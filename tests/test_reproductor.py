@@ -56,6 +56,58 @@ class TestAvisoReproductor(unittest.TestCase):
         self.assertEqual(reproductor.aviso_reproductor(True, True), "")
 
 
+class TestPrecalentamiento(unittest.TestCase):
+
+    def test_preparar_dll_registra_su_tramo(self):
+        anterior = reproductor._VLC_PREPARADO
+        try:
+            reproductor._VLC_PREPARADO = False
+            with mock.patch.object(reproductor, "_carpeta_vlc_empaquetada",
+                                   return_value=None), \
+                    mock.patch.object(reproductor.time, "monotonic",
+                                      side_effect=[1.0, 1.25]), \
+                    mock.patch.object(reproductor.diagnostico.logger, "info") as registrar:
+                reproductor._preparar_vlc()
+            registrar.assert_called_once_with(
+                "VLC_PRECALENTAMIENTO tramo=%s ms=%.0f", "preparar_dll", 250)
+        finally:
+            reproductor._VLC_PREPARADO = anterior
+
+    def test_importar_modulo_registra_su_tramo(self):
+        anterior = reproductor._vlc
+        try:
+            reproductor._vlc = None
+            with mock.patch.object(reproductor, "_preparar_vlc"), \
+                    mock.patch.object(reproductor.time, "monotonic",
+                                      side_effect=[2.0, 2.5]), \
+                    mock.patch.object(reproductor.diagnostico.logger, "info") as registrar, \
+                    mock.patch.dict(sys.modules, {"vlc": types.SimpleNamespace()}):
+                self.assertTrue(reproductor._cargar_vlc())
+            self.assertEqual(registrar.call_args.args[1:], ("importar_modulo", 500))
+        finally:
+            reproductor._vlc = anterior
+
+    def test_crear_instancia_registra_su_tramo(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._inst = None
+        panel._listo = True
+        panel._inst_lock = mock.Mock()
+        panel._inst_lock.__enter__ = mock.Mock(return_value=panel._inst_lock)
+        panel._inst_lock.__exit__ = mock.Mock(return_value=False)
+        instancia = object()
+        anterior = reproductor._vlc
+        try:
+            reproductor._vlc = types.SimpleNamespace(Instance=lambda *_: instancia)
+            with mock.patch.object(reproductor, "_cargar_vlc", return_value=True), \
+                    mock.patch.object(reproductor.time, "monotonic",
+                                      side_effect=[3.0, 3.75]), \
+                    mock.patch.object(reproductor.diagnostico.logger, "info") as registrar:
+                self.assertTrue(panel._asegurar_instancia())
+            self.assertEqual(registrar.call_args.args[1:], ("crear_instancia", 750))
+        finally:
+            reproductor._vlc = anterior
+
+
 class TestAvisoAlReproducir(unittest.TestCase):
 
     def test_reproducir_sin_medio_anuncia(self):
