@@ -111,6 +111,21 @@ class TestMenusPorConexion(unittest.TestCase):
 
 class TestActualizarYtdlp(unittest.TestCase):
 
+    class Dialogo:
+        def __init__(self, cancelado=False):
+            self.cancelado = cancelado
+            self.actualizaciones = []
+            self.destruido = False
+
+        def WasCancelled(self):
+            return self.cancelado
+
+        def Update(self, *argumentos):
+            self.actualizaciones.append(argumentos)
+
+        def Destroy(self):
+            self.destruido = True
+
     def _ejecutar(self, resultado):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         anuncios = []
@@ -166,6 +181,39 @@ class TestActualizarYtdlp(unittest.TestCase):
             crear.side_effect = lambda target, nombre: setattr(hilo, "target", target) or hilo
             gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
         mensaje.assert_called_once_with("firma_incorrecta", "", "2026.08.21")
+
+    def test_cancelar_usa_was_cancelled_y_muestra_mensaje_propio(self):
+        dialogo = self.Dialogo(cancelado=True)
+        hilo = mock.Mock()
+        hilo.start.side_effect = lambda: hilo.target()
+
+        def crear(target, nombre):
+            hilo.target = target
+            return hilo
+
+        def actualizar(antes, progreso, cancelar):
+            antes()
+            self.assertTrue(cancelar())
+            return "cancelado", "2026.08.20", "2026.08.21"
+
+        with mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
+                mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui.wx, "CallLater"), \
+                mock.patch.object(gui.wx, "ProgressDialog", return_value=dialogo), \
+                mock.patch.object(gui.wx, "MessageBox") as mensaje, \
+                mock.patch.object(ytdlp_bin, "actualizar_ytdlp", side_effect=actualizar):
+            gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
+        self.assertIn("Se canceló la descarga de yt-dlp.", mensaje.call_args.args[0])
+        self.assertTrue(dialogo.destruido)
+
+    def test_icono_de_resultado_distingue_fallo_y_acierto(self):
+        for estado, icono in (
+                ("actualizado", gui.wx.ICON_INFORMATION),
+                ("otro_fallo", gui.wx.ICON_ERROR)):
+            with self.subTest(estado=estado):
+                _, dialogos, _ = self._ejecutar((estado, "", "2026.08.21"))
+                self.assertEqual(icono, dialogos[-1][2] & (gui.wx.ICON_ERROR | gui.wx.ICON_INFORMATION))
 
     def test_anuncia_antes_de_descargar_y_al_terminar(self):
         anuncios = []

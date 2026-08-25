@@ -20,6 +20,9 @@ class PruebasYtdlpBin(unittest.TestCase):
         self.assertIsNone(ytdlp_bin.porcentaje_descarga(50, None))
         self.assertEqual(25, ytdlp_bin.porcentaje_descarga(25, 100))
 
+    def test_porcentaje_no_supera_cien(self):
+        self.assertEqual(100, ytdlp_bin.porcentaje_descarga(150, 100))
+
     def test_texto_solo_avanza_en_decenas(self):
         self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(None, 0))
         self.assertFalse(ytdlp_bin.debe_actualizar_texto_progreso(0, 9))
@@ -60,6 +63,23 @@ class PruebasYtdlpBin(unittest.TestCase):
             self.assertEqual([], list(Path(carpeta).glob(".yt-dlp-*.tmp")))
         self.assertFalse(resultado.correcta)
         self.assertIn("cancelada", resultado.motivo)
+
+    def test_actualizar_convierte_cancelacion_en_estado_cancelado(self):
+        respuesta = MagicMock()
+        respuesta.read.return_value = b"yt-dlp.exe  firma"
+        with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="anterior.exe"), \
+                patch.object(ytdlp_bin, "version_ytdlp", return_value="2026.08.20"), \
+                patch.object(ytdlp_bin, "ultima_version_ytdlp", return_value=(
+                    "2026.08.21", "https://ejemplo/yt-dlp.exe", "https://ejemplo/firmas"
+                )), \
+                patch.object(ytdlp_bin, "urlopen", return_value=respuesta), \
+                patch.object(ytdlp_bin, "firma_sha256", return_value="firma"), \
+                patch.object(ytdlp_bin, "descargar_ytdlp", return_value=(
+                    ytdlp_bin.ResultadoDescarga(False, "descarga cancelada")
+                )):
+            respuesta.__enter__.return_value = respuesta
+            estado = ytdlp_bin.actualizar_ytdlp()
+        self.assertEqual(("cancelado", "2026.08.20", "2026.08.21"), estado)
     def test_mensaje_ya_al_dia(self):
         self.assertEqual(
             "Ya tienes yt-dlp al día, versión 2026.08.20.",

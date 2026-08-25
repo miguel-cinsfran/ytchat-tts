@@ -557,7 +557,7 @@ class YTChatFrame(wx.Frame):
             def _comprobar_cancelacion():
                 if terminado.is_set():
                     return
-                if dialogo.IsCancelled():
+                if dialogo.WasCancelled():
                     cancelado.set()
                 wx.CallLater(100, _comprobar_cancelacion)
 
