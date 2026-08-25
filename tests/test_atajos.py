@@ -1,6 +1,7 @@
 """Tests del parseo de atajos de teclado (config.parsear_atajos)."""
 
 import unittest
+import inspect
 from unittest import mock
 
 from config import (
@@ -8,6 +9,7 @@ from config import (
     ATAJOS_FIJOS, ATAJOS_FIJOS_DEFAULTS, ATAJOS_GRUPOS, todos_los_atajos_default,
 )
 import gui_preferencias
+import gui
 from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
@@ -152,6 +154,24 @@ class TestParsearAtajos(unittest.TestCase):
         atajos = parsear_atajos({})
         self.assertEqual(atajos["rep_detener"].texto, "ctrl+d")
         self.assertEqual(atajos["desconectar"].texto, "alt+d")
+
+    def test_nuevos_atajos_editables_tienen_area_y_grupo(self):
+        for accion, valor, area in (
+                ("pantalla_completa", "ctrl+f", "ctrl"),
+                ("ir_lista", "alt+l", "alt")):
+            self.assertEqual(ATAJOS_DEFAULTS[accion], valor)
+            self.assertEqual(ATAJOS_AREA[accion], area)
+            self.assertNotIn(accion, ATAJOS_FIJOS)
+            self.assertIn(accion, {
+                accion_grupo for _, acciones in ATAJOS_GRUPOS for accion_grupo in acciones
+            })
+
+    def test_menus_usan_el_sistema_para_los_nuevos_atajos(self):
+        fuente = inspect.getsource(gui.YTChatFrame._build_menubar)
+        self.assertIn('self._accel("ir_lista")', fuente)
+        self.assertIn('self._accel("pantalla_completa")', fuente)
+        self.assertNotIn("\\tAlt+L", fuente)
+        self.assertNotIn("\\tCtrl+F", fuente)
 
 
 if __name__ == "__main__":

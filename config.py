@@ -111,10 +111,12 @@ ATAJOS_DEFAULTS = {
     "rep_vol_menos":     "ctrl+down",
     "rep_vol_mas":       "ctrl+up",
     "descargas_abrir":   "ctrl+s",
+    "pantalla_completa": "ctrl+f",
     # Conexión y chat (Alt)
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
     "enviar_chat":       "alt+enter",
+    "ir_lista":          "alt+l",
     # Voz / lectura (teclas F)
     "pausa":             "f5",
     "detener_tts":       "f8",
@@ -145,9 +147,9 @@ ATAJOS_FIJOS = {
 ATAJOS_GRUPOS = [
     ("Reproductor (Ctrl)",
      ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
-      "rep_vol_menos", "rep_vol_mas", "descargas_abrir"]),
+      "rep_vol_menos", "rep_vol_mas", "descargas_abrir", "pantalla_completa"]),
     ("Conexión y chat (Alt)",
-     ["conectar", "desconectar", "enviar_chat", "salir"]),
+     ["conectar", "desconectar", "enviar_chat", "ir_lista", "salir"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",

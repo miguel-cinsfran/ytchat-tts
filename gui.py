@@ -406,7 +406,7 @@ class YTChatFrame(wx.Frame):
         mi_ant = m.Append(wx.ID_ANY, "Región &anterior\tShift+F6")
         m.AppendSeparator()
         mi_conx = m.Append(wx.ID_ANY, "Ir a co&nexión (URL)")
-        mi_lista = m.Append(wx.ID_ANY, "Ir a la &lista del panel actual\tAlt+L")
+        mi_lista = m.Append(wx.ID_ANY, "Ir a la &lista del panel actual" + self._accel("ir_lista"))
         mi_chat = m.Append(wx.ID_ANY, "Ir a &Chat en vivo")
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
         mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
@@ -473,7 +473,7 @@ class YTChatFrame(wx.Frame):
         mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 1 minuto" + self._accel("rep_avanz"))
         mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción" + self._accel("rep_detener"))
         mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio" + self._accel("rep_mute"))
-        mi_rep_fs    = m.Append(wx.ID_ANY, "Pantalla &completa\tCtrl+F")
+        mi_rep_fs    = m.Append(wx.ID_ANY, "Pantalla &completa" + self._accel("pantalla_completa"))
         # Submenú de calidad (radio). Se elige la disponible más cercana.
         sub_cal = wx.Menu()
         for etiqueta, altura in (("Automática", None), ("1080p", 1080), ("720p", 720),

@@ -752,10 +752,12 @@ _ETIQUETAS_ATAJO = {
     "rep_vol_menos":     "Bajar volumen del reproductor",
     "rep_vol_mas":       "Subir volumen del reproductor",
     "descargas_abrir":   "Abrir el gestor de descargas",
+    "pantalla_completa": "Pantalla completa",
     # Conexión y chat
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",
     "enviar_chat":       "Enviar mensaje al chat",
+    "ir_lista":          "Ir a la lista del panel actual",
     "salir":             "Salir de la aplicación",
     # Voz / lectura
     "pausa":             "Pausar o reanudar lectura",
