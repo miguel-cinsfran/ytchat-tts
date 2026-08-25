@@ -334,6 +334,30 @@ class TestCierreVentana(unittest.TestCase):
 
         frame._diagnostico_parada.set.assert_called_once_with()
 
+    def test_menu_overlay_falla_y_queda_desmarcado(self):
+        frame = self._frame()
+        frame._config = {"overlay_puerto": 8730, "overlay_activo": False}
+        frame.mi_overlay = mock.Mock()
+        evento = mock.Mock()
+        evento.IsChecked.return_value = True
+        with mock.patch.object(gui.overlay_servidor, "encender",
+                               side_effect=gui.overlay_servidor.OverlayPuertoOcupadoError()), \
+                mock.patch.object(gui, "anunciar") as anunciar, \
+                mock.patch.object(gui, "RUTA_CONFIG", None):
+            frame._on_overlay(evento)
+        frame.mi_overlay.Check.assert_called_once_with(False)
+        self.assertFalse(frame._config["overlay_activo"])
+        anunciar.assert_called_once_with(
+            "No se pudo activar el panel, el puerto 8730 está ocupado")
+
+    def test_cerrar_apaga_el_overlay(self):
+        frame = self._frame()
+        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+                mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.overlay_servidor, "apagar") as apagar:
+            frame._on_close(None)
+        apagar.assert_called_once_with()
+
     def test_el_timer_actualiza_la_marca_del_vigilante(self):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         frame._alive = True

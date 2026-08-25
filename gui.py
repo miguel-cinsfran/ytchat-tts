@@ -35,6 +35,7 @@ import youtube_api
 import diagnostico
 import ytdlp_bin
 import apagado
+import overlay_servidor
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -533,12 +534,15 @@ class YTChatFrame(wx.Frame):
         self.mi_descargas = m.Append(
             wx.ID_ANY, "Gestor de &descargas…" + self._accel("descargas_abrir"))
         self.mi_actualizar_ytdlp = m.Append(wx.ID_ANY, "&Actualizar yt-dlp")
+        self.mi_overlay = m.AppendCheckItem(wx.ID_ANY, "&Panel de chat para transmitir")
+        self.mi_overlay.Check(bool(self._config.get("overlay_activo", False)))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
         self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(), self.mi_descargas)
         self.Bind(wx.EVT_MENU, self._on_actualizar_ytdlp,
                   self.mi_actualizar_ytdlp)
+        self.Bind(wx.EVT_MENU, self._on_overlay, self.mi_overlay)
 
         # Ayuda
         m = wx.Menu()
@@ -554,6 +558,24 @@ class YTChatFrame(wx.Frame):
 
         self.SetMenuBar(mb)
         self.mi_enviar_live.Enable(False)
+
+    def _on_overlay(self, event):
+        puerto = self._config.get("overlay_puerto", 8730)
+        if event.IsChecked():
+            try:
+                overlay_servidor.encender(puerto)
+            except overlay_servidor.OverlayPuertoOcupadoError:
+                self.mi_overlay.Check(False)
+                anunciar(f"No se pudo activar el panel, el puerto {puerto} está ocupado")
+                return
+            self._config["overlay_activo"] = True
+            guardar_opcion(RUTA_CONFIG, "overlay", "activo", "true")
+            anunciar(f"Panel de chat activo en el puerto {puerto}")
+            return
+        overlay_servidor.apagar()
+        self._config["overlay_activo"] = False
+        guardar_opcion(RUTA_CONFIG, "overlay", "activo", "false")
+        anunciar("Panel de chat apagado")
 
     def _on_actualizar_ytdlp(self, event):
         anunciar("Buscando la última versión de yt-dlp")
@@ -1172,6 +1194,8 @@ class YTChatFrame(wx.Frame):
             voz_velocidad=_seguro(lambda: self._worker.get_rate(), 0),
             voz_volumen=_seguro(lambda: self._worker.get_volume(), 0),
             lectura_silenciada=bool(self._config.get("silenciar_lectura", False)),
+            overlay_puerto=overlay_servidor.puerto_actual(),
+            overlay_clientes=overlay_servidor.cuantos_miran(),
         )
 
     def _total_aportes_texto(self) -> str:
@@ -1447,6 +1471,7 @@ class YTChatFrame(wx.Frame):
             try:    self.on_desconectar_cb()
             except Exception: pass
         self._parada.set()
+        overlay_servidor.apagar()
         try:
             self._rep_panel.detener_todo()
         except Exception: pass

@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 import unittest
+import io
 import tempfile
 from pathlib import Path
 from urllib.request import urlopen
@@ -129,13 +130,15 @@ class OverlayServidorTests(unittest.TestCase):
         self.assertTrue(self.servidor._hilo.daemon)
 
     def test_pagina_se_busca_en_la_carpeta_de_la_aplicacion(self):
-        with tempfile.TemporaryDirectory() as temporal:
-            carpeta = Path(temporal) / "web"
-            carpeta.mkdir()
-            (carpeta / "chat.html").write_bytes(b"paquete")
-            with mock.patch.object(
-                    overlay_servidor.config, "app_dir", return_value=Path(temporal)):
-                self.assertEqual(overlay_servidor._leer_pagina(), b"paquete")
+        carpeta = Path("carpeta-del-ejecutable")
+        ruta_esperada = carpeta / "web" / "chat.html"
+        original = Path.open
+        def abrir(ruta, *args, **kwargs):
+            self.assertEqual(ruta, ruta_esperada)
+            return io.BytesIO(b"paquete")
+        with mock.patch.object(overlay_servidor.config, "app_dir", return_value=carpeta), \
+                mock.patch.object(Path, "open", new=abrir):
+            self.assertEqual(overlay_servidor._leer_pagina(), b"paquete")
 
 
 class EnvoltorioOverlayTests(unittest.TestCase):
