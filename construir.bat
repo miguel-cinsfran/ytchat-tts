@@ -86,6 +86,7 @@ REM robocopy devuelve codigos ^>=1 incluso en exito; no encadenamos errorlevel.
 robocopy "dist\YTChatTTS" "%OUT%" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "sounds" "%OUT%\sounds" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "docs"   "%OUT%\docs"   /E /NFL /NDL /NJH /NJS /NP >nul
+robocopy "web"    "%OUT%\web"    /E /NFL /NDL /NJH /NJS /NP >nul
 if defined VLCDIR (
   echo == Empaquetando libVLC junto al exe (plugins de audio y video) ==
   robocopy "%VLCDIR%" "%OUT%\vlc" libvlc.dll libvlccore.dll /NFL /NDL /NJH /NJS /NP >nul

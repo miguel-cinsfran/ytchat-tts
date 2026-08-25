@@ -6,6 +6,8 @@ import json
 import queue
 import threading
 
+import config
+
 INTERVALO_LATIDO = 15
 
 
@@ -108,7 +110,7 @@ class OverlayServidor:
                 f"no se pudo reservar el puerto {self.puerto}") from error
         self._servidor = servidor
         self._hilo = threading.Thread(target=servidor.serve_forever,
-                                       name="OverlayServidor")
+                                       name="OverlayServidor", daemon=True)
         self._hilo.start()
 
     def detener(self):
@@ -141,6 +143,45 @@ class OverlayServidor:
 
 def _leer_pagina():
     from pathlib import Path
-    ruta = Path(__file__).parent / "web" / "chat.html"
+    ruta = config.app_dir() / "web" / "chat.html"
     with ruta.open("rb") as archivo:
         return archivo.read()
+
+
+_INSTANCIA = None
+
+
+def encender(puerto):
+    global _INSTANCIA
+    if _INSTANCIA is not None and _INSTANCIA._hilo is not None:
+        return
+    servidor = OverlayServidor(puerto)
+    servidor.iniciar()
+    _INSTANCIA = servidor
+
+
+def apagar():
+    global _INSTANCIA
+    if _INSTANCIA is None:
+        return
+    _INSTANCIA.detener()
+    _INSTANCIA = None
+
+
+def esta_encendido():
+    return _INSTANCIA is not None and _INSTANCIA._hilo is not None
+
+
+def difundir(evento):
+    if _INSTANCIA is not None:
+        _INSTANCIA.difundir(evento)
+
+
+def cuantos_miran():
+    if _INSTANCIA is None:
+        return 0
+    return _INSTANCIA.estado()["clientes"]
+
+
+def puerto_actual():
+    return _INSTANCIA.puerto if _INSTANCIA is not None else None

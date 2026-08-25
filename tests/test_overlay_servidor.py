@@ -3,7 +3,10 @@ import socket
 import threading
 import time
 import unittest
+import tempfile
+from pathlib import Path
 from urllib.request import urlopen
+from unittest import mock
 
 from overlay_datos import evento_de_mensaje
 from overlay_servidor import OverlayPuertoOcupadoError, OverlayServidor
@@ -121,6 +124,36 @@ class OverlayServidorTests(unittest.TestCase):
         finally:
             overlay_servidor.INTERVALO_LATIDO = original
             respuesta.close()
+
+    def test_hilo_del_servidor_es_demonio(self):
+        self.assertTrue(self.servidor._hilo.daemon)
+
+    def test_pagina_se_busca_en_la_carpeta_de_la_aplicacion(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            carpeta = Path(temporal) / "web"
+            carpeta.mkdir()
+            (carpeta / "chat.html").write_bytes(b"paquete")
+            with mock.patch.object(
+                    overlay_servidor.config, "app_dir", return_value=Path(temporal)):
+                self.assertEqual(overlay_servidor._leer_pagina(), b"paquete")
+
+
+class EnvoltorioOverlayTests(unittest.TestCase):
+    def tearDown(self):
+        overlay_servidor.apagar()
+
+    def test_difundir_apagado_no_hace_nada(self):
+        overlay_servidor.difundir({"texto": "sin panel"})
+        self.assertFalse(overlay_servidor.esta_encendido())
+
+    def test_envolver_encendido_y_apagado(self):
+        puerto = puerto_libre()
+        overlay_servidor.encender(puerto)
+        self.assertTrue(overlay_servidor.esta_encendido())
+        self.assertEqual(overlay_servidor.puerto_actual(), puerto)
+        overlay_servidor.apagar()
+        overlay_servidor.apagar()
+        self.assertEqual(overlay_servidor.cuantos_miran(), 0)
 
 
 if __name__ == "__main__":
