@@ -29,6 +29,11 @@ class ResultadoDescarga(NamedTuple):
     motivo: str
 
 
+def resultado_actualizacion_es_fallo(estado: str) -> bool:
+    """Indica si el resultado de actualizar yt-dlp es un fallo."""
+    return estado not in ("ya_al_dia", "actualizado")
+
+
 def mensaje_de_actualizacion(estado, version_actual="", version_nueva="",
                              motivo="") -> str:
     """Elige el anuncio breve para cada resultado de la actualización."""

@@ -9,6 +9,12 @@ import ytdlp_bin
 
 
 class PruebasYtdlpBin(unittest.TestCase):
+
+    def test_resultado_actualizacion_distingue_fallos(self):
+        self.assertFalse(ytdlp_bin.resultado_actualizacion_es_fallo("ya_al_dia"))
+        self.assertFalse(ytdlp_bin.resultado_actualizacion_es_fallo("actualizado"))
+        self.assertTrue(ytdlp_bin.resultado_actualizacion_es_fallo("sin_conexion"))
+        self.assertTrue(ytdlp_bin.resultado_actualizacion_es_fallo("otro_fallo"))
     def test_mensaje_ya_al_dia(self):
         self.assertEqual(
             "Ya tienes yt-dlp al día, versión 2026.08.20.",

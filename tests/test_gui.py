@@ -114,6 +114,7 @@ class TestActualizarYtdlp(unittest.TestCase):
     def _ejecutar(self, resultado):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         anuncios = []
+        dialogos = []
         hilo = mock.Mock()
         hilo.start.side_effect = lambda: hilo.target()
 
@@ -124,12 +125,13 @@ class TestActualizarYtdlp(unittest.TestCase):
         with mock.patch.object(gui, "anunciar", side_effect=anuncios.append), \
                 mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
                 mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui.wx, "MessageBox", side_effect=lambda *args: dialogos.append(args)), \
                 mock.patch.object(ytdlp_bin, "actualizar_ytdlp", return_value=resultado):
             gui.YTChatFrame._on_actualizar_ytdlp(frame, None)
-        return anuncios, hilo
+        return anuncios, dialogos, hilo
 
     def test_activar_anuncia_antes_de_empezar(self):
-        anuncios, hilo = self._ejecutar(("ya_al_dia", "2026.08.20", "2026.08.20"))
+        anuncios, dialogos, hilo = self._ejecutar(("ya_al_dia", "2026.08.20", "2026.08.20"))
         self.assertIn("Buscando", anuncios[0])
         hilo.start.assert_called_once()
 
@@ -143,18 +145,20 @@ class TestActualizarYtdlp(unittest.TestCase):
         )
         for resultado, esperado in casos:
             with self.subTest(esperado=esperado):
-                anuncios, _ = self._ejecutar(resultado)
-                self.assertTrue(any(esperado in texto for texto in anuncios))
+                anuncios, dialogos, _ = self._ejecutar(resultado)
+                self.assertIn("Buscando", anuncios[0])
+                self.assertTrue(any(esperado in texto[0] for texto in dialogos))
 
     def test_fallo_de_red_no_propaga_excepcion_y_anuncia(self):
-        anuncios, hilo = self._ejecutar(("sin_conexion", "", ""))
-        self.assertIn("conexión", anuncios[-1])
+        anuncios, dialogos, hilo = self._ejecutar(("sin_conexion", "", ""))
+        self.assertIn("conexión", dialogos[-1][0])
         hilo.start.assert_called_once()
 
     def test_pasa_el_estado_sin_mirar_el_motivo(self):
         with mock.patch.object(gui, "anunciar"), \
                 mock.patch.object(gui.diagnostico, "crear_hilo") as crear, \
                 mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui.wx, "MessageBox"), \
                 mock.patch.object(ytdlp_bin, "mensaje_de_actualizacion") as mensaje, \
                 mock.patch.object(ytdlp_bin, "actualizar_ytdlp", return_value=("firma_incorrecta", "", "2026.08.21")):
             hilo = mock.Mock()
@@ -179,11 +183,13 @@ class TestActualizarYtdlp(unittest.TestCase):
         with mock.patch.object(gui, "anunciar", side_effect=anuncios.append), \
                 mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
                 mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui.wx, "MessageBox") as mensaje, \
                 mock.patch.object(ytdlp_bin, "actualizar_ytdlp", side_effect=actualizar):
             gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
         self.assertIn("Buscando", anuncios[0])
         self.assertIn("Descargando", anuncios[1])
-        self.assertIn("actualizó", anuncios[2])
+        self.assertEqual(1, mensaje.call_count)
+        self.assertIn("actualizó", mensaje.call_args.args[0])
 
 
 class TestCierreVentana(unittest.TestCase):

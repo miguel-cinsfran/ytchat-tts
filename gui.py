@@ -552,9 +552,12 @@ class YTChatFrame(wx.Frame):
                     estado, version_actual, version_nueva)
             except Exception as exc:
                 logger.warning("actualización de yt-dlp: %s", exc)
+                estado = "otro_fallo"
                 texto = ytdlp_bin.mensaje_de_actualizacion(
                     "otro_fallo", motivo=str(exc))
-            wx.CallAfter(anunciar, texto)
+            icono = (wx.ICON_ERROR if ytdlp_bin.resultado_actualizacion_es_fallo(estado)
+                     else wx.ICON_INFORMATION)
+            wx.CallAfter(wx.MessageBox, texto, APP_NAME, wx.OK | icono, self)
 
         diagnostico.crear_hilo(_run, "ActualizarYtdlp").start()
 
