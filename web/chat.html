@@ -1,0 +1,157 @@
+<!doctype html><meta charset="utf-8"><title>Overlay de chat</title>
+<!--
+  Panel para los espectadores, NO para el usuario de la aplicación.
+
+  Va con aria-hidden y fuera del orden de Tab a propósito. El chat accesible es
+  la lista de la ventana principal, que ya tiene nombre y ya se lee. Si además
+  esto fuera una región viva, un lector de pantalla anunciaría cada mensaje
+  encima de lo que está diciendo el TTS de la aplicación, y se pisarían.
+
+  Es la misma excepción acordada para la ventana flotante: no recibe foco y no
+  entra en el Tab.
+-->
+<style>
+:root{
+  --tinta:#EDEAE7; --caja-alta:rgba(32,30,28,.93); --caja-baja:rgba(18,17,16,.93);
+  --borde:rgba(255,255,255,.08);
+  --yt:#E8745C; --tk:#2D9D8F; --oro:#E0AE4E;
+  /* variantes para TEXTO. Las de marca no llegan a 4.5 de contraste sobre
+     la tarjeta: #E8745C da 4.56 y #2D9D8F da 4.08. Las barras si pueden
+     usar las de marca, porque una forma solida no es texto. */
+  --yt-txt:#ED8068; --tk-txt:#3FB8A8;
+  --cuerpo:17px; --nombre:12.5px; --radio:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased}
+body{background:transparent}
+
+#chat{
+  height:100vh; padding:16px 16px 18px; list-style:none;
+  display:flex; flex-direction:column; justify-content:flex-end; gap:10px;
+}
+
+.msg{
+  position:relative;
+  display:grid; grid-template-columns:36px 1fr; gap:12px;
+  padding:11px 14px 12px; border-radius:var(--radio);
+  background:linear-gradient(180deg,var(--caja-alta),var(--caja-baja));
+  border:1px solid var(--borde);
+  box-shadow:0 12px 26px -10px rgba(0,0,0,.75), 0 2px 6px rgba(0,0,0,.4);
+  animation:entra .34s cubic-bezier(.2,.9,.3,1) both;
+}
+/* la barra de plataforma, como pieza propia para poder redondearla bien */
+.msg::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:4px;
+  border-radius:var(--radio) 0 0 var(--radio); background:var(--plat,var(--yt));
+  box-shadow:0 0 12px -2px var(--plat,var(--yt));
+}
+@keyframes entra{from{opacity:0;transform:translateY(10px) scale(.975)}}
+
+.msg:nth-last-child(n+6){opacity:.72}
+.msg:nth-last-child(n+9){opacity:.42}
+.msg:last-child{border-color:rgba(255,255,255,.17)}
+
+.av{
+  width:36px;height:36px;border-radius:50%;
+  display:grid;place-items:center;
+  font-size:15.5px;font-weight:700;color:#14100E;
+  background:var(--quien,var(--yt));
+  box-shadow:0 0 0 2px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.45);
+}
+.cab{display:flex;align-items:baseline;gap:7px;margin-bottom:3px}
+.nom{
+  font-size:var(--nombre);font-weight:700;letter-spacing:.055em;
+  text-transform:uppercase;color:var(--quien,var(--yt));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:13em;
+}
+.eti{
+  font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  padding:2px 6px;border-radius:5px;color:var(--plat-txt,var(--yt-txt));
+  border:1px solid var(--plat,var(--yt));background:rgba(0,0,0,.3);
+  flex:none;
+}
+.txt{font-size:var(--cuerpo);line-height:1.36;color:var(--tinta);
+  text-shadow:0 1px 2px rgba(0,0,0,.6);
+  word-break:break-word;overflow-wrap:anywhere}
+
+.tk{--plat:var(--tk); --plat-txt:var(--tk-txt)}
+.dona{--plat:var(--oro); --plat-txt:var(--oro); --quien:var(--oro);
+  background:linear-gradient(180deg,rgba(224,174,78,.26),var(--caja-baja));
+  border-color:rgba(224,174,78,.34)}
+.dona .monto{font-size:13px;font-weight:800;color:var(--oro);
+  letter-spacing:.02em;margin-left:auto;flex:none}
+
+</style>
+<ul id="chat" aria-hidden="true" role="presentation" tabindex="-1"></ul>
+<script>
+"use strict";
+
+// Paleta de nombres. Todas claras a propósito: tienen que contrastar sobre la
+// tarjeta oscura. El color de cada persona se deduce de su nombre, así que le
+// toca siempre el mismo durante toda la emisión.
+var PALETA = ["#ED8068", "#5FBFA8", "#E0AE4E", "#8FB8E8", "#C79BE0",
+              "#9CC97E", "#F0908A", "#6FD0C4", "#D8C06A", "#B0A8F0",
+              "#E3A277", "#7FC8E8"];
+var TOPE_EN_PANTALLA = 14;   // más que esto no se ve, y el DOM no crece sin fin
+
+// FNV-1a con una vuelta de mezcla al final. El clasico h*31 agrupa demasiado
+// con nombres cortos: medido sobre 300 nombres, se desviaba 11 del reparto
+// ideal contra 7 de este. Se nota, porque media sala termina del mismo color.
+function colorDe(nombre) {
+  var h = 2166136261;
+  for (var i = 0; i < nombre.length; i++) {
+    h = Math.imul(h ^ nombre.charCodeAt(i), 16777619);
+  }
+  h = (h ^ (h >>> 13)) >>> 0;
+  return PALETA[h % PALETA.length];
+}
+
+function inicialDe(nombre) {
+  var limpio = (nombre || "?").trim();
+  return limpio ? limpio[0].toUpperCase() : "?";
+}
+
+// Todo el texto entra con textContent. NUNCA con innerHTML: el autor y el
+// mensaje los escribe cualquiera del chat, y con innerHTML un espectador
+// ejecuta lo que quiera dentro del overlay.
+function nodo(clase, texto) {
+  var e = document.createElement("div");
+  e.className = clase;
+  if (texto !== undefined) { e.textContent = texto; }
+  return e;
+}
+
+function pintar(ev) {
+  var li = document.createElement("li");
+  li.className = "msg";
+  if (ev.plataforma === "tiktok") { li.classList.add("tk"); }
+  if (ev.monto) { li.classList.add("dona"); }
+  li.style.setProperty("--quien", ev.monto ? "var(--oro)" : colorDe(ev.autor || ""));
+
+  var cuerpo = document.createElement("div");
+  var cab = nodo("cab");
+  cab.appendChild(nodo("nom", ev.autor || "anónimo"));
+  cab.appendChild(nodo("eti", ev.plataforma === "tiktok" ? "TikTok" : "YouTube"));
+  if (ev.monto) { cab.appendChild(nodo("monto", ev.monto)); }
+
+  cuerpo.appendChild(cab);
+  cuerpo.appendChild(nodo("txt", ev.texto || ""));
+  li.appendChild(nodo("av", inicialDe(ev.autor)));
+  li.appendChild(cuerpo);
+
+  var lista = document.getElementById("chat");
+  lista.appendChild(li);
+  while (lista.children.length > TOPE_EN_PANTALLA) {
+    lista.removeChild(lista.firstElementChild);
+  }
+}
+
+// EventSource reintenta la conexión solo. Eso es lo que hace que el overlay se
+// recupere si la aplicación se reinicia, sin que nadie toque OBS.
+var fuente = new EventSource("/eventos");
+fuente.onmessage = function (e) {
+  try { pintar(JSON.parse(e.data)); } catch (err) { /* un evento roto no tumba el resto */ }
+};
+</script>
