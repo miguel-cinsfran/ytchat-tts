@@ -273,6 +273,52 @@ class TestActualizarYtdlp(unittest.TestCase):
 
 class TestCierreVentana(unittest.TestCase):
 
+    def test_el_overlay_activo_se_enciende_al_construir_la_ventana(self):
+        configuracion = {"overlay_activo": True, "overlay_puerto": 8730}
+
+        def construir_menu(frame):
+            frame.mi_overlay = mock.Mock()
+
+        with mock.patch.object(gui.wx.Frame, "__init__", return_value=None), \
+                mock.patch.object(gui.YTChatFrame, "_build_menubar", construir_menu), \
+                mock.patch.object(gui.YTChatFrame, "_build_ui"), \
+                mock.patch.object(gui.YTChatFrame, "_bind_events"), \
+                mock.patch.object(gui.YTChatFrame, "_init_timer"), \
+                mock.patch.object(gui.YTChatFrame, "SetBackgroundColour"), \
+                mock.patch.object(gui.YTChatFrame, "Centre"), \
+                mock.patch.object(gui, "anunciar_conflictos_atajos"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo") as crear, \
+                mock.patch.object(gui.overlay_servidor, "encender") as encender, \
+                mock.patch.object(gui, "guardar_opcion"), \
+                mock.patch.object(gui, "anunciar"):
+            gui.YTChatFrame(None, configuracion, None, None, None, None)
+
+        encender.assert_called_once_with(8730)
+
+    def test_el_overlay_no_miente_si_el_puerto_esta_ocupado_al_arrancar(self):
+        configuracion = {"overlay_activo": True, "overlay_puerto": 8730}
+
+        def construir_menu(frame):
+            frame.mi_overlay = mock.Mock()
+
+        with mock.patch.object(gui.wx.Frame, "__init__", return_value=None), \
+                mock.patch.object(gui.YTChatFrame, "_build_menubar", construir_menu), \
+                mock.patch.object(gui.YTChatFrame, "_build_ui"), \
+                mock.patch.object(gui.YTChatFrame, "_bind_events"), \
+                mock.patch.object(gui.YTChatFrame, "_init_timer"), \
+                mock.patch.object(gui.YTChatFrame, "SetBackgroundColour"), \
+                mock.patch.object(gui.YTChatFrame, "Centre"), \
+                mock.patch.object(gui, "anunciar_conflictos_atajos"), \
+                mock.patch.object(gui.diagnostico, "crear_hilo"), \
+                mock.patch.object(gui.overlay_servidor, "encender", side_effect=gui.overlay_servidor.OverlayPuertoOcupadoError), \
+                mock.patch.object(gui, "guardar_opcion"), \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            frame = gui.YTChatFrame(None, configuracion, None, None, None, None)
+
+        frame.mi_overlay.Check.assert_called_once_with(False)
+        anunciar.assert_called_once_with(
+            "No se pudo activar el panel, el puerto 8730 está ocupado")
+
     def test_el_precalentamiento_se_arranca_solo_con_la_ventana_viva(self):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         frame._alive = True

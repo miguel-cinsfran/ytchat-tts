@@ -383,6 +383,8 @@ class YTChatFrame(wx.Frame):
 
         self.SetBackgroundColour(_T.bg)
         self._build_menubar()
+        if self._config.get("overlay_activo", False):
+            self._cambiar_overlay(True)
         self._build_ui()
         self._bind_events()
         self._init_timer()
@@ -560,8 +562,11 @@ class YTChatFrame(wx.Frame):
         self.mi_enviar_live.Enable(False)
 
     def _on_overlay(self, event):
+        self._cambiar_overlay(event.IsChecked())
+
+    def _cambiar_overlay(self, encender):
         puerto = self._config.get("overlay_puerto", 8730)
-        if event.IsChecked():
+        if encender:
             try:
                 overlay_servidor.encender(puerto)
             except overlay_servidor.OverlayPuertoOcupadoError:
