@@ -565,6 +565,21 @@ def armar_callbacks_captura(cola, config, stats, parada):
     return conexiones.conectar, conexiones.desconectar
 
 
+def iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=None):
+    """Arranca la GUI y registra el cierre cuando termina su bucle."""
+    if iniciar_gui_fn is None:
+        from gui import iniciar_gui as iniciar_gui_fn
+    iniciar_captura_cb, detener_captura_cb = armar_callbacks_captura(
+        cola, config, stats, parada)
+    iniciar_gui_fn(
+        config=config, cola=cola, stats=stats, worker=worker, parada=parada,
+        iniciar_captura_cb=iniciar_captura_cb,
+        detener_captura_cb=detener_captura_cb,
+    )
+    diagnostico.registrar_cierre_fallos()
+    _snd.cerrar()
+
+
 def main():
     # Aquí y no al importar el módulo: así los tests y el smoke test pueden
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
@@ -637,16 +652,7 @@ def main():
             pass
         sys.exit(1)
 
-    iniciar_captura_cb, detener_captura_cb = armar_callbacks_captura(
-        cola, config, stats, parada)
-    iniciar_gui(
-        config=config, cola=cola, stats=stats, worker=worker, parada=parada,
-        iniciar_captura_cb=iniciar_captura_cb,
-        detener_captura_cb=detener_captura_cb,
-    )
-
-    diagnostico.registrar_cierre_fallos()
-    _snd.cerrar()
+    iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=iniciar_gui)
     sys.exit(0)
 
 
