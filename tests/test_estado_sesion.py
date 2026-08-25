@@ -85,6 +85,15 @@ class TestModoLargo(unittest.TestCase):
 
 class TestCoherencia(unittest.TestCase):
 
+    def test_mensajes_programados_se_anuncian_si_hay_dato(self):
+        s = SnapshotSesion(programados_proximo=
+                           "Próximo mensaje programado en 4 minutos")
+        self.assertEqual(formatear_estado(s, {"programados"}),
+                         "Próximo mensaje programado en 4 minutos.")
+
+    def test_mensajes_programados_vacios_se_omiten(self):
+        self.assertEqual(formatear_estado(SnapshotSesion(), {"programados"}), "")
+
     def test_activos_defecto_son_componentes_validos(self):
         for nombre in ACTIVOS_DEFECTO:
             self.assertIn(nombre, COMPONENTES)

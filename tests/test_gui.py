@@ -152,6 +152,7 @@ class TestProgramadosEnPreferencias(unittest.TestCase):
             self.assertEqual(guardados, [mensajes[0]])
             self.assertNotIn("Quitar", ruta.read_text(encoding="utf-8"))
 
+
     def test_guardar_edita_la_fila_elegida(self):
         mensajes = [
             {"texto": "Primero", "proximo": 100.0},
@@ -188,6 +189,125 @@ class TestProgramadosEnPreferencias(unittest.TestCase):
             dialogo._quitar_programado(None)
 
         anunciar.assert_called_once_with("Elegí primero un mensaje de la lista")
+
+
+class TestProgramadorGui(unittest.TestCase):
+    def _frame(self, **config):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._config = {"programados_activo": True, **config}
+        frame._mensajes_programados = [{"texto": "Hola", "activo": True,
+                                        "minutos_min": 5, "minutos_max": 5,
+                                        "proximo": 0.0}]
+        frame._programados_reloj_iniciado = True
+        frame._programados_ultimo_envio = None
+        frame._programado_en_curso = False
+        frame._conectado = True
+        frame._es_tiktok = False
+        frame._live_chat_id = "chat"
+        return frame
+
+    def test_envio_exitoso_avanza_el_reloj(self):
+        frame = self._frame()
+        with mock.patch.object(gui.programados, "calcular_proximo",
+                               return_value=900.0) as calcular:
+            frame._programado_enviado(frame._mensajes_programados[0])
+        self.assertEqual(frame._mensajes_programados[0]["proximo"], 900.0)
+        self.assertIsNotNone(frame._programados_ultimo_envio)
+        calcular.assert_called_once()
+
+    def test_envia_con_el_doble_de_la_api_sin_anunciar_exito(self):
+        frame = self._frame()
+        cliente = mock.Mock()
+        cliente.token_actualizado.return_value = None
+
+        class Hilo:
+            def __init__(self, objetivo):
+                self.objetivo = objetivo
+
+            def start(self):
+                self.objetivo()
+
+        with mock.patch.object(gui.youtube_api, "ClienteYouTube",
+                               return_value=cliente), \
+                mock.patch.object(gui.credenciales, "cargar", return_value={}), \
+                mock.patch.object(gui.diagnostico, "crear_hilo",
+                                  side_effect=lambda objetivo, nombre: Hilo(objetivo)), \
+                mock.patch.object(gui.wx, "CallAfter",
+                                  side_effect=lambda fn, *args: fn(*args)), \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            frame._enviar_programado(frame._mensajes_programados[0], 1000.0)
+        cliente.enviar_mensaje_live.assert_called_once_with("chat", "Hola")
+        anunciar.assert_not_called()
+
+    def test_no_duplica_un_envio_en_curso(self):
+        frame = self._frame()
+        frame._programado_en_curso = True
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_al_encender_da_cuerda_al_reloj(self):
+        frame = self._frame()
+        frame._programados_reloj_iniciado = False
+        with mock.patch.object(gui.programados, "iniciar_reloj") as iniciar:
+            frame._iniciar_programados_si_corresponde(1000.0)
+        iniciar.assert_called_once()
+        self.assertTrue(frame._programados_reloj_iniciado)
+
+    def test_no_envia_si_no_hay_conexion(self):
+        frame = self._frame()
+        frame._conectado = False
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_no_envia_sin_sesion_api(self):
+        frame = self._frame()
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=False), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_no_envia_si_falta_live_chat_id(self):
+        frame = self._frame()
+        frame._live_chat_id = ""
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_no_envia_si_interruptor_apagado(self):
+        frame = self._frame(programados_activo=False)
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_no_envia_en_tiktok(self):
+        frame = self._frame()
+        frame._es_tiktok = True
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_no_envia_si_elegir_devuelve_none(self):
+        frame = self._frame()
+        with mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(gui.programados, "elegir_envio", return_value=None), \
+                mock.patch.object(frame, "_enviar_programado") as enviar:
+            frame._procesar_programado()
+        enviar.assert_not_called()
+
+    def test_error_apaga_programador_y_anuncia_una_vez(self):
+        frame = self._frame()
+        with mock.patch.object(gui, "anunciar") as anunciar:
+            frame._programado_fallo(RuntimeError("rateLimitExceeded"))
+        self.assertFalse(frame._config["programados_activo"])
+        anunciar.assert_called_once_with(
+            "Los mensajes automáticos se detuvieron por un error del servicio.")
 
 
 class TestActualizarYtdlp(unittest.TestCase):

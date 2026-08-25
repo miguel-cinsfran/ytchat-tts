@@ -48,6 +48,18 @@ class TestCalcularProximo(unittest.TestCase):
                                                        lambda a, b: 720), 1720)
 
 
+class TestIniciarReloj(unittest.TestCase):
+    def test_da_cuerda_a_activos_y_no_toca_pausados(self):
+        activos = [{"activo": True, "minutos_min": 5, "minutos_max": 10,
+                    "proximo": 0.0}]
+        pausados = {"activo": False, "minutos_min": 5, "minutos_max": 5,
+                    "proximo": 17.0}
+        mensajes = activos + [pausados]
+        programados.iniciar_reloj(mensajes, 1000.0, lambda minimo, maximo: 420)
+        self.assertEqual(activos[0]["proximo"], 1420.0)
+        self.assertEqual(pausados["proximo"], 17.0)
+
+
 class TestElegirEnvio(unittest.TestCase):
     def setUp(self):
         self.mensajes = [

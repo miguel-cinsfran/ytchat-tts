@@ -51,6 +51,16 @@ def calcular_proximo(minutos_min: int, minutos_max: int,
     return ahora + aleatorio(minutos_min * 60, minutos_max * 60)
 
 
+def iniciar_reloj(mensajes: list[dict], ahora: float, aleatorio) -> None:
+    """Da cuerda al reloj de los mensajes activos de esta sesión."""
+    for mensaje in mensajes:
+        if mensaje.get("activo", False):
+            mensaje["proximo"] = calcular_proximo(
+                mensaje.get("minutos_min", 10),
+                mensaje.get("minutos_max", mensaje.get("minutos_min", 10)),
+                ahora, aleatorio)
+
+
 def elegir_envio(mensajes: list[dict], ahora: float,
                  ultimo_envio: float | None) -> dict | None:
     """Devuelve el mensaje activo vencido más antiguo que puede enviarse."""

@@ -9,6 +9,7 @@ URL es un directo o un vídeo subido y se ajustan los paneles.
 from __future__ import annotations
 
 import logging
+import random
 import re
 import threading
 import time
@@ -36,6 +37,7 @@ import diagnostico
 import ytdlp_bin
 import apagado
 import overlay_servidor
+import programados
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -367,6 +369,11 @@ class YTChatFrame(wx.Frame):
         self._sc_totales: dict[str, float] = {}
         self._canal_por_autor: dict[str, str] = {}
         self._live_chat_id = ""
+        self._mensajes_programados = programados.cargar(
+            app_dir() / "mensajes_programados.json")
+        self._programados_reloj_iniciado = False
+        self._programados_ultimo_envio = None
+        self._programado_en_curso = False
 
         # Voz activa (antes era un wx.Choice; ahora es un submenú de radio).
         self._voz_idx = 0
@@ -1201,6 +1208,9 @@ class YTChatFrame(wx.Frame):
             lectura_silenciada=bool(self._config.get("silenciar_lectura", False)),
             overlay_puerto=overlay_servidor.puerto_actual(),
             overlay_clientes=overlay_servidor.cuantos_miran(),
+            programados_proximo=(
+                programados.describir_proximo(self._mensajes_programados, time.time())
+                if self._config.get("programados_activo", False) else ""),
         )
 
     def _total_aportes_texto(self) -> str:
@@ -1270,9 +1280,71 @@ class YTChatFrame(wx.Frame):
 
     def _actualizar_estado_online(self):
         puede = bool(self._conectado and self._live_chat_id
-                     and youtube_api.google_disponible() and credenciales.hay_sesion())
+                     and self._sesion_api_disponible())
         try:    self.mi_enviar_live.Enable(puede)
         except Exception: pass
+
+    def _sesion_api_disponible(self) -> bool:
+        return bool(youtube_api.google_disponible() and credenciales.hay_sesion())
+
+    def _iniciar_programados_si_corresponde(self, ahora: float) -> None:
+        if self._programados_reloj_iniciado:
+            return
+        if not self._config.get("programados_activo", False):
+            return
+        programados.iniciar_reloj(self._mensajes_programados, ahora, random.randint)
+        self._programados_reloj_iniciado = True
+
+    def _enviar_programado(self, mensaje: dict, ahora: float) -> None:
+        self._programado_en_curso = True
+        lcid = self._live_chat_id
+        texto = mensaje.get("texto", "")
+
+        def _run():
+            try:
+                cli = youtube_api.ClienteYouTube(credenciales.cargar())
+                cli.enviar_mensaje_live(lcid, texto)
+                if cli.token_actualizado():
+                    credenciales.guardar_campo("token", cli.token_actualizado())
+                wx.CallAfter(self._programado_enviado, mensaje)
+            except Exception as exc:
+                logger.warning("mensaje automático: error del servicio: %s", type(exc).__name__)
+                wx.CallAfter(self._programado_fallo, exc)
+
+        diagnostico.crear_hilo(_run, "MensajeProgramado").start()
+
+    def _programado_enviado(self, mensaje: dict) -> None:
+        self._programado_en_curso = False
+        ahora = time.time()
+        mensaje["proximo"] = programados.calcular_proximo(
+            mensaje.get("minutos_min", 10),
+            mensaje.get("minutos_max", mensaje.get("minutos_min", 10)),
+            ahora, random.randint)
+        self._programados_ultimo_envio = ahora
+
+    def _programado_fallo(self, exc) -> None:
+        self._programado_en_curso = False
+        if not self._config.get("programados_activo", False):
+            return
+        self._config["programados_activo"] = False
+        anunciar("Los mensajes automáticos se detuvieron por un error del servicio.")
+
+    def _procesar_programado(self) -> None:
+        ahora = time.time()
+        self._iniciar_programados_si_corresponde(ahora)
+        if not self._config.get("programados_activo", False):
+            self._programados_reloj_iniciado = False
+            return
+        if not self._conectado or self._es_tiktok or not self._live_chat_id:
+            return
+        if not self._sesion_api_disponible():
+            return
+        if self._programado_en_curso:
+            return
+        mensaje = programados.elegir_envio(
+            self._mensajes_programados, ahora, self._programados_ultimo_envio)
+        if mensaje is not None:
+            self._enviar_programado(mensaje, ahora)
 
     def _moderar(self, autor: str, canal_id: str, segundos: int | None) -> None:
         accion = "expulsar 5 minutos a" if segundos else "banear permanentemente a"
@@ -1511,6 +1583,8 @@ class YTChatFrame(wx.Frame):
     def _on_timer(self, event):
         if self._alive:
             try:    self._actualizar_sb()
+            except Exception: pass
+            try:    self._procesar_programado()
             except Exception: pass
 
     def _on_diagnostico_timer(self, event):
