@@ -20,7 +20,7 @@ import estado_sesion
 import sound_player as _snd
 import credenciales
 import youtube_api
-from gui import anunciar
+from gui import anunciar, caja_de_grupo
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +40,6 @@ class _T:
 def _tc(w, bg=None, fg=None):
     pass
 
-
-def caja_de_grupo(panel, titulo):
-    """Crea la caja de un grupo y devuelve (sizer, padre_de_los_hijos).
-
-    Los controles del grupo tienen que ser hijos de la caja y no del panel:
-    si cuelgan del panel, Windows expone el grupo vacío y el lector no lo
-    asocia a nada. Medido el 21/08/2026 con el árbol de UI Automation.
-    """
-    caja = wx.StaticBox(panel, label=titulo)
-    return wx.StaticBoxSizer(caja, wx.VERTICAL), caja
 
 URL_GUIA = "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"
 

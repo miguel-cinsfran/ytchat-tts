@@ -24,7 +24,7 @@ import wx
 
 import config as cfg
 from descargas import GestorDescargas
-from gui import anunciar, nombre_accesible, _T, _tc
+from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
 import sound_player as _snd
 
 logger = logging.getLogger(__name__)
@@ -91,15 +91,15 @@ class GestorDescargasDialog(wx.Dialog):
         panel.SetSizer(vs)
 
     def _seccion_opciones(self, parent):
-        box = wx.StaticBoxSizer(wx.VERTICAL, parent, "Opciones de descarga")
+        box, padre = caja_de_grupo(parent, "Opciones de descarga")
         # Formato (Choice, no RadioBox: menos carga cognitiva y mejor con NVDA).
         fila_fmt = wx.BoxSizer(wx.HORIZONTAL)
-        lbl_fmt = wx.StaticText(parent, label="&Formato:", name="EtiquetaFormato")
+        lbl_fmt = wx.StaticText(padre, label="&Formato:", name="EtiquetaFormato")
         lbl_fmt.SetForegroundColour(_T.text)
         fila_fmt.Add(lbl_fmt, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         etiquetas = [et for et, _ in _FORMATOS_OPCIONES]
         valores = [v for _, v in _FORMATOS_OPCIONES]
-        self.cho_formato = wx.Choice(parent, choices=etiquetas, name="Formato")
+        self.cho_formato = wx.Choice(padre, choices=etiquetas, name="Formato")
         _tc(self.cho_formato)
         actual = self._opciones.get("formato", "mp4")
         try:    self.cho_formato.SetSelection(valores.index(actual))
@@ -110,10 +110,10 @@ class GestorDescargasDialog(wx.Dialog):
 
         # Bitrate (solo se habilita si formato es audio).
         fila_bit = wx.BoxSizer(wx.HORIZONTAL)
-        lbl_bit = wx.StaticText(parent, label="&Bitrate (kbps):", name="EtiquetaBitrate")
+        lbl_bit = wx.StaticText(padre, label="&Bitrate (kbps):", name="EtiquetaBitrate")
         lbl_bit.SetForegroundColour(_T.text)
         fila_bit.Add(lbl_bit, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.cho_bitrate = wx.Choice(parent,
+        self.cho_bitrate = wx.Choice(padre,
                                      choices=[str(b) for b in _BITRATE_OPCIONES],
                                      name="Bitrate")
         _tc(self.cho_bitrate)
@@ -125,11 +125,11 @@ class GestorDescargasDialog(wx.Dialog):
 
         # Carpeta destino.
         fila_carp = wx.BoxSizer(wx.HORIZONTAL)
-        lbl_carp = wx.StaticText(parent, label="Carpeta &destino:", name="EtiquetaCarpeta")
+        lbl_carp = wx.StaticText(padre, label="Carpeta &destino:", name="EtiquetaCarpeta")
         lbl_carp.SetForegroundColour(_T.text)
         fila_carp.Add(lbl_carp, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         self.dir_carpeta = wx.DirPickerCtrl(
-            parent, path=self._opciones.get("carpeta") or str(cfg.app_dir() / "Descargas"),
+            padre, path=self._opciones.get("carpeta") or str(cfg.app_dir() / "Descargas"),
             name="Carpeta destino", message="Elige la carpeta de descargas")
         _tc(self.dir_carpeta)
         nombrar_selector_carpeta(self.dir_carpeta)
@@ -138,7 +138,7 @@ class GestorDescargasDialog(wx.Dialog):
 
         # Enumerar playlist (casilla, sin color).
         self.chk_enumerar = wx.CheckBox(
-            parent, name="EnumerarPlaylist",
+            padre, name="EnumerarPlaylist",
             label="&Enumerar ítems de playlist (01_, 02_…)")
         self.chk_enumerar.SetForegroundColour(_T.text)
         self.chk_enumerar.SetValue(bool(self._opciones.get("enumerar", False)))
@@ -148,20 +148,20 @@ class GestorDescargasDialog(wx.Dialog):
         return box
 
     def _seccion_anadir(self, parent):
-        box = wx.StaticBoxSizer(wx.VERTICAL, parent, "Añadir URL")
+        box, padre = caja_de_grupo(parent, "Añadir URL")
         fila = wx.BoxSizer(wx.HORIZONTAL)
-        lbl = wx.StaticText(parent, label="&URL del vídeo o playlist:",
+        lbl = wx.StaticText(padre, label="&URL del vídeo o playlist:",
                             name="EtiquetaURL")
         lbl.SetForegroundColour(_T.text)
         fila.Add(lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-        self.txt_url = wx.TextCtrl(parent, value="",
+        self.txt_url = wx.TextCtrl(padre, value="",
                                    style=wx.TE_PROCESS_ENTER,
                                    name="URL del vídeo o playlist")
         _tc(self.txt_url)
         self.txt_url.SetToolTip("Pega un enlace de YouTube (vídeo o playlist).")
         self.txt_url.Bind(wx.EVT_TEXT_ENTER, lambda e: self._on_anadir(None))
         fila.Add(self.txt_url, 1, wx.EXPAND)
-        self.btn_anadir = wx.Button(parent, label="Aña&dir", name="AnadirURL")
+        self.btn_anadir = wx.Button(padre, label="Aña&dir", name="AnadirURL")
         self.btn_anadir.SetBackgroundColour(_T.btn)
         self.btn_anadir.SetForegroundColour(_T.btn_t)
         self.btn_anadir.Bind(wx.EVT_BUTTON, self._on_anadir)
@@ -170,8 +170,8 @@ class GestorDescargasDialog(wx.Dialog):
         return box
 
     def _seccion_cola(self, parent):
-        box = wx.StaticBoxSizer(wx.VERTICAL, parent, "Cola de descargas")
-        self.lista = wx.ListCtrl(parent, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
+        box, padre = caja_de_grupo(parent, "Cola de descargas")
+        self.lista = wx.ListCtrl(padre, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
                                  name="ColaDescargas")
         nombre_accesible(self.lista, "Cola de descargas", msaa=False)
         self.lista.InsertColumn(0, "Nombre", width=320)
@@ -180,7 +180,7 @@ class GestorDescargasDialog(wx.Dialog):
         box.Add(self.lista, 1, wx.EXPAND | wx.ALL, 6)
 
         fila = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_cancelar = wx.Button(parent, label="&Cancelar seleccionado",
+        self.btn_cancelar = wx.Button(padre, label="&Cancelar seleccionado",
                                       name="CancelarDescarga")
         self.btn_cancelar.SetBackgroundColour(_T.btn)
         self.btn_cancelar.SetForegroundColour(_T.btn_t)

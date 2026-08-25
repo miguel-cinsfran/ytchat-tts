@@ -162,6 +162,12 @@ def nombre_accesible(ctrl, nombre: str, msaa: bool = True) -> None:
         pass  # fuera de Windows o sin MSAA: el name/tooltip siguen aplicando
 
 
+def caja_de_grupo(panel, titulo):
+    """Crea una caja y devuelve el sizer junto al padre de sus controles."""
+    caja = wx.StaticBox(panel, label=titulo)
+    return wx.StaticBoxSizer(caja, wx.VERTICAL), caja
+
+
 # ── Búsqueda por prefijo (type-ahead) en listas de texto ────────────────────
 # Estando en el chat o en comentarios, escribir letras seguidas salta al
 # primer mensaje cuyo texto MOSTRADO («autor: mensaje…») empiece por eso, con
