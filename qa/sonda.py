@@ -419,6 +419,18 @@ class Sonda:
                 self.responder(id_orden, True, {"etiqueta": encontrado[1]})
                 evento = wx.CommandEvent(wx.EVT_MENU.typeId, encontrado[0])
                 evento.SetEventObject(frame)
+                # Una casilla de menú hay que alternarla A MANO antes de
+                # despachar. Windows lo hace solo cuando el usuario pulsa, pero
+                # un CommandEvent construido acá no toca el estado, y entonces
+                # `evento.IsChecked()` sale siempre falso: el manejador cree que
+                # lo están APAGANDO aunque estuviera apagado. Se descubrió el
+                # 25/08/2026 probando el panel de chat, que anunciaba «apagado»
+                # cada vez que el banco intentaba encenderlo.
+                item = frame.GetMenuBar().FindItemById(encontrado[0])
+                if item is not None and item.IsCheckable():
+                    nuevo = not item.IsChecked()
+                    item.Check(nuevo)
+                    evento.SetInt(1 if nuevo else 0)
                 frame.GetEventHandler().ProcessEvent(evento)
 
             elif op == "arbol":
