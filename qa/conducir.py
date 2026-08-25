@@ -1876,6 +1876,15 @@ def escenario_programados(app: Aplicacion, args, res: Resultado):
         app.pedir("cerrar_ventana", ventana="Preferencias")
 
 
+# Escenarios que a proposito NO entran en `todos`, con su motivo. Los tres
+# necesitan un directo de verdad emitiendo ahora mismo: en una corrida rutinaria
+# fallarian por la red o porque el directo termino, no por la aplicacion.
+FUERA_DE_TODOS = frozenset({
+    "directo_youtube",   # pide un directo de YouTube vivo
+    "directo_tiktok",    # pide un directo de TikTok vivo
+    "dos_conexiones",    # conecta dos veces a un directo vivo
+})
+
 ESCENARIOS = {
     "menus": escenario_menus,
     "principal": escenario_principal,
@@ -1956,8 +1965,20 @@ def main() -> int:
         # botón de reproducir pasa la comprobación por el motivo equivocado.
         pedidos = ["arranque_frio", "reproductor",
                    "menus", "principal", "descargas", "preferencias",
-                   "historial", "ayuda", "dialogos_ayuda", "chat",
+                   "programados", "historial", "ayuda", "dialogos_ayuda",
+                   "overlay", "chat",
                    "tiktok", "avisos_wx", "diagnostico"]
+        # Un escenario registrado que no este ni aca ni entre los excluidos no
+        # se corre NUNCA con `todos`, y no lo dice nadie. Paso el 25/08/2026:
+        # se agregaron `overlay` y `programados` al registro y quedaron fuera de
+        # la corrida completa sin una linea de aviso. La lista va a mano porque
+        # el ORDEN importa, asi que la unica defensa es comprobar que no falte.
+        olvidados = sorted(set(ESCENARIOS) - set(pedidos) - FUERA_DE_TODOS)
+        if olvidados:
+            p.error("estos escenarios estan registrados pero no se corren con "
+                    "`todos` ni figuran en FUERA_DE_TODOS: %s. Agregalos a la "
+                    "lista, en el lugar que corresponda por orden, o a "
+                    "FUERA_DE_TODOS con su motivo." % ", ".join(olvidados))
 
     # Por defecto, dentro de `qa/salida/`, que está en el `.gitignore`: las
     # grabaciones llevan la salida cruda de la aplicación y no se suben. Fuera de
