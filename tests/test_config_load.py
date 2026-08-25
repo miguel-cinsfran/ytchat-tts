@@ -47,11 +47,16 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("puerto = 8730", texto)
 
     def test_programados_arranca_apagado_y_se_persiste_en_el_ejemplo(self):
+        self.assertEqual(config._DEF["programados_activo"], "false")
         cfg = self._cargar_en(config._CONFIG_FALLBACK)
         self.assertFalse(cfg["programados_activo"])
         texto = (Path(self._tmp.name) / "config.ini").read_text(encoding="utf-8")
         self.assertIn("[programados]", texto)
         self.assertIn("activo = false", texto)
+
+    def test_programados_ausente_arranca_apagado_por_defecto(self):
+        cfg = self._cargar_en("[voz]\nvelocidad = 175\n")
+        self.assertFalse(cfg["programados_activo"])
 
     def test_overlay_puerto_tiene_minimo_uno(self):
         cfg = self._cargar_en("[overlay]\nactivo = true\npuerto = 0\n")

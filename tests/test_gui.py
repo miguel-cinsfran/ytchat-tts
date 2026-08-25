@@ -1,11 +1,16 @@
 """Pruebas de la salida accesible de los registros."""
 
 import logging
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import gui
+import gui_preferencias
 import apagado
+import programados
 import ytdlp_bin
 
 
@@ -107,6 +112,82 @@ class TestMenusPorConexion(unittest.TestCase):
         gui.YTChatFrame._actualizar_menus_por_conexion(frame)
 
         self.assertEqual(barra.llamadas, [])
+
+
+class TestProgramadosEnPreferencias(unittest.TestCase):
+
+    def _dialogo(self, mensajes, seleccion):
+        dialogo = gui_preferencias.PreferenciasDialog.__new__(
+            gui_preferencias.PreferenciasDialog)
+        dialogo._mensajes_programados = mensajes
+        dialogo._ruta_programados = Path(tempfile.mktemp(suffix=".json"))
+        dialogo.lista_programados = mock.Mock()
+        dialogo.lista_programados.GetSelection.return_value = seleccion
+        dialogo._refrescar_programados = mock.Mock()
+        self.addCleanup(lambda: dialogo._ruta_programados.unlink(missing_ok=True))
+        return dialogo
+
+    def test_quitar_persiste_que_el_mensaje_desaparecio(self):
+        with tempfile.TemporaryDirectory() as temporal:
+            ruta = Path(temporal) / "mensajes_programados.json"
+            mensajes = [
+                {"texto": "Quitar", "minutos_min": 10, "minutos_max": 10,
+                 "activo": True, "proximo": 100.0},
+                {"texto": "Conservar", "minutos_min": 10, "minutos_max": 10,
+                 "activo": True, "proximo": 200.0},
+            ]
+            dialogo = self._dialogo(mensajes, 0)
+            dialogo._ruta_programados = ruta
+            def guardar_doble(ruta_a_guardar, mensajes_a_guardar):
+                Path(ruta_a_guardar).write_text(
+                    json.dumps(mensajes_a_guardar, ensure_ascii=False), encoding="utf-8")
+
+            with mock.patch.object(
+                    gui_preferencias.programados, "guardar",
+                    side_effect=guardar_doble), \
+                    mock.patch.object(gui_preferencias, "anunciar"):
+                dialogo._quitar_programado(None)
+
+            guardados = json.loads(ruta.read_text(encoding="utf-8"))
+            self.assertEqual(guardados, [mensajes[0]])
+            self.assertNotIn("Quitar", ruta.read_text(encoding="utf-8"))
+
+    def test_guardar_edita_la_fila_elegida(self):
+        mensajes = [
+            {"texto": "Primero", "proximo": 100.0},
+            {"texto": "Segundo", "proximo": 200.0},
+            {"texto": "Tercero", "proximo": 300.0},
+        ]
+        dialogo = self._dialogo(mensajes, 2)
+        dialogo._datos_programado = mock.Mock(return_value={"texto": "Editado"})
+        dialogo._validar_programado = mock.Mock(return_value=True)
+        with mock.patch.object(gui_preferencias.programados, "guardar"), \
+                mock.patch.object(gui_preferencias, "anunciar"):
+            dialogo._guardar_programado(None)
+
+        self.assertEqual(mensajes[0]["texto"], "Primero")
+        self.assertEqual(mensajes[2]["texto"], "Editado")
+
+    def test_guardar_conserva_el_proximo_envio(self):
+        mensajes = [
+            {"texto": "Primero", "proximo": 100.0},
+            {"texto": "Segundo", "proximo": 200.0},
+        ]
+        dialogo = self._dialogo(mensajes, 1)
+        dialogo._datos_programado = mock.Mock(return_value={"texto": "Corregido"})
+        dialogo._validar_programado = mock.Mock(return_value=True)
+        with mock.patch.object(gui_preferencias.programados, "guardar"), \
+                mock.patch.object(gui_preferencias, "anunciar"):
+            dialogo._guardar_programado(None)
+
+        self.assertEqual(mensajes[1]["proximo"], 200.0)
+
+    def test_quitar_sin_seleccion_anuncia_y_no_revienta(self):
+        dialogo = self._dialogo([], -1)
+        with mock.patch.object(gui_preferencias, "anunciar") as anunciar:
+            dialogo._quitar_programado(None)
+
+        anunciar.assert_called_once_with("Elegí primero un mensaje de la lista")
 
 
 class TestActualizarYtdlp(unittest.TestCase):
