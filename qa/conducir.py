@@ -1737,6 +1737,82 @@ def escenario_dos_conexiones(app: Aplicacion, args, res: Resultado):
     app.llamar("set_conectado", False)
 
 
+def escenario_overlay(app: Aplicacion, args, res: Resultado):
+    """El panel de chat para transmitir: interruptor, servicio y estado.
+
+    La fase 3 de `smoke_test.py` no lo cubre: solo mira Button, Edit, ComboBox,
+    List, CheckBox y RadioButton, así que un ítem de menú le pasa invisible.
+    Y las pruebas unitarias no arrancan la aplicación entera, que es donde se
+    ve si el interruptor está cableado de verdad.
+
+    Comprueba lo único que el dueño no puede mirar: que cuando dice que está
+    activo, esté sirviendo la página de verdad.
+    """
+    import urllib.request
+
+    etiqueta = "Panel de chat para transmitir"
+    puerto = 8730
+    url = f"http://127.0.0.1:{puerto}/chat"
+
+    def responde(tiempo=4.0):
+        try:
+            with urllib.request.urlopen(url, timeout=tiempo) as r:
+                return r.status == 200 and len(r.read()) > 0
+        except Exception:
+            return False
+
+    items = [m for m in app.menus()
+             if etiqueta in (m.get("etiqueta") or "") and not m.get("submenu")]
+    if not items:
+        res.fallo(f"no existe el ítem de menú «{etiqueta}»")
+        return
+    if not items[0].get("marcable"):
+        res.fallo("el ítem del panel no es una casilla marcable")
+    res.nota(f"ítem encontrado: {items[0].get('etiqueta')!r}")
+
+    encendido_al_entrar = responde(2.0)
+    if encendido_al_entrar:
+        res.nota("el panel ya venía encendido; se apaga para probar el ciclo")
+        app.abrir_por_menu(etiqueta)
+        app.esperar_dicho("panel de chat apagado", 8)
+
+    # Encender
+    antes = len(app.anuncios)
+    app.abrir_por_menu(etiqueta)
+    if not app.esperar_dicho("panel de chat activo en el puerto", 10, desde=antes):
+        dichos = [a["texto"][:60] for a in app.anuncios[antes:]]
+        res.fallo(f"al encender no anunció el puerto; dijo: {dichos}")
+    if not responde():
+        res.fallo(f"anunció el panel activo pero {url} no responde")
+    else:
+        res.nota(f"{url} responde")
+
+    # F2 tiene que distinguir que nadie lo está mostrando
+    antes = len(app.anuncios)
+    app.abrir_por_menu("Anunciar estado")
+    app.esperar_dicho("panel", 8, desde=antes)
+    dicho = " ".join(a["texto"].lower() for a in app.anuncios[antes:])
+    if "panel de chat activo" not in dicho:
+        res.fallo("F2 no menciona el panel estando encendido")
+    elif "nadie lo est" not in dicho:
+        res.fallo("F2 no distingue que nadie está mostrando el panel")
+    else:
+        res.nota("F2 dice que nadie lo está mostrando")
+
+    # Apagar
+    antes = len(app.anuncios)
+    app.abrir_por_menu(etiqueta)
+    if not app.esperar_dicho("panel de chat apagado", 10, desde=antes):
+        res.fallo("al apagar no lo anunció")
+    if responde(3.0):
+        res.fallo("apagado, el puerto sigue respondiendo")
+    else:
+        res.nota("apagado, el puerto deja de responder")
+
+    if encendido_al_entrar:
+        app.abrir_por_menu(etiqueta)   # se deja como estaba
+
+
 ESCENARIOS = {
     "menus": escenario_menus,
     "principal": escenario_principal,
@@ -1754,6 +1830,7 @@ ESCENARIOS = {
     "directo_youtube": escenario_directo_youtube,
     "dos_conexiones": escenario_dos_conexiones,
     "directo_tiktok": escenario_directo_tiktok,
+    "overlay": escenario_overlay,
 }
 
 
