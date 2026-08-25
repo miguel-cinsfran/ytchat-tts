@@ -422,7 +422,29 @@ def recorrer_tab(app: Aplicacion, res: Resultado, donde: str,
     return visto
 
 
-def roles_segun_windows(titulo: str) -> dict[str, int]:
+def _con_tope(funcion, segundos: float, por_defecto):
+    """Corre algo en un hilo aparte y se rinde si tarda de más.
+
+    Hace falta porque una llamada de UI Automation a un proceso que no responde
+    no tiene tope propio y no se puede interrumpir. El hilo queda colgado, pero
+    es demonio y no impide salir: peor es que se cuelgue la corrida entera.
+    """
+    import threading
+    resultado = [por_defecto]
+
+    def _correr():
+        try:
+            resultado[0] = funcion()
+        except Exception:
+            pass
+
+    hilo = threading.Thread(target=_correr, daemon=True)
+    hilo.start()
+    hilo.join(segundos)
+    return resultado[0]
+
+
+def roles_segun_windows(titulo: str, tope: float = 20.0) -> dict[str, int]:
     """Qué roles expone esta ventana al servicio de accesibilidad de Windows.
 
     Es la única comprobación que necesita mirar desde fuera, y por eso usa
@@ -433,11 +455,23 @@ def roles_segun_windows(titulo: str) -> dict[str, int]:
         from pywinauto import Desktop
     except ImportError:
         return {}
+    return _con_tope(lambda: _roles_sin_tope(titulo, Desktop), tope, {})
+
+
+def _roles_sin_tope(titulo, Desktop) -> dict[str, int]:
     cuenta: dict[str, int] = {}
     _ULTIMOS_NOMBRES.clear()
     objetivo = titulo.lower()
     try:
-        for w in Desktop(backend="uia").windows(top_level_only=False):
+        # `top_level_only=True` y no False. Medido el 25/08/2026 en la máquina
+        # del dueño: recorrer también los descendientes de cada ventana del
+        # escritorio tardó 72,4 segundos contra 0,8, porque UI Automation
+        # pregunta a CADA proceso ajeno (navegador, editor, lector de pantalla)
+        # y esas llamadas esperan al bucle de mensajes del otro lado. Si uno no
+        # contesta, la espera no termina nunca: así se colgó el banco entero.
+        # Un `wx.Dialog` es una ventana de primer nivel, así que buscar entre
+        # los descendientes ajenos nunca sirvió para nada.
+        for w in Desktop(backend="uia").windows(top_level_only=True):
             try:
                 if objetivo not in (w.element_info.name or "").lower():
                     continue
