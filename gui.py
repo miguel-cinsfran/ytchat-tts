@@ -543,11 +543,44 @@ class YTChatFrame(wx.Frame):
 
     def _on_actualizar_ytdlp(self, event):
         anunciar("Buscando la última versión de yt-dlp")
+        cancelado = threading.Event()
+        dialogo = None
+        terminado = threading.Event()
+        ultimo_texto = None
+
+        def _crear_dialogo():
+            nonlocal dialogo
+            dialogo = wx.ProgressDialog(
+                APP_NAME, "Descargando yt-dlp", 100, self,
+                style=wx.PD_APP_MODAL | wx.PD_CAN_ABORT)
+
+            def _comprobar_cancelacion():
+                if terminado.is_set():
+                    return
+                if dialogo.IsCancelled():
+                    cancelado.set()
+                wx.CallLater(100, _comprobar_cancelacion)
+
+            _comprobar_cancelacion()
+
+        def _progreso(porcentaje, _descargado, _total):
+            wx.CallAfter(_actualizar_progreso, porcentaje)
+
+        def _actualizar_progreso(porcentaje):
+            nonlocal ultimo_texto
+            if dialogo is None:
+                return
+            texto = "Descargando yt-dlp"
+            if ytdlp_bin.debe_actualizar_texto_progreso(ultimo_texto, porcentaje):
+                ultimo_texto = porcentaje
+                texto = f"Descargando yt-dlp: {porcentaje} por ciento"
+            dialogo.Update(porcentaje if porcentaje is not None else 0, texto)
 
         def _run():
             try:
                 estado, version_actual, version_nueva = ytdlp_bin.actualizar_ytdlp(
-                    lambda: wx.CallAfter(anunciar, "Descargando yt-dlp"))
+                    lambda: wx.CallAfter(_crear_dialogo),
+                    _progreso, cancelado.is_set)
                 texto = ytdlp_bin.mensaje_de_actualizacion(
                     estado, version_actual, version_nueva)
             except Exception as exc:
@@ -557,7 +590,13 @@ class YTChatFrame(wx.Frame):
                     "otro_fallo", motivo=str(exc))
             icono = (wx.ICON_ERROR if ytdlp_bin.resultado_actualizacion_es_fallo(estado)
                      else wx.ICON_INFORMATION)
-            wx.CallAfter(wx.MessageBox, texto, APP_NAME, wx.OK | icono, self)
+            def _terminar():
+                terminado.set()
+                if dialogo is not None:
+                    dialogo.Destroy()
+                wx.MessageBox(texto, APP_NAME, wx.OK | icono, self)
+
+            wx.CallAfter(_terminar)
 
         diagnostico.crear_hilo(_run, "ActualizarYtdlp").start()
 

@@ -176,7 +176,7 @@ class TestActualizarYtdlp(unittest.TestCase):
             hilo.target = target
             return hilo
 
-        def actualizar(aviso):
+        def actualizar(aviso, _progreso, _cancelar):
             aviso()
             return "actualizado", "2026.08.20", "2026.08.21"
 
@@ -184,10 +184,13 @@ class TestActualizarYtdlp(unittest.TestCase):
                 mock.patch.object(gui.diagnostico, "crear_hilo", side_effect=crear), \
                 mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *args: fn(*args)), \
                 mock.patch.object(gui.wx, "MessageBox") as mensaje, \
+                mock.patch.object(gui.wx, "ProgressDialog") as progreso, \
+                mock.patch.object(gui.wx, "CallLater"), \
                 mock.patch.object(ytdlp_bin, "actualizar_ytdlp", side_effect=actualizar):
+            progreso.return_value.IsCancelled.return_value = False
             gui.YTChatFrame._on_actualizar_ytdlp(gui.YTChatFrame.__new__(gui.YTChatFrame), None)
         self.assertIn("Buscando", anuncios[0])
-        self.assertIn("Descargando", anuncios[1])
+        progreso.assert_called_once()
         self.assertEqual(1, mensaje.call_count)
         self.assertIn("actualizó", mensaje.call_args.args[0])
 

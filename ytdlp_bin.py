@@ -46,6 +46,8 @@ def mensaje_de_actualizacion(estado, version_actual="", version_nueva="",
     if estado == "firma_incorrecta":
         return ("La descarga de yt-dlp no pasó una comprobación de seguridad. "
                 "No se instaló nada.")
+    if estado == "cancelado":
+        return "Se canceló la descarga de yt-dlp."
     mensaje = "No se pudo actualizar yt-dlp"
     return f"{mensaje}: {motivo}." if motivo else f"{mensaje}."
 
@@ -141,18 +143,48 @@ def firma_sha256(texto: str, nombre: str) -> str:
     return ""
 
 
-def _descargar_archivo(url: str, destino: Path) -> None:
+class _DescargaCancelada(Exception):
+    pass
+
+
+def porcentaje_descarga(descargado: int, total: int | None) -> int | None:
+    """Calcula un porcentaje entero o None si no hay total conocido."""
+    if total is None or total <= 0:
+        return None
+    return min(100, max(0, int(descargado * 100 / total)))
+
+
+def debe_actualizar_texto_progreso(anterior: int | None, actual: int | None) -> bool:
+    """Indica si el texto debe cambiar al avanzar otra decena."""
+    if actual is None:
+        return False
+    return anterior is None or actual >= anterior + 10 or actual == 100
+
+
+def _descargar_archivo(url: str, destino: Path, aviso=None, cancelar=None) -> None:
     solicitud = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(solicitud, timeout=TIEMPO_ESPERA) as respuesta:
+        total = None
+        try:
+            total = int(respuesta.headers.get("Content-Length"))
+        except (AttributeError, TypeError, ValueError):
+            pass
+        descargado = 0
         with destino.open("wb") as archivo:
             while True:
+                if cancelar is not None and cancelar():
+                    raise _DescargaCancelada
                 bloque = respuesta.read(1024 * 1024)
                 if not bloque:
                     break
                 archivo.write(bloque)
+                descargado += len(bloque)
+                if aviso is not None:
+                    aviso(porcentaje_descarga(descargado, total), descargado, total)
 
 
-def descargar_ytdlp(url: str, firma: str, destino: str | os.PathLike) -> ResultadoDescarga:
+def descargar_ytdlp(url: str, firma: str, destino: str | os.PathLike,
+                    aviso_progreso=None, cancelar=None) -> ResultadoDescarga:
     """Descarga, verifica y reemplaza un ejecutable sin ejecutar el temporal."""
     if not url.lower().startswith("https://"):
         return ResultadoDescarga(False, "la descarga exige una URL https")
@@ -164,7 +196,10 @@ def descargar_ytdlp(url: str, firma: str, destino: str | os.PathLike) -> Resulta
                 prefix=".yt-dlp-", suffix=".tmp", dir=destino.parent,
                 delete=False) as archivo:
             temporal = Path(archivo.name)
-        _descargar_archivo(url, temporal)
+        if aviso_progreso is None and cancelar is None:
+            _descargar_archivo(url, temporal)
+        else:
+            _descargar_archivo(url, temporal, aviso_progreso, cancelar)
         resumen = hashlib.sha256()
         with temporal.open("rb") as archivo:
             for bloque in iter(lambda: archivo.read(1024 * 1024), b""):
@@ -174,6 +209,8 @@ def descargar_ytdlp(url: str, firma: str, destino: str | os.PathLike) -> Resulta
         os.replace(temporal, destino)
         temporal = None
         return ResultadoDescarga(True, "yt-dlp actualizado")
+    except _DescargaCancelada:
+        return ResultadoDescarga(False, "descarga cancelada")
     except (OSError, HTTPError, URLError, ValueError) as error:
         return ResultadoDescarga(False, f"no se pudo descargar yt-dlp: {error}")
     finally:
@@ -207,7 +244,8 @@ def asegurar_ytdlp(destino: str | os.PathLike | None = None) -> ResultadoDescarg
     return descargar_ytdlp(url_ejecutable, firma, destino)
 
 
-def actualizar_ytdlp(avisar_antes_descarga=None) -> tuple[str, str, str]:
+def actualizar_ytdlp(avisar_antes_descarga=None, aviso_progreso=None,
+                    cancelar=None) -> tuple[str, str, str]:
     """Compara con la última publicada y actualiza si hace falta.
 
     Devuelve (estado, versión instalada, versión nueva).
@@ -234,9 +272,12 @@ def actualizar_ytdlp(avisar_antes_descarga=None) -> tuple[str, str, str]:
         return "otro_fallo", version_instalada, version_nueva
     if avisar_antes_descarga is not None:
         avisar_antes_descarga()
-    resultado = descargar_ytdlp(url_ejecutable, firma, _ruta_actualizada())
+    resultado = descargar_ytdlp(url_ejecutable, firma, _ruta_actualizada(),
+                                aviso_progreso, cancelar)
     if resultado.correcta:
         return "actualizado", version_instalada, version_nueva
     if "firma" in resultado.motivo.lower():
         return "firma_incorrecta", version_instalada, version_nueva
+    if "cancelada" in resultado.motivo.lower():
+        return "cancelado", version_instalada, version_nueva
     return "otro_fallo", version_instalada, version_nueva

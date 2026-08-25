@@ -15,6 +15,51 @@ class PruebasYtdlpBin(unittest.TestCase):
         self.assertFalse(ytdlp_bin.resultado_actualizacion_es_fallo("actualizado"))
         self.assertTrue(ytdlp_bin.resultado_actualizacion_es_fallo("sin_conexion"))
         self.assertTrue(ytdlp_bin.resultado_actualizacion_es_fallo("otro_fallo"))
+
+    def test_porcentaje_sin_total_no_inventa_un_valor(self):
+        self.assertIsNone(ytdlp_bin.porcentaje_descarga(50, None))
+        self.assertEqual(25, ytdlp_bin.porcentaje_descarga(25, 100))
+
+    def test_texto_solo_avanza_en_decenas(self):
+        self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(None, 0))
+        self.assertFalse(ytdlp_bin.debe_actualizar_texto_progreso(0, 9))
+        self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(0, 10))
+        self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(90, 100))
+
+    def test_descarga_usa_content_length_y_avisos_de_progreso(self):
+        contenido = b"0123456789"
+        respuesta = MagicMock()
+        respuesta.headers.get.return_value = str(len(contenido))
+        respuesta.read.side_effect = [contenido[:4], contenido[4:], b""]
+        avisos = []
+        with tempfile.TemporaryDirectory() as carpeta, \
+                patch.object(ytdlp_bin, "urlopen", return_value=respuesta):
+            respuesta.__enter__.return_value = respuesta
+            destino = Path(carpeta) / "yt-dlp.exe"
+            resultado = ytdlp_bin.descargar_ytdlp(
+                "https://ejemplo", hashlib.sha256(contenido).hexdigest(), destino,
+                lambda *datos: avisos.append(datos))
+        self.assertTrue(resultado.correcta)
+        self.assertEqual([40, 100], [aviso[0] for aviso in avisos])
+
+    def test_cancelar_borra_temporal_y_no_reemplaza(self):
+        contenido = b"binario nuevo"
+        respuesta = MagicMock()
+        respuesta.headers.get.return_value = str(len(contenido))
+        respuesta.read.side_effect = [contenido[:4], contenido[4:]]
+        llamadas = []
+        with tempfile.TemporaryDirectory() as carpeta, \
+                patch.object(ytdlp_bin, "urlopen", return_value=respuesta):
+            respuesta.__enter__.return_value = respuesta
+            destino = Path(carpeta) / "yt-dlp.exe"
+            destino.write_bytes(b"binario anterior")
+            resultado = ytdlp_bin.descargar_ytdlp(
+                "https://ejemplo", hashlib.sha256(contenido).hexdigest(), destino,
+                lambda *_: llamadas.append(True), lambda: True)
+            self.assertFalse(destino.read_bytes() == contenido)
+            self.assertEqual([], list(Path(carpeta).glob(".yt-dlp-*.tmp")))
+        self.assertFalse(resultado.correcta)
+        self.assertIn("cancelada", resultado.motivo)
     def test_mensaje_ya_al_dia(self):
         self.assertEqual(
             "Ya tienes yt-dlp al día, versión 2026.08.20.",
