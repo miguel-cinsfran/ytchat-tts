@@ -3,6 +3,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +12,16 @@ import diagnostico
 
 
 class DiagnosticoTest(unittest.TestCase):
+    def test_compone_marcas_de_inicio_y_cierre_con_zona_horaria(self):
+        momento = datetime(2026, 8, 25, 21, 52, 9,
+                           tzinfo=timezone(timedelta(hours=-4)))
+        inicio = diagnostico.componer_cabecera_fallos("2.0.1", momento)
+        cierre = diagnostico.componer_cierre_fallos(momento)
+        self.assertEqual(inicio,
+                         "=== INICIO YTChat TTS v2.0.1 2026-08-25T21:52:09-04:00 ===")
+        self.assertEqual(cierre, "=== CIERRE LIMPIO 2026-08-25T21:52:09-04:00 ===")
+        self.assertNotEqual(inicio, cierre)
+
     def test_manejador_detallado_tiene_nivel_rotacion_y_formato(self):
         with tempfile.TemporaryDirectory() as tmp:
             manejador = diagnostico.crear_manejador_detallado(Path(tmp) / "x.log")
@@ -111,3 +122,18 @@ class DiagnosticoTest(unittest.TestCase):
         finally:
             sys.excepthook = anterior_sys
             threading.excepthook = anterior_hilos
+
+    def test_capturadores_escriben_cabecera_antes_de_activar_faulthandler(self):
+        anterior = diagnostico._ARCHIVO_FALLOS
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                ruta = Path(tmp) / "fallos.log"
+                with patch("faulthandler.enable"):
+                    diagnostico.instalar_capturadores(ruta, version="2.0.1")
+                self.assertIn("INICIO YTChat TTS v2.0.1", ruta.read_text(encoding="utf-8"))
+                diagnostico._ARCHIVO_FALLOS.close()
+                diagnostico._ARCHIVO_FALLOS = None
+        finally:
+            if diagnostico._ARCHIVO_FALLOS is not None:
+                diagnostico._ARCHIVO_FALLOS.close()
+            diagnostico._ARCHIVO_FALLOS = anterior

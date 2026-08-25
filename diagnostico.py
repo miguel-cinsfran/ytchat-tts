@@ -27,6 +27,18 @@ _ARCHIVO_FALLOS = None
 logger = logging.getLogger(__name__)
 
 
+def componer_cabecera_fallos(version: str, momento: datetime) -> str:
+    """Compone la separación visible de una sesión de fallos."""
+    marca = momento.isoformat(timespec="seconds")
+    return f"=== INICIO YTChat TTS v{version} {marca} ==="
+
+
+def componer_cierre_fallos(momento: datetime) -> str:
+    """Compone la marca de un cierre normal."""
+    marca = momento.isoformat(timespec="seconds")
+    return f"=== CIERRE LIMPIO {marca} ==="
+
+
 def crear_manejador_detallado(ruta: str | Path) -> RotatingFileHandler:
     """Arma el manejador del registro detallado, sin instalarlo."""
     manejador = RotatingFileHandler(
@@ -158,7 +170,7 @@ def _version_paquete(nombre: str) -> tuple[str | None, str | None]:
         return None, str(exc)
 
 
-def instalar_capturadores(ruta_fallos: str | Path) -> None:
+def instalar_capturadores(ruta_fallos: str | Path, version: str = "desconocida") -> None:
     """Conserva excepciones no capturadas y fallos nativos en archivos."""
     global _ARCHIVO_FALLOS
     logger = logging.getLogger(__name__)
@@ -179,9 +191,24 @@ def instalar_capturadores(ruta_fallos: str | Path) -> None:
     try:
         import faulthandler
         _ARCHIVO_FALLOS = open(ruta_fallos, "a", encoding="utf-8")
+        _ARCHIVO_FALLOS.write(
+            componer_cabecera_fallos(version, datetime.now().astimezone()) + "\n")
+        _ARCHIVO_FALLOS.flush()
         faulthandler.enable(_ARCHIVO_FALLOS)
     except Exception as exc:
         logger.warning("No se pudo activar faulthandler: %s", exc)
+
+
+def registrar_cierre_fallos(momento: datetime | None = None) -> None:
+    """Escribe y vacía la marca de cierre si el archivo está disponible."""
+    if _ARCHIVO_FALLOS is None:
+        return
+    marca = momento or datetime.now().astimezone()
+    try:
+        _ARCHIVO_FALLOS.write(componer_cierre_fallos(marca) + "\n")
+        _ARCHIVO_FALLOS.flush()
+    except Exception as exc:
+        logger.warning("No se pudo registrar el cierre de fallos: %s", exc)
 
 
 def registrar_entorno(version: str) -> None:

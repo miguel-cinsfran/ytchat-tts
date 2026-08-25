@@ -569,7 +569,8 @@ def main():
     # Aquí y no al importar el módulo: así los tests y el smoke test pueden
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
     configurar_logging()
-    diagnostico.instalar_capturadores(app_dir() / "ytchat-fallos.log")
+    diagnostico.instalar_capturadores(
+        app_dir() / "ytchat-fallos.log", version=APP_VERSION)
     diagnostico.registrar_entorno(APP_VERSION)
 
     if not _verificar_instancia_unica():
@@ -644,6 +645,7 @@ def main():
         detener_captura_cb=detener_captura_cb,
     )
 
+    diagnostico.registrar_cierre_fallos()
     _snd.cerrar()
     sys.exit(0)
 
