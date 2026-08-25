@@ -5,6 +5,7 @@ import unittest
 from unittest import mock
 
 import gui
+import apagado
 import ytdlp_bin
 
 
@@ -183,6 +184,61 @@ class TestActualizarYtdlp(unittest.TestCase):
         self.assertIn("Buscando", anuncios[0])
         self.assertIn("Descargando", anuncios[1])
         self.assertIn("actualizó", anuncios[2])
+
+
+class TestCierreVentana(unittest.TestCase):
+
+    def _frame(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._apagando = False
+        frame._alive = True
+        frame._timer = mock.Mock()
+        frame._pendientes_timer = None
+        frame.on_desconectar_cb = None
+        frame._parada = mock.Mock()
+        frame._rep_panel = mock.Mock()
+        frame._worker = mock.Mock()
+        frame.Hide = mock.Mock()
+        frame.Destroy = mock.Mock()
+        return frame
+
+    def test_con_captura_viva_programa_espera_y_anuncia_cerrando(self):
+        frame = self._frame()
+        hilo = mock.Mock()
+        hilo.name = "Chat"
+        hilo.is_alive.return_value = True
+        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+                mock.patch.object(gui, "anunciar") as anunciar, \
+                mock.patch.object(gui.wx, "CallLater") as call_later:
+            frame._on_close(None)
+
+        anunciar.assert_called_once_with("Cerrando")
+        call_later.assert_called_once_with(200, frame._comprobar_cierre)
+        frame.Destroy.assert_not_called()
+
+    def test_sin_captura_no_anuncia_y_destruye(self):
+        frame = self._frame()
+        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+                mock.patch.object(gui, "anunciar") as anunciar, \
+                mock.patch.object(gui.wx, "CallLater") as call_later:
+            frame._on_close(None)
+
+        anunciar.assert_not_called()
+        call_later.assert_not_called()
+        frame.Destroy.assert_called_once_with()
+
+    def test_el_tope_del_cierre_sale_de_apagado(self):
+        self.assertEqual(apagado.TOPE_ESPERA_CIERRE, 3.0)
+        frame = self._frame()
+        hilo = mock.Mock()
+        hilo.name = "TikTok"
+        hilo.is_alive.return_value = True
+        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+                mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui.wx, "CallLater"):
+            frame._on_close(None)
+
+        self.assertEqual(frame._cierre_tope, apagado.TOPE_ESPERA_CIERRE)
 
 
 if __name__ == "__main__":

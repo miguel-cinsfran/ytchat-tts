@@ -4,6 +4,7 @@ from __future__ import annotations
 
 
 NOMBRES_HILOS_CAPTURA = frozenset(("Chat", "TikTok", "LiveChatId"))
+TOPE_ESPERA_CIERRE = 3.0
 
 
 def hilos_captura_vivos(nombres: set[str] | tuple[str, ...]) -> tuple[str, ...]:

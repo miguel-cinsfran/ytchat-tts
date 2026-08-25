@@ -1393,10 +1393,12 @@ class YTChatFrame(wx.Frame):
         except Exception: pass
         if hilos:
             self._cierre_inicio = time.monotonic()
-            self._cierre_tope = 3.0
+            self._cierre_tope = apagado.TOPE_ESPERA_CIERRE
             wx.CallLater(200, self._comprobar_cierre)
         else:
-            diagnostico.logger.info("%s", apagado.componer_resultado_cierre((), 3.0))
+            diagnostico.logger.info(
+                "%s", apagado.componer_resultado_cierre(
+                    (), apagado.TOPE_ESPERA_CIERRE))
             self.Destroy()
 
     def _comprobar_cierre(self):
