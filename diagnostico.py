@@ -61,16 +61,38 @@ def componer_censo_hilos() -> str:
     return f"HILOS vivos={len(nombres)} nombres={', '.join(nombres)}"
 
 
-def vigilar_hilo_interfaz(marca_anterior: float, marca_actual: float | None = None):
-    """Devuelve una anomalía si el hilo de interfaz tardó demasiado."""
-    actual = time.monotonic() if marca_actual is None else marca_actual
-    demora_ms = (actual - marca_anterior) * 1000
+def decidir_bloqueo_interfaz(
+    marca_latido: float, ahora: float, ya_registrado: bool
+) -> tuple[bool, bool]:
+    """Decide si corresponde registrar el estado actual del latido."""
+    demora_ms = (ahora - marca_latido) * 1000
     if demora_ms < UMBRAL_BLOQUEO_INTERFAZ_MS:
-        return None
-    marcos = sys._current_frames()
-    marco = marcos.get(threading.main_thread().ident)
-    pila = "".join(traceback.format_stack(marco)) if marco else "no disponible"
+        return False, False
+    return not ya_registrado, True
+
+
+def componer_bloqueo_interfaz(demora_ms: float, pila: str) -> str:
     return f"INTERFAZ bloqueada_ms={demora_ms:.0f}\n{pila.rstrip()}"
+
+
+def pila_hilo_interfaz(marcos: dict[int, object], identificador: int | None) -> str:
+    marco = marcos.get(identificador)
+    return "".join(traceback.format_stack(marco)).rstrip() if marco else "no disponible"
+
+
+def vigilar_hilo_interfaz(obtener_marca, parada: threading.Event) -> None:
+    """Registra una pila del hilo principal mientras su latido está atrasado."""
+    ya_registrado = False
+    while not parada.wait(0.1):
+        ahora = time.monotonic()
+        marca_latido = obtener_marca()
+        registrar, ya_registrado = decidir_bloqueo_interfaz(
+            marca_latido, ahora, ya_registrado)
+        if registrar:
+            demora_ms = (ahora - marca_latido) * 1000
+            pila = pila_hilo_interfaz(
+                sys._current_frames(), threading.main_thread().ident)
+            logger.warning("%s", componer_bloqueo_interfaz(demora_ms, pila))
 
 
 def crear_hilo(target, nombre: str, *, args=(), daemon=True) -> threading.Thread:

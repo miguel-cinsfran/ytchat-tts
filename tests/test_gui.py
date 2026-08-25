@@ -283,6 +283,7 @@ class TestCierreVentana(unittest.TestCase):
         frame._parada = mock.Mock()
         frame._rep_panel = mock.Mock()
         frame._worker = mock.Mock()
+        frame._diagnostico_parada = mock.Mock()
         frame.Hide = mock.Mock()
         frame.Destroy = mock.Mock()
         return frame

@@ -378,12 +378,17 @@ class YTChatFrame(wx.Frame):
         anunciar_conflictos_atajos(config.get("atajos_raw", {}))
         self._diagnostico_marca = time.monotonic()
         self._diagnostico_censo = self._diagnostico_marca
+        self._diagnostico_parada = threading.Event()
 
         self.SetBackgroundColour(_T.bg)
         self._build_menubar()
         self._build_ui()
         self._bind_events()
         self._init_timer()
+        diagnostico.crear_hilo(
+            lambda: diagnostico.vigilar_hilo_interfaz(
+                lambda: self._diagnostico_marca, self._diagnostico_parada),
+            "VigilanteInterfaz").start()
         self.Centre()
 
     # ── Barra de menú ────────────────────────────────────────────────────────
@@ -1421,6 +1426,7 @@ class YTChatFrame(wx.Frame):
             return
         self._apagando = True
         self._alive = False
+        self._diagnostico_parada.set()
         try:    self._timer.Stop()
         except Exception: pass
         if self._pendientes_timer is not None:
@@ -1477,9 +1483,6 @@ class YTChatFrame(wx.Frame):
         if not self._alive:
             return
         ahora = time.monotonic()
-        bloqueo = diagnostico.vigilar_hilo_interfaz(self._diagnostico_marca, ahora)
-        if bloqueo:
-            diagnostico.logger.warning("%s", bloqueo)
         self._diagnostico_marca = ahora
         censo = diagnostico.debe_censar_hilos(self._diagnostico_censo, ahora)
         if censo:

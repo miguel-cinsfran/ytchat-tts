@@ -49,12 +49,50 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertIn("vivos=", diagnostico.componer_censo_hilos())
 
     def test_vigilante_informa_bloqueo_sobre_umbral(self):
-        with patch.object(diagnostico.sys, "_current_frames", return_value={}):
-            texto = diagnostico.vigilar_hilo_interfaz(10.0, 10.6)
+        registrar, activo = diagnostico.decidir_bloqueo_interfaz(10.0, 10.6, False)
+        texto = diagnostico.componer_bloqueo_interfaz(600, "pila de interfaz")
+        self.assertTrue(registrar)
+        self.assertTrue(activo)
         self.assertIn("bloqueada_ms=600", texto)
 
     def test_vigilante_no_informa_demora_normal(self):
-        self.assertIsNone(diagnostico.vigilar_hilo_interfaz(10.0, 10.4))
+        self.assertEqual(
+            diagnostico.decidir_bloqueo_interfaz(10.0, 10.4, False), (False, False))
+
+    def test_vigilante_registra_un_solo_bloqueo_largo(self):
+        self.assertEqual(
+            diagnostico.decidir_bloqueo_interfaz(10.0, 11.0, False), (True, True))
+        self.assertEqual(
+            diagnostico.decidir_bloqueo_interfaz(10.0, 11.5, True), (False, True))
+
+    def test_pila_del_vigilante_toma_el_marco_del_hilo_principal(self):
+        principal = object()
+        vigilante = object()
+        with patch.object(
+                diagnostico.traceback, "format_stack",
+                side_effect=lambda marco: ["GUI"] if marco is principal else ["VIGILANTE"]):
+            pila = diagnostico.pila_hilo_interfaz({101: principal, 202: vigilante}, 101)
+        self.assertEqual(pila, "GUI")
+
+    def test_pila_no_usa_el_marco_del_vigilante(self):
+        with patch.object(diagnostico.traceback, "format_stack", return_value=["VIGILANTE"]):
+            pila = diagnostico.pila_hilo_interfaz({202: object()}, 101)
+        self.assertEqual(pila, "no disponible")
+
+    def test_vigilante_no_repite_un_bloqueo_largo(self):
+        class Parada:
+            def __init__(self):
+                self.llamadas = 0
+
+            def wait(self, _intervalo):
+                self.llamadas += 1
+                return self.llamadas > 2
+
+        with patch.object(diagnostico.time, "monotonic", side_effect=[1.0, 1.1]), \
+                patch.object(diagnostico.sys, "_current_frames", return_value={}), \
+                patch.object(diagnostico.logger, "warning") as registrar:
+            diagnostico.vigilar_hilo_interfaz(lambda: 0.0, Parada())
+        registrar.assert_called_once()
 
     def test_hilo_de_aplicacion_registra_inicio_y_fin(self):
         llamadas = []
