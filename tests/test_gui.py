@@ -247,6 +247,21 @@ class TestProgramadorGui(unittest.TestCase):
             frame._procesar_programado()
         enviar.assert_not_called()
 
+    def test_procesar_arma_la_bandera_antes_de_enviar(self):
+        frame = self._frame()
+        frame._mensajes_programados[0]["proximo"] = 0.0
+
+        class Hilo:
+            def start(self):
+                pass
+
+        with mock.patch.object(gui.time, "time", return_value=1000.0), \
+                mock.patch.object(frame, "_sesion_api_disponible", return_value=True), \
+                mock.patch.object(gui.diagnostico, "crear_hilo",
+                                  return_value=Hilo()):
+            frame._procesar_programado()
+        self.assertTrue(frame._programado_en_curso)
+
     def test_al_encender_da_cuerda_al_reloj(self):
         frame = self._frame()
         frame._programados_reloj_iniciado = False
@@ -254,6 +269,17 @@ class TestProgramadorGui(unittest.TestCase):
             frame._iniciar_programados_si_corresponde(1000.0)
         iniciar.assert_called_once()
         self.assertTrue(frame._programados_reloj_iniciado)
+
+    def test_procesar_no_vuelve_a_dar_cuerda_al_reloj(self):
+        frame = self._frame()
+        frame._programados_reloj_iniciado = False
+        frame._conectado = False
+        mensaje = frame._mensajes_programados[0]
+        with mock.patch.object(gui.time, "time", side_effect=(1000.0, 2000.0)):
+            frame._procesar_programado()
+            proximo = mensaje["proximo"]
+            frame._procesar_programado()
+        self.assertEqual(mensaje["proximo"], proximo)
 
     def test_no_envia_si_no_hay_conexion(self):
         frame = self._frame()
@@ -308,6 +334,22 @@ class TestProgramadorGui(unittest.TestCase):
         self.assertFalse(frame._config["programados_activo"])
         anunciar.assert_called_once_with(
             "Los mensajes automáticos se detuvieron por un error del servicio.")
+
+    def test_error_baja_la_bandera_de_envio(self):
+        frame = self._frame()
+        frame._programado_en_curso = True
+        with mock.patch.object(gui, "anunciar"):
+            frame._programado_fallo(RuntimeError("rateLimitExceeded"))
+        self.assertFalse(frame._programado_en_curso)
+
+    def test_snapshot_omite_proximo_si_el_interruptor_esta_apagado(self):
+        frame = self._frame(programados_activo=False)
+        frame._tipo_video = "live_youtube"
+        frame._titulo_stream = "Directo"
+        frame._metadatos = {}
+        frame._sc_totales = {}
+        snapshot = frame._snapshot_sesion()
+        self.assertEqual(snapshot.programados_proximo, "")
 
 
 class TestActualizarYtdlp(unittest.TestCase):
