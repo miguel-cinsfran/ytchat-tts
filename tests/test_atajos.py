@@ -103,9 +103,9 @@ class TestParsearAtajos(unittest.TestCase):
                 normalizado = valor
             else:
                 normalizado = _normalizar_atajo(valor)
-            area = ATAJOS_AREA[accion]
-            if accion == "region_anterior":
-                self.assertEqual(normalizado, "shift+f6")
+            area = ATAJOS_AREA.get(accion)
+            if area is None:
+                self.assertIn(accion, ATAJOS_FIJOS_DEFAULTS)
                 continue
             if area == "f":
                 self.assertRegex(normalizado, r"^f(1[0-2]|[1-9])$")
@@ -114,6 +114,13 @@ class TestParsearAtajos(unittest.TestCase):
         self.assertEqual(set(ATAJOS_FIJOS_DEFAULTS) | {
             "velocidad_menos", "velocidad_mas", "volumen_menos", "volumen_mas"
         }, ATAJOS_FIJOS)
+
+    def test_atajos_fijos_tienen_grupo_sin_area(self):
+        grupos_fijos = [acciones for titulo, acciones in ATAJOS_GRUPOS
+                        if "Ventana y navegación" in titulo]
+        self.assertEqual(grupos_fijos, [["salir", "region_siguiente", "region_anterior"]])
+        for accion in ATAJOS_FIJOS_DEFAULTS:
+            self.assertIsNone(ATAJOS_AREA[accion])
 
     def test_etiqueta_desconocida_es_frase(self):
         self.assertEqual(

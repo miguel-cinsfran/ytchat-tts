@@ -149,17 +149,18 @@ ATAJOS_GRUPOS = [
      ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
       "rep_vol_menos", "rep_vol_mas", "descargas_abrir", "pantalla_completa"]),
     ("Conexión y chat (Alt)",
-     ["conectar", "desconectar", "enviar_chat", "ir_lista", "salir"]),
+     ["conectar", "desconectar", "enviar_chat", "ir_lista"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",
-      "silenciar_sonidos", "anunciar_estado", "region_siguiente",
-      "region_anterior"]),
+      "silenciar_sonidos", "anunciar_estado"]),
+    ("Ventana y navegación (fijos)",
+     ["salir", "region_siguiente", "region_anterior"]),
 ]
 
 # Modificador obligatorio por acción: reproductor → Ctrl, app → Alt, voz → F.
-# Así el atajo es global y único, sin depender del panel con foco.
-_AREA_POR_GRUPO = ("ctrl", "alt", "f")
+# El grupo de atajos fijos no impone modificador.
+_AREA_POR_GRUPO = ("ctrl", "alt", "f", None)
 ATAJOS_AREA = {ac: _AREA_POR_GRUPO[i]
                for i, (_titulo, acs) in enumerate(ATAJOS_GRUPOS) for ac in acs}
 
