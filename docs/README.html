@@ -218,125 +218,342 @@
 <body>
 <h1 id="ytchat-tts">YTChat TTS</h1>
 <p>Lector del chat de YouTube Live con las voces SAPI5 de Windows,
-pensado para streamers ciegos o con baja visión. Toda la interfaz se
-maneja con teclado y está probada con NVDA.</p>
-<p>Versión 2.0.0 · Windows 10/11 · <a href="docs/CHANGELOG.html">qué hay de
-nuevo</a>.</p>
+pensado para personas ciegas o con baja visión que transmiten en
+directo. La interfaz completa se maneja con el teclado y está probada
+con NVDA.</p>
+<p>Versión 2.0.1 · Windows 10 y 11 · <a href="docs/CHANGELOG.html">novedades de
+cada versión</a>.</p>
+<h2 id="índice">Índice</h2>
+<ul>
+<li><a href="#qué-hace">Qué hace</a></li>
+<li><a href="#requisitos">Requisitos</a></li>
+<li><a href="#puesta-en-marcha">Puesta en marcha</a></li>
+<li><a href="#primeros-pasos">Primeros pasos</a></li>
+<li><a href="#lectura-del-chat">Lectura del chat</a></li>
+<li><a href="#comentarios-de-vídeos">Comentarios de vídeos</a></li>
+<li><a href="#reproductor">Reproductor</a></li>
+<li><a href="#panel-de-chat-para-transmitir">Panel de chat para
+transmitir</a></li>
+<li><a href="#mensajes-automáticos">Mensajes automáticos</a></li>
+<li><a href="#gestor-de-descargas">Gestor de descargas</a></li>
+<li><a href="#historial-de-directos">Historial de directos</a></li>
+<li><a href="#estado-por-voz">Estado por voz</a></li>
+<li><a href="#directos-de-tiktok">Directos de TikTok</a></li>
+<li><a href="#funciones-con-la-api-de-youtube">Funciones con la API de
+YouTube</a></li>
+<li><a href="#atajos-de-teclado">Atajos de teclado</a></li>
+<li><a href="#accesibilidad">Accesibilidad</a></li>
+<li><a href="#configuración">Configuración</a></li>
+<li><a href="#problemas-frecuentes">Problemas frecuentes</a></li>
+<li><a href="#licencia">Licencia</a></li>
+</ul>
 <h2 id="qué-hace">Qué hace</h2>
-<p>Pegas la URL de un directo (o de un vídeo normal) y la app se conecta
-sola:</p>
+<p>La aplicación toma la dirección de un directo o de un vídeo de
+YouTube, se conecta y lee el chat en voz alta con una voz SAPI5 de
+Windows. Alrededor de esa función principal ofrece un reproductor de
+vídeo integrado, lectura de comentarios, moderación del chat, un panel
+para mostrar el chat a los espectadores durante una transmisión, envío
+automático de mensajes al chat, descarga de vídeo y audio, e historial
+de directos vistos.</p>
+<p>También admite directos de TikTok, en modo de solo lectura.</p>
+<h2 id="requisitos">Requisitos</h2>
 <ul>
-<li><strong>Chat en vivo</strong>: lee cada mensaje con una voz SAPI5,
-con sonidos distintos para mensajes, Super Chats y membresías. Se puede
-pausar, cambiar de voz y de velocidad al vuelo, filtrar por palabras o
-usuarios, y silenciar a alguien en el momento desde el menú contextual.
-En la lista, escribir unas letras seguidas salta al mensaje que empieza
-así (por ejemplo «mig» para Miguel).</li>
-<li><strong>Comentarios</strong>: si la URL es un vídeo subido, muestra
-sus comentarios y los lee con la misma voz. Con sesión iniciada se puede
-comentar y responder.</li>
-<li><strong>Reproductor integrado</strong>: ve el directo o el vídeo
-dentro de la app (libVLC), con calidad seleccionable, pantalla completa
-y volumen propio, todo por teclado. Es minimalista por defecto; los
-botones en pantalla son opcionales.</li>
-<li><strong>Moderación</strong> (opcional, con la API oficial de
-YouTube): expulsar o banear usuarios del chat y enviar mensajes al
-directo.</li>
-<li><strong>Pestaña Información</strong>: canal, vistas, fecha y
-descripción del vídeo, con los enlaces clicables.</li>
-<li><strong>Directos de TikTok</strong>: pega una URL tipo
-<code>tiktok.com/@usuario/live</code> y lee el chat, los regalos y las
-suscripciones con la misma voz, con el vídeo del directo en el
-reproductor. Solo lectura: en TikTok no se puede comentar ni moderar
-desde la app.</li>
-<li><strong>Historial de directos</strong> (menú Archivo): guarda lo que
-has visto, con su canal, en dos pestañas (YouTube y TikTok), para volver
-a un directo sin recordar el enlace.</li>
-<li><strong>Estado por voz (F2)</strong>: dice de un vistazo los datos
-del directo (título, canal, espectadores ahora, mensajes leídos…). Se
-elige qué dice en Preferencias → Estado (F2).</li>
+<li>Windows 10 o Windows 11.</li>
+<li>Al menos una voz SAPI5 instalada. Se comprueba en <em>Configuración,
+Hora e idioma, Voz</em>.</li>
+<li>Conexión a internet.</li>
 </ul>
-<p>Los anuncios importantes se envían al lector de pantalla (NVDA/JAWS)
-y cada control tiene nombre accesible. Hay navegación por regiones con
-F6 y una barra de menú nativa donde se ven todos los atajos.</p>
-<h2 id="cómo-usarla">Cómo usarla</h2>
-<p><strong>Con el ejecutable</strong> (lo normal): descomprime el ZIP en
-cualquier carpeta y abre <code>YTChatTTS.exe</code>. No necesita Python
-ni instalación; libVLC ya viene incluido. Solo hace falta tener al menos
-una voz SAPI5 en Windows (<em>Configuración → Hora e idioma →
-Voz</em>).</p>
-<p><strong>Desde el código fuente</strong>: instala <a
-href="https://docs.astral.sh/uv/">uv</a> y ejecuta
-<code>instalar.bat</code> (crea el entorno e instala las dependencias) y
-después <code>ejecutar.bat</code>. Para generar el ZIP distribuible:
-<code>construir.bat</code>.</p>
-<p>Una vez abierta: pega la URL, Enter o el botón
-<strong>Conectar</strong>, y listo. F6 cambia de región (conexión /
-contenido / reproductor), Ctrl+Tab cambia de pestaña, y la tecla
-Aplicaciones abre el menú contextual sobre el chat o los
-comentarios.</p>
-<h2 id="atajos-principales">Atajos principales</h2>
-<p>El modificador indica el área: <strong>Ctrl</strong> para el
-reproductor, <strong>Alt</strong> para la conexión y el chat,
-<strong>teclas F</strong> para la voz. Se cambian en Preferencias →
-Atajos: pulsás el botón de una acción y luego la combinación que
-quieras; se comprueba sola que sea válida y que no choque con otra.</p>
+<p>No hace falta instalar Python ni ningún reproductor: la versión
+distribuible incluye todo, libVLC incluido.</p>
+<h2 id="puesta-en-marcha">Puesta en marcha</h2>
+<p><strong>Con el ejecutable</strong>, que es la forma habitual:
+descomprimir el archivo ZIP en cualquier carpeta y abrir
+<code>YTChatTTS.exe</code>. No requiere instalación ni permisos de
+administrador.</p>
+<p><strong>Desde el código fuente</strong>: se necesita <a
+href="https://docs.astral.sh/uv/">uv</a>. Ejecutar
+<code>instalar.bat</code> para crear el entorno e instalar las
+dependencias, y después <code>ejecutar.bat</code> para abrir la
+aplicación. El archivo <code>construir.bat</code> genera el ZIP
+distribuible.</p>
+<h2 id="primeros-pasos">Primeros pasos</h2>
+<p>Al abrir la aplicación, el foco queda en el campo de la dirección. Se
+pega ahí el enlace del directo o del vídeo y se pulsa Intro, o el botón
+<strong>Conectar</strong>. También sirve <code>Alt+C</code>.</p>
+<p>La ventana está dividida en tres regiones, que se recorren con
+<code>F6</code> y <code>Mayús+F6</code>: conexión, contenido y
+reproductor. Dentro de la región de contenido, <code>Ctrl+Tab</code>
+cambia entre las pestañas de chat, comentarios e información. Cada
+cambio de región y de pestaña se anuncia.</p>
+<p>La tecla Aplicaciones abre el menú contextual sobre la lista de chat
+o la de comentarios.</p>
+<h2 id="lectura-del-chat">Lectura del chat</h2>
+<p>Cada mensaje se lee con la voz configurada y va acompañado de un
+sonido, que es distinto según se trate de un mensaje normal, un Super
+Chat o una membresía.</p>
+<p>Dentro de la lista de mensajes:</p>
 <ul>
-<li>Alt+C / Alt+D — conectar / desconectar.</li>
-<li>F5 — pausar o reanudar la lectura. F8 — callar la voz actual.</li>
-<li>F9/F10 y F11/F12 — velocidad y volumen del TTS.</li>
-<li>Ctrl+P — reproducir/pausa. Ctrl+← / Ctrl+→ — retroceder/avanzar 1
-minuto.</li>
-<li>Ctrl+↑ / Ctrl+↓ — volumen del reproductor. Ctrl+F — pantalla
-completa.</li>
-<li>F2 — anunciar el estado por voz.</li>
+<li>Las flechas recorren los mensajes uno a uno.</li>
+<li>Escribir varias letras seguidas salta al primer mensaje cuyo autor
+empieza así. Por ejemplo, escribir «mig» lleva a los mensajes de
+Miguel.</li>
+<li>El menú contextual permite copiar el mensaje, silenciar al autor
+durante la sesión y, con sesión de Google iniciada, expulsarlo o vetarlo
+del chat.</li>
 </ul>
-<p>La lista completa está en la barra de menú, junto a cada acción.</p>
-<p>Otras opciones útiles: una <strong>segunda voz para los
-eventos</strong> (Super Chats, regalos, miembros, entradas) distinta de
-la de los mensajes, y <strong>leer quién entra</strong> a un directo de
-TikTok. Ambas están desactivadas por defecto, en Preferencias →
-Lectura.</p>
-<h2 id="accesibilidad">Accesibilidad</h2>
-<p>Es la prioridad del proyecto, no un añadido. En concreto:</p>
+<p>La lectura se pausa y se reanuda con <code>F5</code>, y
+<code>F8</code> interrumpe la frase en curso. La velocidad se ajusta con
+<code>F9</code> y <code>F10</code>, y el volumen de la voz con
+<code>F11</code> y <code>F12</code>. <code>F4</code> silencia la lectura
+sin desconectar, y <code>F7</code> silencia los sonidos.</p>
+<p>En <em>Herramientas, Preferencias, Filtros</em> se configuran las
+palabras y los usuarios que no deben leerse. En <em>Preferencias,
+Lectura</em> se elige el formato de lo que se lee (nombre y mensaje,
+solo el mensaje o solo el nombre), y se puede activar una
+<strong>segunda voz para los eventos</strong>, de modo que los Super
+Chats, los regalos, las membresías y las entradas se distingan de los
+mensajes normales.</p>
+<h2 id="comentarios-de-vídeos">Comentarios de vídeos</h2>
+<p>Cuando la dirección corresponde a un vídeo ya publicado y no a un
+directo, la pestaña de comentarios muestra los comentarios del vídeo y
+los lee con la misma voz. Con sesión de Google iniciada también permite
+publicar un comentario nuevo y responder a uno existente.</p>
+<h2 id="reproductor">Reproductor</h2>
+<p>El vídeo del directo o del vídeo cargado se ve dentro de la propia
+aplicación, mediante libVLC. Se maneja por completo con el teclado:</p>
 <ul>
-<li>Todos los controles tienen nombre y son alcanzables con Tab y
-flechas.</li>
-<li>Barra de menú nativa (Alt), con el atajo de cada acción escrito al
-lado.</li>
-<li>Navegación por regiones con F6 / Shift+F6 y por pestañas con
-Ctrl+Tab; cada cambio se anuncia.</li>
-<li>Los avisos importantes se envían al lector de pantalla (NVDA/JAWS)
-por voz y por línea braille, en paralelo con un sonido.</li>
-<li>Probada de verdad con NVDA en Windows 10 y 11.</li>
+<li><code>Ctrl+P</code> reproduce y pausa.</li>
+<li><code>Ctrl+Flecha izquierda</code> y
+<code>Ctrl+Flecha derecha</code> retroceden y avanzan un minuto.</li>
+<li><code>Ctrl+Flecha arriba</code> y <code>Ctrl+Flecha abajo</code>
+suben y bajan el volumen del reproductor, que es independiente del
+volumen de la voz.</li>
+<li><code>Ctrl+D</code> detiene la reproducción y <code>Ctrl+M</code>
+silencia el audio.</li>
+<li><code>Ctrl+F</code> activa la pantalla completa.</li>
 </ul>
-<h2 id="configuración">Configuración</h2>
-<p>Casi todo se ajusta en <strong>Herramientas → Preferencias</strong>
-(voz, lectura, filtros, atajos, API) y se aplica al momento. Por debajo
-queda en <code>config.ini</code> y <code>sounds.ini</code>, editables
-con el Bloc de notas; si se borran, se regeneran.</p>
-<p>Las funciones de la API de YouTube (comentarios, moderación, enviar
-al chat) son opcionales y usan credenciales propias de cada usuario. La
-guía paso a paso, pensada para lectores de pantalla, está en <a
+<p>La calidad se elige en el propio panel. Los botones en pantalla están
+ocultos de forma predeterminada, porque toda la funcionalidad está
+disponible por menú y por atajo; se muestran desde el menú
+<em>Reproductor</em>.</p>
+<p>Dentro del deslizador de posición, las flechas mueven la reproducción
+diez segundos, y el deslizador anuncia el tiempo transcurrido en lugar
+de un número sin contexto.</p>
+<p>La primera vez que se abre la aplicación, el reproductor tarda unos
+segundos en quedar disponible. Durante esa preparación se anuncia
+«Preparando el reproductor», y al terminar, «Reproductor listo».</p>
+<h2 id="panel-de-chat-para-transmitir">Panel de chat para
+transmitir</h2>
+<p>Muestra el chat solo, en grande y sin el resto de la interfaz, para
+que lo vean los espectadores de la transmisión. Está pensado para
+añadirse como fuente de navegador en un programa de emisión como OBS
+Studio, Streamlabs o Prism Live Studio.</p>
+<p>Se activa en <em>Herramientas, Panel de chat para transmitir</em>. Al
+activarlo se anuncia el puerto en el que queda disponible, y la
+dirección que hay que indicar en el programa de emisión es:</p>
+<pre><code>http://127.0.0.1:8730/chat</code></pre>
+<p>El panel muestra cada mensaje en una tarjeta con la inicial del
+autor, un color propio por persona y una etiqueta que indica la
+plataforma. Las donaciones se distinguen en dorado y muestran el
+importe. Los mensajes entran por abajo y los más antiguos se
+desvanecen.</p>
+<p>Como no es posible comprobar visualmente si el panel se está
+mostrando, esa información se consulta por voz: <code>F2</code> indica
+si el panel está activo, en qué puerto, y si algún programa lo está
+mostrando en ese momento o no. Esa distinción es la forma de detectar
+que el programa de emisión perdió la conexión.</p>
+<p>El servidor solo escucha en el equipo local, de modo que el chat no
+sale de la máquina. Si el puerto configurado está ocupado, el panel no
+se activa y se anuncia el motivo, en lugar de cambiar de puerto en
+silencio: la dirección indicada en el programa de emisión dejaría de
+funcionar sin aviso.</p>
+<p>El estado del panel se recuerda entre sesiones. Si queda activado, se
+activa solo al abrir la aplicación.</p>
+<h2 id="mensajes-automáticos">Mensajes automáticos</h2>
+<p>Permiten enviar mensajes al chat del directo cada cierto tiempo, sin
+intervención: por ejemplo, las redes sociales cada diez minutos, o
+información sobre la transmisión cada quince.</p>
+<p>Se configuran en <em>Herramientas, Preferencias, Mensajes
+automáticos</em>. Cada mensaje tiene su propio texto, su intervalo y una
+casilla que permite dejarlo preparado sin enviarlo. El intervalo puede
+ser <strong>fijo</strong>, indicando el mismo valor como mínimo y como
+máximo, o <strong>variable</strong>, indicando un rango: en ese caso
+cada envío se programa en un momento distinto dentro del rango.</p>
+<p>Condiciones y límites, que conviene tener presentes:</p>
+<ul>
+<li>Requiere sesión de Google iniciada y un directo de YouTube
+conectado. En TikTok no funciona, porque no existe una interfaz oficial
+para escribir.</li>
+<li>El intervalo mínimo admitido son cinco minutos.</li>
+<li>Cada mensaje admite doscientos caracteres como máximo.</li>
+<li>YouTube suele bloquear los enlaces en el chat en vivo. Al escribir
+un mensaje que contiene una dirección web se muestra un aviso; conviene
+indicar el nombre de usuario en lugar de la dirección completa.</li>
+</ul>
+<p>Cuando un mensaje se envía correctamente no se anuncia nada: el
+mensaje aparece en el chat del directo y se lee como cualquier otro, de
+modo que anunciarlo además supondría escucharlo dos veces.
+<code>F2</code> indica cuánto falta para el próximo envío.</p>
+<p>Si el servicio de YouTube devuelve un error, los mensajes automáticos
+se detienen y se anuncia una sola vez. No se reintenta: insistir ante un
+error de límite de frecuencia es lo que puede acarrear restricciones en
+la cuenta. Reanudarlos es una decisión del usuario, desde la misma
+casilla de Preferencias.</p>
+<h2 id="gestor-de-descargas">Gestor de descargas</h2>
+<p>Descarga vídeos, audio o listas de reproducción completas. Se abre
+con <code>Ctrl+S</code> o desde <em>Herramientas, Gestor de
+descargas</em>, y funciona sin necesidad de estar conectado a ningún
+directo.</p>
+<p>Admite vídeo en MP4 o WebM y audio en MP3 o M4A, con calidad de audio
+seleccionable entre 192, 256 y 320 kbps. Permite elegir la carpeta de
+destino y numerar los elementos de una lista de reproducción. Las
+descargas en curso se pueden cancelar.</p>
+<p>La herramienta de descarga se actualiza desde <em>Herramientas,
+Actualizar yt-dlp</em>. Si ya está al día se indica en una ventana; si
+hay una versión nueva, se muestra el progreso con el porcentaje y un
+botón para cancelar.</p>
+<h2 id="historial-de-directos">Historial de directos</h2>
+<p>El menú <em>Archivo</em> da acceso al historial de lo visto,
+organizado en dos pestañas, una para YouTube y otra para TikTok, con el
+título y el canal de cada entrada. Permite volver a un directo sin
+recordar la dirección. Los directos ya terminados aparecen señalados
+como tales, porque su enlace deja de servir.</p>
+<h2 id="estado-por-voz">Estado por voz</h2>
+<p><code>F2</code> anuncia un resumen de la situación actual: estado de
+la conexión, título del directo, canal, espectadores en ese momento,
+mensajes leídos, donaciones recibidas, y el estado del panel de chat y
+de los mensajes automáticos cuando están activos.</p>
+<p>Qué se incluye en ese resumen se elige en <em>Herramientas,
+Preferencias, Estado (F2)</em>, de modo que sea posible dejar solo lo
+relevante y que el anuncio no se alargue.</p>
+<h2 id="directos-de-tiktok">Directos de TikTok</h2>
+<p>Se admiten direcciones con el formato
+<code>tiktok.com/@usuario/live</code>. La aplicación lee el chat, los
+regalos y las suscripciones con la misma voz, y muestra el vídeo del
+directo en el reproductor.</p>
+<p>Es una modalidad de <strong>solo lectura</strong>: TikTok no ofrece
+una interfaz oficial que permita comentar ni moderar, de modo que esas
+funciones no están disponibles. Opcionalmente puede anunciarse la
+entrada de cada espectador, desde <em>Preferencias, Lectura</em>.</p>
+<h2 id="funciones-con-la-api-de-youtube">Funciones con la API de
+YouTube</h2>
+<p>Tres funciones requieren credenciales propias y sesión de Google
+iniciada:</p>
+<ul>
+<li><strong>Moderar el chat</strong>: expulsar temporalmente o vetar a
+un usuario, desde el menú contextual de la lista.</li>
+<li><strong>Enviar un mensaje al chat del directo</strong>, con
+<code>Alt+Intro</code>.</li>
+<li><strong>Publicar y responder comentarios</strong> en vídeos ya
+publicados.</li>
+</ul>
+<p>Cada usuario emplea credenciales propias, creadas en su cuenta de
+Google. La guía paso a paso, redactada para leerse con lector de
+pantalla, está en <a
 href="docs/CONFIGURACION_API.html">docs/CONFIGURACION_API.md</a>.</p>
-<h2 id="problemas-frecuentes">Problemas frecuentes</h2>
+<p>Sin credenciales, la aplicación funciona igual para todo lo demás:
+leer el chat, el reproductor, las descargas, el panel de transmisión y
+el historial no las necesitan.</p>
+<h2 id="atajos-de-teclado">Atajos de teclado</h2>
+<p>El modificador indica el área a la que pertenece cada acción:
+<strong>Ctrl</strong> para el reproductor, <strong>Alt</strong> para la
+conexión y el chat, y las <strong>teclas de función</strong> para la voz
+y la lectura. Esa correspondencia se respeta también al
+personalizarlos.</p>
+<p>Conexión y chat:</p>
 <ul>
-<li><strong>No hay voces</strong>: añade una en <em>Configuración → Hora
-e idioma → Voz</em>. Las voces neurales de Windows 11 no aparecen en
-SAPI5 por defecto; la herramienta gratuita <em>TTSVoicePatcher</em> las
-expone.</li>
-<li><strong>"Windows protegió tu PC"</strong> al abrir el exe: es
-SmartScreen porque el ejecutable no está firmado. <em>Más información →
-Ejecutar de todos modos</em>.</li>
-<li><strong>El antivirus marca el exe</strong>: falso positivo típico de
-PyInstaller; añade la carpeta a las exclusiones.</li>
-<li><strong>Algo falla</strong>: <code>ytchat.log</code>, junto al
-ejecutable, guarda los errores. En operación normal está vacío.</li>
+<li><code>Alt+C</code> conectar, <code>Alt+D</code> desconectar.</li>
+<li><code>Alt+Intro</code> enviar un mensaje al chat del directo.</li>
+<li><code>Alt+L</code> ir a la lista de mensajes.</li>
 </ul>
-<h2 id="pruebas">Pruebas</h2>
-<pre><code>uv run python -m unittest discover -s tests   # lógica pura, corre en cualquier SO
-uv run python smoke_test.py                   # imports de GUI + árbol de accesibilidad (Windows)</code></pre>
+<p>Voz y lectura:</p>
+<ul>
+<li><code>F5</code> pausar o reanudar la lectura.</li>
+<li><code>F8</code> interrumpir la frase en curso.</li>
+<li><code>F9</code> y <code>F10</code> velocidad de la voz.</li>
+<li><code>F11</code> y <code>F12</code> volumen de la voz.</li>
+<li><code>F4</code> silenciar la lectura, <code>F7</code> silenciar los
+sonidos.</li>
+<li><code>F2</code> anunciar el estado.</li>
+</ul>
+<p>Reproductor:</p>
+<ul>
+<li><code>Ctrl+P</code> reproducir o pausar.</li>
+<li><code>Ctrl+Flecha izquierda</code> y
+<code>Ctrl+Flecha derecha</code> retroceder y avanzar un minuto.</li>
+<li><code>Ctrl+Flecha arriba</code> y <code>Ctrl+Flecha abajo</code>
+volumen del reproductor.</li>
+<li><code>Ctrl+D</code> detener, <code>Ctrl+M</code> silenciar el
+audio.</li>
+<li><code>Ctrl+F</code> pantalla completa.</li>
+<li><code>Ctrl+S</code> abrir el gestor de descargas.</li>
+</ul>
+<p>Navegación, no personalizables:</p>
+<ul>
+<li><code>F6</code> y <code>Mayús+F6</code> cambiar de región.</li>
+<li><code>Ctrl+Tab</code> cambiar de pestaña.</li>
+<li><code>Alt+F4</code> salir.</li>
+</ul>
+<p>Los atajos se personalizan en <em>Herramientas, Preferencias,
+Atajos</em>. Se elige la acción, se pulsa la combinación deseada y la
+aplicación comprueba que sea válida y que no coincida con otra ya
+asignada; si hay coincidencia, se indica con cuál. Las combinaciones de
+navegación y la de salir aparecen en la lista como fijas.</p>
+<p>Todos los atajos figuran además junto a su acción en la barra de
+menú.</p>
+<h2 id="accesibilidad">Accesibilidad</h2>
+<p>Es el criterio principal del proyecto, no un añadido posterior.</p>
+<ul>
+<li>Todos los controles tienen nombre accesible y se alcanzan con Tab y
+flechas.</li>
+<li>La barra de menú es nativa y muestra el atajo de cada acción a su
+lado.</li>
+<li>La navegación por regiones y por pestañas anuncia cada cambio.</li>
+<li>Los avisos relevantes se envían al lector de pantalla por voz y por
+línea braille, acompañados de un sonido.</li>
+<li>El diálogo de preferencias conserva la apariencia nativa de Windows
+a propósito: dar color a una casilla de verificación cambia la forma en
+que el sistema la expone, y el lector de pantalla dejaría de indicar si
+está marcada.</li>
+<li>Se comprueba con NVDA en Windows 10 y 11.</li>
+</ul>
+<p>El panel de chat para transmitir es la única excepción deliberada: no
+recibe foco ni aparece en el recorrido del teclado, porque es una salida
+destinada a los espectadores. El chat accesible es la lista de la
+ventana principal.</p>
+<h2 id="configuración">Configuración</h2>
+<p>Casi todo se ajusta en <em>Herramientas, Preferencias</em>, repartido
+en pestañas de interfaz, lectura, estado, filtros, atajos, API y
+mensajes automáticos. Los cambios se aplican en el momento.</p>
+<p>Los ajustes se guardan en <code>config.ini</code> y
+<code>sounds.ini</code>, junto al ejecutable. Ambos son archivos de
+texto que pueden editarse con el Bloc de notas, y si se eliminan se
+regeneran con los valores predeterminados. Los mensajes automáticos se
+guardan aparte, en <code>mensajes_programados.json</code>.</p>
+<h2 id="problemas-frecuentes">Problemas frecuentes</h2>
+<p><strong>No hay voces disponibles.</strong> Se añade una en
+<em>Configuración, Hora e idioma, Voz</em>. Las voces neurales de
+Windows 11 no aparecen en SAPI5 de forma predeterminada; la herramienta
+gratuita <em>TTSVoicePatcher</em> permite exponerlas.</p>
+<p><strong>Aparece «Windows protegió tu PC» al abrir el
+ejecutable.</strong> Es el filtro SmartScreen, porque el ejecutable no
+está firmado digitalmente. Se continúa con <em>Más información, Ejecutar
+de todos modos</em>.</p>
+<p><strong>El antivirus señala el ejecutable.</strong> Es un falso
+positivo habitual en los programas empaquetados con PyInstaller. Se
+resuelve añadiendo la carpeta a las exclusiones.</p>
+<p><strong>El panel de chat no se ve en el programa de emisión.</strong>
+Conviene comprobar con <code>F2</code> si el panel está activo y si algo
+lo está mostrando. Si indica que nadie lo muestra, el problema está en
+la fuente de navegador del programa de emisión, no en la aplicación.</p>
+<p><strong>Los mensajes automáticos no se envían.</strong> Requieren, a
+la vez, el interruptor general activado, sesión de Google iniciada y un
+directo de YouTube conectado. Si faltó alguna de las tres, no se envía
+nada y no se anuncia.</p>
+<p><strong>Algo falla.</strong> El archivo <code>ytchat.log</code>,
+junto al ejecutable, recoge los errores. En funcionamiento normal está
+vacío.</p>
 <h2 id="licencia">Licencia</h2>
-<p>MIT — ver <a href="LICENSE">LICENSE</a>.</p>
+<p>MIT. Ver <a href="LICENSE">LICENSE</a>.</p>
 </body>
 </html>
