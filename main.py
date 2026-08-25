@@ -559,6 +559,12 @@ def _mensaje_error_amigable(exc) -> str:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+def armar_callbacks_captura(cola, config, stats, parada):
+    """Arma una conexión y devuelve sus dos callbacks asociados."""
+    conexiones = conexion.Conexiones(cola, config, stats, parada)
+    return conexiones.conectar, conexiones.desconectar
+
+
 def main():
     # Aquí y no al importar el módulo: así los tests y el smoke test pueden
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
@@ -630,11 +636,12 @@ def main():
             pass
         sys.exit(1)
 
-    conexiones = conexion.Conexiones(cola, config, stats, parada)
+    iniciar_captura_cb, detener_captura_cb = armar_callbacks_captura(
+        cola, config, stats, parada)
     iniciar_gui(
         config=config, cola=cola, stats=stats, worker=worker, parada=parada,
-        iniciar_captura_cb=conexiones.conectar,
-        detener_captura_cb=conexiones.desconectar,
+        iniciar_captura_cb=iniciar_captura_cb,
+        detener_captura_cb=detener_captura_cb,
     )
 
     _snd.cerrar()
