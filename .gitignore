@@ -66,3 +66,6 @@ desktop.ini
 
 # Logs que manda el amigo para diagnosticar. No se suben.
 todosloslogs.txt
+
+# carpeta que deja Playwright al capturar
+.playwright-mcp/
