@@ -78,6 +78,9 @@ def _mapa_teclas():
         "left": wx.WXK_LEFT, "right": wx.WXK_RIGHT,
         "home": wx.WXK_HOME, "end": wx.WXK_END,
         "delete": wx.WXK_DELETE, "back": wx.WXK_BACK,
+        # La tecla Aplicaciones, que es como abre el menu contextual
+        # quien no usa raton. Sin ella no se puede probar ese menu.
+        "menu": wx.WXK_WINDOWS_MENU, "aplicaciones": wx.WXK_WINDOWS_MENU,
         **{f"f{n}": getattr(wx, f"WXK_F{n}") for n in range(1, 13)},
     }
 

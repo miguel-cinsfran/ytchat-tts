@@ -2018,6 +2018,417 @@ def escenario_programados(app: Aplicacion, args, res: Resultado):
         app.pedir("cerrar_ventana", ventana="Preferencias")
 
 
+def escenario_conectar(app: Aplicacion, args, res: Resultado):
+    """El boton Conectar, que en una corrida rutinaria no se pulsaba nunca.
+
+    Lo pulsaban solo los tres escenarios de directo vivo, que estan fuera de
+    `todos`, asi que sus dos caminos de error no los habia visto nadie. Este no
+    toca la red: se queda en los dos casos que fallan antes de salir a buscar
+    nada.
+    """
+    app.pedir("frente")
+
+    # 1. Sin URL. Sale un cuadro nativo, no un anuncio: NVDA lo lee al recibir
+    # el foco, pero si el cuadro no expone texto no hay nada que leer.
+    app.llamar("set_url", "")
+    try:
+        app.pedir("pulsar", nombre="Conectar", tiempo=6.0)
+    except Exception:
+        pass                      # el cuadro es modal y se come la respuesta
+    dlg = dialogo_nativo("Falta URL", segundos=8)
+    if dlg is None:
+        res.fallo("conectar: con la URL vacia no aparecio ningun aviso")
+    else:
+        textos = _textos_de(dlg)
+        res.nota("conectar sin URL abre «Falta URL» con %d textos" % len(textos))
+        for x in textos[:2]:
+            res.nota("  dice: " + x[:70])
+        if not textos:
+            res.fallo("conectar: el aviso de URL vacia no expone ningun texto, "
+                      "asi que un lector de pantalla no tiene que leer")
+        _cerrar_nativo(dlg)
+
+    # 2. URL que no es de YouTube ni de TikTok.
+    app.llamar("set_url", "esto no es una direccion")
+    n = len(app.anuncios)
+    try:
+        app.pedir("pulsar", nombre="Conectar", tiempo=6.0)
+    except Exception:
+        pass
+    dlg = dialogo_nativo("URL", segundos=6) or dialogo_nativo("no vál", segundos=2)
+    if dlg is not None:
+        res.nota("conectar con una URL invalida abre un aviso nativo")
+        _cerrar_nativo(dlg)
+    elif app.dijo("no es válido", desde=n) or app.dijo("no válido", desde=n):
+        res.nota("conectar con una URL invalida se anuncia con voz")
+    else:
+        res.fallo("conectar: una URL invalida no produjo ni aviso ni anuncio")
+
+    app.llamar("set_url", "")
+
+
+def _textos_de(dlg) -> list:
+    """Los textos que Windows expone de un cuadro nativo."""
+    salida = []
+    try:
+        for d in dlg.descendants():
+            try:
+                if d.element_info.control_type == "Text":
+                    nombre = (d.element_info.name or "").strip()
+                    if nombre:
+                        salida.append(nombre)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return salida
+
+
+def _cerrar_nativo(dlg) -> None:
+    try:
+        dlg.type_keys("{ESC}")
+    except Exception:
+        try:    dlg.close()
+        except Exception: pass
+    time.sleep(0.8)
+
+
+def escenario_menu_chat(app: Aplicacion, args, res: Resultado):
+    """El menu contextual de la lista del chat, donde vive casi toda la accion.
+
+    Entre siete y nueve entradas segun haya sesion: copiar, copiar todo,
+    releer, abrir enlace, silenciar de dos formas, rehabilitar, y con sesion
+    expulsar y banear. Nunca se habia abierto en el banco.
+
+    Se abre con la tecla Aplicaciones, que es como llega quien no usa raton.
+    """
+    app.pedir("frente")
+    app.simular_sesion_youtube(titulo="Prueba del menu contextual")
+    app.mensaje("Ana", "hola, mira esto https://example.com/algo")
+
+    limite = time.time() + 12
+    lista = None
+    while time.time() < limite:
+        lista = lista_del_chat(app.arbol())
+        if lista and lista.get("items"):
+            break
+        time.sleep(0.3)
+    if not lista or not lista.get("items"):
+        res.fallo("menu del chat: no llego ningun mensaje a la lista")
+        return
+
+    app.pedir("foco", nombre="Chat en vivo")
+    app.teclas("down")
+    time.sleep(0.5)
+
+    # El menu emergente es una ventana nativa: wx no la expone, hay que
+    # mirarla desde fuera igual que los cuadros de `wx.MessageBox`.
+    try:
+        app.teclas("menu")
+    except Exception as exc:
+        res.nota("menu del chat: la tecla Aplicaciones no se pudo simular, %s" % exc)
+        res.fallo("menu del chat: SIN PROBAR, no se pudo abrir")
+        return
+
+    entradas = _entradas_de_menu(segundos=8)
+    if not entradas:
+        res.fallo("menu del chat: la tecla Aplicaciones no abrio ningun menu "
+                  "que Windows exponga")
+        _escape()
+        return
+
+    res.nota("menu del chat: %d entradas" % len(entradas))
+    for e in entradas[:9]:
+        res.nota("  " + e[:70])
+
+    juntas = " ".join(entradas).lower()
+    for esperada in ("copiar", "releer", "enlace", "silenciar"):
+        if esperada not in juntas:
+            res.fallo("menu del chat: no aparece ninguna entrada de «%s»"
+                      % esperada)
+    sin_nombre = [e for e in entradas if not e.strip()]
+    if sin_nombre:
+        res.fallo("menu del chat: %d entradas sin texto, mudas para el lector"
+                  % len(sin_nombre))
+    _escape()
+
+
+def _entradas_de_menu(segundos: float = 8.0) -> list:
+    """Los textos de un menu emergente nativo, mirando desde fuera."""
+    try:
+        from pywinauto import Desktop
+    except ImportError:
+        return []
+    limite = time.time() + segundos
+    while time.time() < limite:
+        try:
+            for w in Desktop(backend="uia").windows(top_level_only=False):
+                try:
+                    if w.element_info.control_type != "Menu":
+                        continue
+                    textos = []
+                    for d in w.descendants():
+                        try:
+                            if d.element_info.control_type == "MenuItem":
+                                textos.append((d.element_info.name or "").strip())
+                        except Exception:
+                            continue
+                    if textos:
+                        return textos
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        time.sleep(0.3)
+    return []
+
+
+def _escape() -> None:
+    try:
+        from pywinauto import keyboard
+        keyboard.send_keys("{ESC}")
+    except Exception:
+        pass
+    time.sleep(0.5)
+
+
+def escenario_captura_atajo(app: Aplicacion, args, res: Resultado):
+    """El dialogo que graba una combinacion de teclas.
+
+    Se llega desde Preferencias, pestana Atajos, pulsando cualquiera de los
+    veinte botones. El banco auditaba esos botones pero no pulsaba ninguno, asi
+    que el dialogo, que se maneja SOLO por teclado y existe solo para quien no
+    ve la pantalla, no habia entrado nunca.
+    """
+    app.pedir("frente")
+    try:
+        app.abrir_por_menu("Preferencias")
+    except Exception as exc:
+        res.fallo("captura de atajo: no se pudo abrir Preferencias, %s" % exc)
+        return
+    if app.esperar_ventana("Preferencias", segundos=15) is None:
+        res.fallo("captura de atajo: Preferencias no abrio")
+        return
+
+    try:
+        respuesta = app.pedir("pestanas", ventana="Preferencias")
+        paginas = respuesta.get("datos", {}).get("paginas", [])
+        indice = next(i for i, n in enumerate(paginas) if "tajo" in n)
+        app.pedir("pestanas", ventana="Preferencias", indice=indice)
+        time.sleep(0.8)
+    except Exception as exc:
+        res.fallo("captura de atajo: no se pudo llegar a la pestana, %s" % exc)
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+        return
+
+    # Se abre con el TECLADO y no con `pulsar`, que manda un evento sintetico:
+    # este dialogo depende de la activacion de la ventana, y un evento
+    # sintetico no reproduce ese camino. Espacio sobre el boton enfocado es lo
+    # que hace una persona que no usa raton.
+    try:
+        app.pedir("foco", ventana="Preferencias", nombre="Atajo_conectar")
+        app.teclas("space")
+    except Exception as exc:
+        res.fallo("captura de atajo: no se pudo activar el boton, %s" % exc)
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+        return
+
+    dlg = app.esperar_ventana("Capturar atajo", segundos=10)
+    if dlg is None:
+        res.fallo("captura de atajo: pulsar el boton no abrio el dialogo")
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+        return
+    res.nota("captura de atajo: el dialogo abre, clase %s" % dlg["clase"])
+
+    controles = app.arbol("Capturar atajo")
+    revisar_nombres(controles, res, "captura de atajo")
+
+    # Lo que de verdad importa: que explique que hacer, porque el dialogo no
+    # tiene ninguna pista visual util para quien no ve.
+    juntos = " ".join(((c.get("nombre") or "") + " " + (c.get("etiqueta") or ""))
+                      for c in controles).lower()
+    for esperado in ("pulsa", "escape"):
+        if esperado not in juntos:
+            res.fallo("captura de atajo: el dialogo no dice «%s», y sin eso "
+                      "nadie sabe que hacer" % esperado)
+
+    # Aca NO se recorre con Tab, y no es un olvido: este dialogo se queda con
+    # TODAS las teclas a proposito, porque su trabajo es capturar
+    # combinaciones. Tab dentro de el es una combinacion mas, no una forma de
+    # navegar. Lo que hay que comprobar es que capture.
+    # Lo primero es la activacion, porque de ella depende todo lo demas: un
+    # dialogo que no queda activo no recibe ninguna tecla, ni siquiera Escape.
+    activa = _ventana_activa_segun_windows()
+    if activa and "capturar" not in activa.lower():
+        res.fallo("captura de atajo: el dialogo abre pero NO queda activo. "
+                  "Windows dice que la ventana activa es «%s», asi que no le "
+                  "llega ninguna tecla y no puede capturar nada" % activa)
+    else:
+        res.nota("captura de atajo: la ventana activa es «%s»" % activa)
+
+    antes = _resultado_captura(app)
+    app.teclas(("k", ["alt"]))
+    time.sleep(1.0)
+    despues = _resultado_captura(app)
+    if despues and despues != antes:
+        res.nota("captura de atajo: al pulsar Alt+K el dialogo muestra «%s»"
+                 % despues[:40])
+    else:
+        res.fallo("captura de atajo: se pulso Alt+K y el dialogo sigue "
+                  "diciendo «%s», asi que no capturo nada" % (antes or "nada"))
+
+    app.pedir("cerrar_ventana", ventana="Capturar atajo")
+    if app.esperar_ventana("Capturar atajo", segundos=4) is not None:
+        res.fallo("captura de atajo: el dialogo no cerro con Escape")
+    app.pedir("cerrar_ventana", ventana="Preferencias")
+
+
+def _ventana_activa_segun_windows() -> str:
+    """El titulo de la ventana que Windows considera activa.
+
+    Se pregunta al sistema y no a wx a proposito: si un dialogo no queda
+    activo, wx puede seguir creyendo que existe y estar en lo cierto, pero las
+    teclas del usuario van a ir a otra parte. Esa diferencia es justo la que
+    hay que poder ver.
+    """
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        buf = ctypes.create_unicode_buffer(256)
+        u.GetWindowTextW(u.GetForegroundWindow(), buf, 256)
+        return buf.value
+    except Exception:
+        return ""
+
+
+def _resultado_captura(app: Aplicacion) -> str:
+    """Lo que muestra el dialogo de captura como combinacion reconocida."""
+    for c in app.arbol("Capturar atajo"):
+        if (c.get("nombre") or "") == "ResultadoCaptura":
+            return (c.get("etiqueta") or "").strip()
+    return ""
+
+
+def escenario_redactar(app: Aplicacion, args, res: Resultado):
+    """El cuadro de escritura del chat.
+
+    Lo que se comprueba es el contrato que lo hace usable sin ver: que el
+    cuadro y el boton esten SIEMPRE, que el boton diga por que no se puede
+    usar, y que activarlo sin poder lo anuncie en vez de callarse.
+    """
+    app.pedir("frente")
+
+    def controles():
+        rama = subarbol(app.arbol(), "PanelRedactar")
+        cuadro = next((c for c in rama if c["clase"] == "TextCtrl"), None)
+        boton = next((c for c in rama if c["clase"] == "Button"), None)
+        return cuadro, boton
+
+    cuadro, boton = controles()
+    if cuadro is None or boton is None:
+        res.fallo("redactar: no encuentro el cuadro o el boton en el arbol")
+        return
+
+    # Sin conectar tienen que seguir estando, y habilitados: deshabilitarlos
+    # los sacaria del orden de Tab y el motivo quedaria fuera de alcance.
+    for ctrl, comovse in ((cuadro, "el cuadro"), (boton, "el boton")):
+        if not ctrl.get("habilitado"):
+            res.fallo("redactar: %s esta deshabilitado sin conectar, asi que "
+                      "sale del orden de Tab y su motivo no se puede leer"
+                      % comovse)
+    etiqueta = (boton.get("etiqueta") or "").replace("&", "")
+    if "(" not in etiqueta:
+        res.fallo("redactar: sin conectar, el boton se llama «%s» y no dice "
+                  "por que no se puede usar" % etiqueta)
+    else:
+        res.nota("redactar, sin conectar el boton se llama: " + etiqueta)
+
+    n = len(app.anuncios)
+    app.pedir("pulsar", nombre="Enviar mensaje al chat")
+    if app.esperar_dicho("conéctate", segundos=6, desde=n):
+        res.nota("redactar: activarlo sin conectar lo anuncia en vez de callarse")
+    else:
+        res.fallo("redactar: activarlo sin conectar no anuncio nada")
+
+    # Conectado, el motivo desaparece.
+    app.simular_sesion_youtube(titulo="Prueba del cuadro")
+    time.sleep(1.2)
+    _, boton = controles()
+    etiqueta = (boton.get("etiqueta") or "").replace("&", "")
+    if "(" in etiqueta:
+        res.fallo("redactar: conectado, el boton sigue diciendo un motivo: «%s»"
+                  % etiqueta)
+    else:
+        res.nota("redactar, conectado el boton vuelve a llamarse: " + etiqueta)
+
+    # Con el cuadro vacio no se manda nada y se avisa.
+    n = len(app.anuncios)
+    app.pedir("pulsar", nombre="Enviar mensaje al chat")
+    if app.esperar_dicho("escribe un mensaje", segundos=6, desde=n):
+        res.nota("redactar: con el cuadro vacio avisa en vez de mandar nada")
+    else:
+        res.fallo("redactar: con el cuadro vacio no avisa")
+
+    orden = recorrer_tab(app, res, "redactar", vueltas=10)
+    res.nota("redactar, orden de Tab: " + " > ".join(orden[:5]))
+    esperado = ["Chat en vivo", "Mensaje para el chat", "Enviar"]
+    juntos = " > ".join(orden)
+    if not all(x in juntos for x in esperado):
+        res.fallo("redactar: el orden de Tab no pasa por lista, cuadro y "
+                  "boton; da %s" % juntos)
+
+
+def escenario_cierre(app: Aplicacion, args, res: Resultado):
+    """Cerrar la ventana con una sesion abierta.
+
+    Cierra la instancia PRINCIPAL, no una aparte, y por eso va el ultimo de la
+    corrida completa. No se puede levantar una segunda: `main.py` tiene guarda
+    de instancia unica, avisa y se cierra sola. Costo una corrida descubrirlo.
+
+    Lo que esto NO prueba, y conviene decirlo en vez de dar por cubierto lo que
+    no lo esta: aca la sesion esta simulada y NO hay hilos de captura de verdad
+    girando, que es justamente el caso que se sospecha del cierre con Alt+F4.
+    Ese sigue SIN PROBAR y necesita un directo real.
+    """
+    app.pedir("frente")
+    app.simular_sesion_youtube(titulo="Prueba de cierre")
+    app.mensaje("Ana", "hola")
+    time.sleep(1.5)
+    hilos = app.hilos()
+    res.nota("cierre: antes de cerrar hay %d hilos: %s"
+             % (len(hilos), ", ".join(sorted(hilos)[:8])))
+
+    arranque = time.time()
+    try:
+        app.pedir("cerrar_ventana", tiempo=6.0)
+    except Exception:
+        pass
+    limite = time.time() + 20
+    murio = False
+    while time.time() < limite:
+        if app.murio_sola():
+            murio = True
+            break
+        time.sleep(0.5)
+    tardanza = time.time() - arranque
+
+    if not murio:
+        res.fallo("cierre: la aplicacion no cerro en 20 s con una sesion "
+                  "abierta")
+        return
+    res.nota("cierre: la aplicacion cerro sola en %.1f s" % tardanza)
+    # `apagado.TOPE_ESPERA_CIERRE` son 3 segundos. Con margen para que arranque
+    # el proceso de cierre, mas de 10 significa que algo se quedo esperando.
+    if tardanza > 10:
+        res.fallo("cierre: tardo %.1f s, y el tope de espera de las capturas "
+                  "es de %.0f s" % (tardanza, 3.0))
+    if app.dijo("cerrando"):
+        res.nota("cierre: se anuncia antes de cerrar")
+    else:
+        res.nota("cierre: SIN COMPROBAR que se anuncie; no aparece «cerrando» "
+                 "entre lo grabado")
+
+
 # Cada modulo de interfaz con el escenario que lo recorre. Los `gui*.py` NO se
 # listan aca: se descubren del disco en `superficies_sin_escenario`, y esa es
 # toda la gracia. Una lista escrita a mano solo caza lo que alguien se acordo
@@ -2037,6 +2448,7 @@ SUPERFICIES = {
     "gui_descargas.py": "descargas",
     "gui_historial.py": "historial",
     "gui_preferencias.py": "preferencias",
+    "gui_redactar.py": "redactar",
     "reproductor.py": "reproductor",
     "iconos.py": "reproductor",
 }
@@ -2075,6 +2487,11 @@ ESCENARIOS = {
     "dialogos_ayuda": escenario_dialogos_ayuda,
     "chat": escenario_chat,
     "comentarios": escenario_comentarios,
+    "conectar": escenario_conectar,
+    "menu_chat": escenario_menu_chat,
+    "captura_atajo": escenario_captura_atajo,
+    "redactar": escenario_redactar,
+    "cierre": escenario_cierre,
     "tiktok": escenario_tiktok,
     "avisos_wx": escenario_avisos_wx,
     "diagnostico": escenario_diagnostico,
@@ -2147,8 +2564,14 @@ def main() -> int:
         pedidos = ["arranque_frio", "reproductor",
                    "menus", "principal", "descargas", "preferencias",
                    "programados", "historial", "ayuda", "dialogos_ayuda",
-                   "overlay", "chat", "comentarios",
-                   "tiktok", "avisos_wx", "diagnostico"]
+                   # `redactar` va antes que `chat` y no es capricho: la
+                   # mitad de lo que comprueba es como se comporta SIN
+                   # conectar, y en cuanto `chat` simula una sesion ese estado
+                   # no vuelve. Corrido despues, pasaba por el motivo
+                   # equivocado. Mismo motivo que `reproductor`.
+                   "conectar", "captura_atajo", "redactar",
+                   "overlay", "chat", "menu_chat",
+                   "comentarios", "tiktok", "avisos_wx", "diagnostico", "cierre"]
         # Un escenario registrado que no este ni aca ni entre los excluidos no
         # se corre NUNCA con `todos`, y no lo dice nadie. Paso el 25/08/2026:
         # se agregaron `overlay` y `programados` al registro y quedaron fuera de
@@ -2224,6 +2647,29 @@ def main() -> int:
     print(f"  Anuncios grabados: {len(app.anuncios)}, "
           f"en {app.anuncios_ruta.name}")
     print("  Esto no prueba que NVDA lo lea, ni cómo suena, ni la braille.")
+
+    # Los fallos, aparte y en un archivo. Una corrida completa son veinte
+    # minutos y mas de cien lineas: buscar los fallos volviendo atras en la
+    # terminal es incomodo con lector de pantalla, y con el buffer lleno
+    # directamente se pierden.
+    informe = carpeta / "qa-informe.txt"
+    try:
+        lineas = ["Banco de QA de YTChat TTS",
+                  "escenarios: " + ", ".join(pedidos),
+                  "%d comprobaciones, %d fallos"
+                  % (len(res.notas), len(res.fallos)), ""]
+        if res.fallos:
+            lineas.append("FALLOS")
+            lineas += ["%2d. %s" % (i, x)
+                       for i, x in enumerate(res.fallos, 1)]
+        else:
+            lineas.append("Sin fallos.")
+        lineas += ["", "NOTAS"]
+        lineas += ["    " + x for x in res.notas]
+        informe.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+        print(f"  Informe con los fallos en {informe}")
+    except Exception as exc:
+        print(f"  AVISO: no se pudo escribir el informe: {exc}")
     return 0 if res.ok else 1
 
 
