@@ -16,15 +16,21 @@ _AREA_AYUDA = {
 _ETIQUETAS = {
     "rep_play": "Reproducir o pausa", "rep_retro": "Retroceder 1 minuto",
     "rep_avanz": "Avanzar 1 minuto", "rep_detener": "Detener vídeo",
-    "rep_mute": "Silenciar reproductor", "rep_vol_menos": "Bajar volumen",
-    "rep_vol_mas": "Subir volumen", "descargas_abrir": "Abrir descargas",
+    "rep_mute": "Silenciar o activar audio",
+    "rep_vol_menos": "Bajar volumen del reproductor",
+    "rep_vol_mas": "Subir volumen del reproductor",
+    "descargas_abrir": "Abrir el gestor de descargas",
     "pantalla_completa": "Pantalla completa", "conectar": "Conectar",
     "desconectar": "Desconectar", "enviar_chat": "Enviar mensaje al chat",
-    "ir_lista": "Ir a la lista del chat", "pausa": "Pausar lectura",
-    "detener_tts": "Detener lectura", "velocidad_menos": "Bajar velocidad",
-    "velocidad_mas": "Subir velocidad", "volumen_menos": "Bajar volumen de voz",
-    "volumen_mas": "Subir volumen de voz", "silenciar_lectura": "Silenciar lectura",
+    "ir_lista": "Ir a la lista del panel actual", "salir": "Salir de la aplicación",
+    "pausa": "Pausar o reanudar lectura", "detener_tts": "Detener voz actual",
+    "velocidad_menos": "Bajar velocidad (fija)",
+    "velocidad_mas": "Subir velocidad (fija)",
+    "volumen_menos": "Bajar volumen del TTS (fijo)",
+    "volumen_mas": "Subir volumen del TTS (fijo)",
+    "silenciar_lectura": "Silenciar lectura TTS",
     "silenciar_sonidos": "Silenciar sonidos", "anunciar_estado": "Anunciar estado",
+    "region_siguiente": "Región siguiente", "region_anterior": "Región anterior",
 }
 
 

@@ -16,6 +16,7 @@ import webbrowser
 import wx
 
 import config as cfg
+import atajos_captura
 import estado_sesion
 import programados
 import sound_player as _snd
@@ -92,114 +93,6 @@ def _combo_a_texto(mods: int, keycode: int) -> str | None:
     return "+".join(partes + [tecla]) if partes else tecla
 
 
-_NOMBRE_TECLA_MOSTRAR = {
-    "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "enter": "Enter",
-    "left": "Left", "right": "Right", "up": "Up", "down": "Down", "space": "Space",
-}
-
-
-def _mostrar_atajo(valor: str) -> str:
-    """Texto legible de un atajo para el botón: «Ctrl+P», «Alt+Enter», «F5»,
-    «(sin asignar)»."""
-    if not valor:
-        return "(sin asignar)"
-    partes = [_NOMBRE_TECLA_MOSTRAR.get(p, p.upper()) for p in valor.split("+")]
-    return "+".join(partes)
-
-
-class _CapturaAtajoDialog(wx.Dialog):
-    """Mini-diálogo que captura una combinación de teclas y la valida (área de
-    la acción y conflicto con otras). Devuelve el atajo normalizado o None."""
-
-    def __init__(self, parent, accion, etiqueta, valores_actuales):
-        super().__init__(parent, title="Capturar atajo", name="CapturaAtajo")
-        self._accion = accion
-        self._area = cfg.ATAJOS_AREA.get(accion)
-        self._valores = valores_actuales      # dict acción -> atajo normalizado
-        self._capturado = None                # normalizado válido, o None
-        self.SetBackgroundColour(_T.bg)
-
-        vs = wx.BoxSizer(wx.VERTICAL)
-        ayuda = _AREA_AYUDA.get(self._area, "")
-        intro = wx.StaticText(self, name="IntroCaptura", label=(
-            f"Pulsa la combinación para «{etiqueta}». {ayuda}\n"
-            "Escape cancela. Sigue pulsando para cambiarla."))
-        intro.SetForegroundColour(_T.text)
-        intro.Wrap(420)
-        vs.Add(intro, 0, wx.ALL, 12)
-
-        self.lbl_captura = wx.StaticText(self, name="ResultadoCaptura",
-                                         label="Esperando…")
-        self.lbl_captura.SetForegroundColour(_T.accent)
-        vs.Add(self.lbl_captura, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 12)
-
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_ok = wx.Button(self, wx.ID_OK, "&Aceptar", name="AceptarCaptura")
-        self.btn_ok.Disable()
-        btn_quitar = wx.Button(self, wx.ID_ANY, "&Desactivar atajo", name="DesactivarAtajo")
-        btn_cancel = wx.Button(self, wx.ID_CANCEL, "&Cancelar", name="CancelarCaptura")
-        for b in (self.btn_ok, btn_quitar, btn_cancel):
-            b.SetBackgroundColour(_T.btn); b.SetForegroundColour(_T.btn_t)
-            row.Add(b, 0, wx.RIGHT, 6)
-        vs.Add(row, 0, wx.ALIGN_RIGHT | wx.ALL, 12)
-
-        self.SetSizerAndFit(vs)
-        self.SetEscapeId(wx.ID_CANCEL)
-        self.Bind(wx.EVT_CHAR_HOOK, self._on_key)
-        btn_quitar.Bind(wx.EVT_BUTTON, self._on_desactivar)
-        self.Centre()
-
-    def _on_key(self, event):
-        k = event.GetKeyCode()
-        # Escape cierra; teclas solo-modificador se ignoran (se espera la tecla).
-        if k == wx.WXK_ESCAPE:
-            event.Skip(); return
-        if k in (wx.WXK_SHIFT, wx.WXK_CONTROL, wx.WXK_ALT, wx.WXK_RAW_CONTROL):
-            return
-        if k in (wx.WXK_TAB, wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and \
-                event.GetModifiers() == wx.MOD_NONE:
-            # Tab/Enter sin modificador: dejarlos para navegar/aceptar el diálogo.
-            event.Skip(); return
-        combo = _combo_a_texto(event.GetModifiers(), k)
-        self._evaluar(combo)
-
-    def _evaluar(self, combo):
-        combo_normalizado = combo.strip().lower().replace(" ", "") if combo else ""
-        for otra, val in self._valores.items():
-            if otra != self._accion and val and val == combo_normalizado:
-                etq = etiqueta_de_accion(otra)
-                self._fijar(f"Ya lo usa: {etq}. Elige otra.", None)
-                return
-        norm = cfg._normalizar_atajo(combo) if combo else None
-        if norm is None:
-            self._fijar("Esa combinación no es válida.", None)
-            return
-        if not cfg.atajo_valido_para_area(self._accion, norm):
-            self._fijar(f"No vale aquí. {_AREA_AYUDA.get(self._area, '')}", None)
-            return
-        # Conflicto con otra acción (comparando el atajo normalizado).
-        for otra, val in self._valores.items():
-            if otra != self._accion and val and val == norm:
-                etq = etiqueta_de_accion(otra)
-                self._fijar(f"Ya lo usa: {etq}. Elige otra.", None)
-                return
-        self._fijar(f"Capturado: {_mostrar_atajo(norm)}", norm)
-
-    def _fijar(self, texto, norm):
-        self._capturado = norm
-        self.lbl_captura.SetLabel(texto)
-        self.btn_ok.Enable(norm is not None)
-        anunciar(texto)
-
-    def _on_desactivar(self, event):
-        self._capturado = ""     # cadena vacía = atajo desactivado
-        self.EndModal(wx.ID_OK)
-
-    def resultado(self):
-        """Atajo elegido: cadena normalizada, "" si se desactivó, o None si no."""
-        return self._capturado
-
-
 class PreferenciasDialog(wx.Dialog):
 
     def __init__(self, parent, config: dict):
@@ -207,6 +100,7 @@ class PreferenciasDialog(wx.Dialog):
                          name="DialogoPreferencias")
         self._config = config
         self._ruta = cfg.app_dir() / "config.ini"
+        self._capturando_atajo = None
         self._iniciar_programados()
         self._cambios = False
         self.SetBackgroundColour(_T.bg)
@@ -485,7 +379,7 @@ class PreferenciasDialog(wx.Dialog):
                 sufijo = " (fija)" if fija else ""
                 btn = wx.Button(
                     padre, name=f"Atajo_{accion}",
-                    label=f"{etiqueta}: {_mostrar_atajo(valor)}{sufijo}")
+                    label=atajos_captura.etiqueta_boton(etiqueta, valor) + sufijo)
                 btn.SetBackgroundColour(_T.btn); btn.SetForegroundColour(_T.btn_t)
                 if fija:
                     btn.Disable()
@@ -493,25 +387,70 @@ class PreferenciasDialog(wx.Dialog):
                     btn.SetToolTip("Pulsa para capturar una nueva combinación.")
                     btn.Bind(wx.EVT_BUTTON,
                              lambda e, a=accion, et=etiqueta: self._capturar_atajo(a, et))
+                    btn.Bind(wx.EVT_KILL_FOCUS, self._atajo_perdio_foco)
                 self._botones_atajo[accion] = btn
                 box.Add(btn, 0, wx.EXPAND | wx.ALL, 4)
             vs.Add(box, 0, wx.EXPAND | wx.ALL, 8)
 
+        p.Bind(wx.EVT_CHAR_HOOK, self._on_tecla_captura)
         p.SetSizer(vs)
         return p
 
     def _capturar_atajo(self, accion, etiqueta):
-        dlg = _CapturaAtajoDialog(self, accion, etiqueta, self._valores_atajo)
-        try:
-            if dlg.ShowModal() == wx.ID_OK:
-                nuevo = dlg.resultado()
-                if nuevo is not None:
-                    self._valores_atajo[accion] = nuevo
-                    self._botones_atajo[accion].SetLabel(
-                        f"{etiqueta}: {_mostrar_atajo(nuevo)}")
-                    anunciar(f"{etiqueta}: {_mostrar_atajo(nuevo)}")
-        finally:
-            dlg.Destroy()
+        self._capturando_atajo = (accion, etiqueta)
+        boton = self._botones_atajo[accion]
+        boton.SetLabel(f"{etiqueta}: pulsá la combinación")
+        anunciar(atajos_captura.texto_de_espera(
+            etiqueta, _AREA_AYUDA.get(cfg.ATAJOS_AREA.get(accion), "")))
+
+    def _restaurar_etiqueta_atajo(self, accion, etiqueta):
+        valor = self._valores_atajo.get(accion, "")
+        sufijo = " (fija)" if accion in cfg.ATAJOS_FIJOS else ""
+        self._botones_atajo[accion].SetLabel(
+            atajos_captura.etiqueta_boton(etiqueta, valor) + sufijo)
+
+    def _salir_captura_atajo(self, anunciar_cambio=False):
+        if self._capturando_atajo is None:
+            return
+        accion, etiqueta = self._capturando_atajo
+        self._capturando_atajo = None
+        self._restaurar_etiqueta_atajo(accion, etiqueta)
+        if anunciar_cambio:
+            anunciar("Sin cambios")
+
+    def _atajo_perdio_foco(self, event):
+        self._salir_captura_atajo()
+        event.Skip()
+
+    def _on_tecla_captura(self, event):
+        if self._capturando_atajo is None:
+            event.Skip()
+            return
+        k = event.GetKeyCode()
+        mods = event.GetModifiers()
+        if k == wx.WXK_ESCAPE:
+            self._salir_captura_atajo(True)
+            return
+        if k in (wx.WXK_SHIFT, wx.WXK_CONTROL, wx.WXK_ALT, wx.WXK_RAW_CONTROL):
+            return
+        if k == wx.WXK_TAB and mods == wx.MOD_NONE:
+            self._salir_captura_atajo()
+            event.Skip()
+            return
+        accion, etiqueta = self._capturando_atajo
+        if k in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and mods == wx.MOD_NONE:
+            estado, valor, texto = atajos_captura.resolver(
+                accion, None, self._valores_atajo)
+        else:
+            combo = _combo_a_texto(mods, k)
+            estado, valor, texto = atajos_captura.resolver(
+                accion, combo, self._valores_atajo)
+        anunciar(texto)
+        if estado == "rechazado":
+            return
+        self._valores_atajo[accion] = valor
+        self._capturando_atajo = None
+        self._restaurar_etiqueta_atajo(accion, etiqueta)
 
     def _pag_api(self, parent):
         p = self._make_panel(parent, "PagApi")
@@ -924,6 +863,7 @@ _ETIQUETAS_ATAJO = {
     "region_siguiente":  "Región siguiente",
     "region_anterior":   "Región anterior",
 }
+_mostrar_atajo = atajos_captura.mostrar_atajo
 
 
 def etiqueta_de_accion(accion: str) -> str:
