@@ -61,6 +61,13 @@ def resolver(accion: str, combo: str | None,
     if combo is None:
         return "desactivado", "", f"{etiqueta} sin atajo. Desactivado."
 
+    # Hay fijas que la gramática editable no admite; por eso este choque va antes.
+    for otra, valor in valores.items():
+        if otra != accion and valor and valor == combo:
+            otra_etiqueta = _ETIQUETAS.get(
+                otra, otra.replace("_", " ").capitalize())
+            return "rechazado", None, f"Ya lo usa: {otra_etiqueta}. Elige otra."
+
     normalizado = cfg._normalizar_atajo(combo)
     if normalizado is None:
         return "rechazado", None, "Esa combinación no es válida."

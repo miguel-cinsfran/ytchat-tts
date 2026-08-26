@@ -11,6 +11,7 @@ from config import (
 )
 import gui_preferencias
 import gui
+import atajos_captura
 from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
@@ -195,14 +196,11 @@ class TestParsearAtajos(unittest.TestCase):
             [("pausa", "region_siguiente", "f6")])
 
     def test_captura_rechaza_fija_incluso_si_la_gramatica_no_la_admite(self):
-        dialogo = gui_preferencias._CapturaAtajoDialog.__new__(
-            gui_preferencias._CapturaAtajoDialog)
-        dialogo._accion = "ir_lista"
-        dialogo._area = "alt"
-        dialogo._valores = {"ir_lista": "alt+l", "salir": "alt+f4"}
-        dialogo._fijar = mock.Mock()
-        dialogo._evaluar("alt+f4")
-        dialogo._fijar.assert_called_once_with("Ya lo usa: Salir de la aplicación. Elige otra.", None)
+        resultado = atajos_captura.resolver(
+            "ir_lista", "alt+f4", {"ir_lista": "alt+l", "salir": "alt+f4"})
+        self.assertEqual(resultado, (
+            "rechazado", None,
+            "Ya lo usa: Salir de la aplicación. Elige otra."))
 
     def test_arranque_anuncia_la_accion_que_pierde(self):
         anuncios = []
