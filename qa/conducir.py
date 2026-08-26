@@ -1672,6 +1672,7 @@ def escenario_dialogos_ayuda(app: Aplicacion, args, res: Resultado):
             pass
         res.nota(f"«Acerca de» abre un cuadro nativo con {len(textos)} textos "
                  f"y botones: {', '.join(botones) or 'ninguno'}")
+        _version_coherente(textos, res)
         for x in textos[:3]:
             res.nota("  dice: " + x[:70])
         if not textos:
@@ -1694,6 +1695,41 @@ def escenario_dialogos_ayuda(app: Aplicacion, args, res: Resultado):
                  "`webbrowser.open`; se salta para no llenar de pestañas la "
                  "máquina de quien corre las pruebas. Usá --con-navegador.")
 
+
+
+def _version_coherente(textos: list, res: Resultado) -> None:
+    """La version que la aplicacion MUESTRA contra la que documenta el CHANGELOG.
+
+    Nadie vigilaba esto: comprobado el 26/08/2026, ninguna prueba mira
+    `APP_VERSION`, asi que se podia publicar una version con el numero mal y el
+    unico sintoma seria que el «Acerca de» dijera una cosa y las novedades
+    otra. Quien lo sufre es el que descarga el ZIP y no sabe que tiene.
+    """
+    import re
+    mostrada = ""
+    for x in textos:
+        m = re.search(r"v(\d+\.\d+\.\d+)", x)
+        if m:
+            mostrada = m.group(1)
+            break
+    if not mostrada:
+        res.fallo("«Acerca de» no muestra ningun numero de version")
+        return
+
+    try:
+        texto = (RAIZ / "CHANGELOG.md").read_text(encoding="utf-8")
+    except Exception as exc:
+        res.nota(f"no se pudo leer CHANGELOG.md: {exc}")
+        return
+    m = re.search(r"^##\s*(\d+\.\d+\.\d+)", texto, re.MULTILINE)
+    documentada = m.group(1) if m else ""
+    if not documentada:
+        res.fallo("CHANGELOG.md no tiene ninguna entrada de version")
+    elif documentada != mostrada:
+        res.fallo("la aplicacion dice v%s y la entrada mas nueva del CHANGELOG "
+                  "es %s" % (mostrada, documentada))
+    else:
+        res.nota(f"version coherente: la aplicacion y el CHANGELOG dicen {mostrada}")
 
 
 def escenario_avisos_wx(app: Aplicacion, args, res: Resultado):
