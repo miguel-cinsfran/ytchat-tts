@@ -48,9 +48,11 @@ class TestNormalizarAtajo(unittest.TestCase):
         self.assertEqual(_normalizar_atajo("ctrl+up"), "ctrl+up")
 
     def test_modificador_no_soportado(self):
-        # Shift y combinaciones multi-modificador no se admiten en el editor.
+        # Shift solo y combinaciones distintas de Ctrl+Shift no se admiten.
         self.assertIsNone(_normalizar_atajo("shift+u"))
-        self.assertIsNone(_normalizar_atajo("ctrl+shift+x"))
+        self.assertIsNone(_normalizar_atajo("alt+shift+x"))
+        self.assertIsNone(_normalizar_atajo("ctrl+alt+x"))
+        self.assertEqual(_normalizar_atajo("ctrl+shift+x"), "ctrl+shift+x")
 
     def test_tecla_nombre_desconocida(self):
         self.assertIsNone(_normalizar_atajo("ctrl+home"))
@@ -152,7 +154,7 @@ class TestParsearAtajos(unittest.TestCase):
             self.assertEqual(atajos[accion].texto, ATAJOS_DEFAULTS[accion])
 
     def test_valor_invalido_cae_al_default(self):
-        atajos = parsear_atajos({"pausa": "ctrl+shift+x"})
+        atajos = parsear_atajos({"pausa": "ctrl+home"})
         # Inválido -> usa el default de pausa (f5).
         self.assertIn("pausa", atajos)
         self.assertEqual(atajos["pausa"].texto, ATAJOS_DEFAULTS["pausa"])
