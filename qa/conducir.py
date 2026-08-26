@@ -298,6 +298,21 @@ class Aplicacion:
         self.llamar("set_espectadores", espectadores)
         self.llamar("set_live_chat_id", "prueba-qa")
 
+    def restaurar_desconectado(self) -> None:
+        """Deshace una sesion simulada y deja la aplicacion desconectada.
+
+        Lo necesita cualquier escenario que simule una sesion y no sea el
+        ultimo de la corrida. Medido el 26/08/2026: `redactar` simulaba una
+        sesion y no la deshacia, asi que `chat`, que corre despues y mide
+        justamente el PASO de desconectado a conectado, encontraba la
+        aplicacion ya conectada y fallaba diciendo que conectar no anunciaba
+        nada. El defecto no estaba donde saltaba.
+        """
+        self.llamar("set_live_chat_id", "")
+        self.llamar("set_titulo_stream", "")
+        self.llamar("set_espectadores", 0)
+        self.llamar("set_conectado", False)
+
     def simular_sesion_tiktok(self, usuario: str = "rolon_100") -> None:
         self.llamar("set_conectado", True)
         self.llamar("configurar_tiktok", usuario, "")
@@ -458,34 +473,79 @@ def roles_segun_windows(titulo: str, tope: float = 20.0) -> dict[str, int]:
     return _con_tope(lambda: _roles_sin_tope(titulo, Desktop), tope, {})
 
 
+def _ventana_por_titulo(Desktop, objetivo):
+    """La ventana cuyo titulo contiene `objetivo`, este donde este.
+
+    Se mira primero entre las ventanas de raiz. Si no aparece ahi, se busca
+    DENTRO de la ventana de la aplicacion, y esa segunda vuelta es la que hace
+    falta de verdad: medido el 26/08/2026, el dialogo de Preferencias NO cuelga
+    de la raiz sino de la ventana principal, porque un `wx.Dialog` modal tiene
+    dueno y Windows lo expone como descendiente suyo.
+
+    Ese detalle dejo muda la comprobacion de owner-drawn durante un dia entero:
+    devolvia vacio y el banco lo anotaba como «no se pudo leer el arbol», que
+    parece un problema del entorno y no una comprobacion que no se hace.
+
+    La segunda vuelta se limita a la ventana de la aplicacion a proposito.
+    Recorrer los descendientes de CADA ventana del escritorio tardo 72,4
+    segundos contra 0,8, porque UI Automation pregunta a cada proceso ajeno y
+    espera a su bucle de mensajes. Dentro de la propia aplicacion son 0,2.
+    """
+    for w in _candidatas_uia(Desktop):
+        try:
+            if (w.element_info.control_type in ("Window", "Pane")
+                    and objetivo in (w.element_info.name or "").lower()):
+                return w
+        except Exception:
+            continue
+    return None
+
+
+def _candidatas_uia(Desktop):
+    """Las ventanas donde puede estar algo nuestro, primero las mas probables.
+
+    Se recorren las ventanas de raiz, que son diez y se enumeran en menos de un
+    segundo, y solo despues los descendientes de la ventana de la aplicacion,
+    que son otros 0,2 segundos.
+
+    Lo que NO se hace, y es el motivo de que esto exista, es pedirle a UI
+    Automation `top_level_only=False`. Eso recorre los descendientes de CADA
+    ventana del escritorio: pregunta a Chrome, a Steam, a Telegram, y espera al
+    bucle de mensajes de cada uno. Medido el 25/08/2026 en 72,4 segundos contra
+    0,8, y el 26/08/2026 comiendo casi entera la corrida de `dialogos_ayuda`,
+    que bajo de 72 segundos a 12 al quitarlo.
+
+    El tope por reloj no protegia de esto: una sola pasada tarda mas que el
+    tope entero y no se puede interrumpir desde fuera.
+    """
+    raices = list(Desktop(backend="uia").windows(top_level_only=True))
+    for w in raices:
+        yield w
+    for w in raices:
+        try:
+            if not (w.element_info.name or "").lower().startswith("ytchat"):
+                continue
+        except Exception:
+            continue
+        for d in w.descendants():
+            yield d
+
+
 def _roles_sin_tope(titulo, Desktop) -> dict[str, int]:
     cuenta: dict[str, int] = {}
     _ULTIMOS_NOMBRES.clear()
-    objetivo = titulo.lower()
     try:
-        # `top_level_only=True` y no False. Medido el 25/08/2026 en la máquina
-        # del dueño: recorrer también los descendientes de cada ventana del
-        # escritorio tardó 72,4 segundos contra 0,8, porque UI Automation
-        # pregunta a CADA proceso ajeno (navegador, editor, lector de pantalla)
-        # y esas llamadas esperan al bucle de mensajes del otro lado. Si uno no
-        # contesta, la espera no termina nunca: así se colgó el banco entero.
-        # Un `wx.Dialog` es una ventana de primer nivel, así que buscar entre
-        # los descendientes ajenos nunca sirvió para nada.
-        for w in Desktop(backend="uia").windows(top_level_only=True):
+        w = _ventana_por_titulo(Desktop, titulo.lower())
+        if w is None:
+            return cuenta
+        for d in w.descendants():
             try:
-                if objetivo not in (w.element_info.name or "").lower():
-                    continue
+                rol = d.element_info.control_type
+                nombre = (d.element_info.name or "").strip()
             except Exception:
                 continue
-            for d in w.descendants():
-                try:
-                    rol = d.element_info.control_type
-                    nombre = (d.element_info.name or "").strip()
-                except Exception:
-                    continue
-                cuenta[rol] = cuenta.get(rol, 0) + 1
-                _ULTIMOS_NOMBRES.setdefault(rol, []).append(nombre)
-            break
+            cuenta[rol] = cuenta.get(rol, 0) + 1
+            _ULTIMOS_NOMBRES.setdefault(rol, []).append(nombre)
     except Exception:
         pass
     return cuenta
@@ -1281,6 +1341,23 @@ def escenario_chat(app: Aplicacion, args, res: Resultado):
     que haya un directo vivo ni de que la red se porte bien.
     """
     app.pedir("frente")
+
+    # Este escenario mide el PASO de desconectado a conectado, asi que si llega
+    # con la aplicacion ya conectada no falla por un defecto suyo: falla porque
+    # otro escenario dejo puesta una sesion simulada. Se dice asi, con el
+    # nombre del culpable a la vista, porque el 26/08/2026 el mismo fallo se
+    # leyo como «conectar no anuncia nada» y se busco durante un rato en el
+    # sitio equivocado.
+    conectado_ya = any(
+        i["habilitado"] for i in app.menus()
+        if not i.get("submenu")
+        and "desconectar" in (i.get("camino") or "").lower())
+    if conectado_ya:
+        res.fallo("chat: llegue con la aplicacion YA conectada. No es un "
+                  "defecto de la aplicacion: algun escenario anterior simulo "
+                  "una sesion y no llamo a `restaurar_desconectado`")
+        return
+
     apagados_antes = len([i for i in app.menus()
                           if not i.get("submenu") and not i["habilitado"]])
 
@@ -1534,7 +1611,7 @@ def dialogo_nativo(titulo: str, segundos: float = 8.0):
     limite = time.time() + segundos
     while time.time() < limite:
         try:
-            for w in Desktop(backend="uia").windows(top_level_only=False):
+            for w in _candidatas_uia(Desktop):
                 try:
                     if objetivo in (w.element_info.name or "").lower():
                         return w
@@ -1664,7 +1741,10 @@ def escenario_avisos_wx(app: Aplicacion, args, res: Resultado):
 # Enlaces que dio el dueno el 21/08/2026 para poder probar contra la red.
 # Un directo caduca: si el escenario dice que no hay nadie emitiendo, lo
 # primero que hay que mirar es si el enlace sigue vivo, no el codigo.
-DIRECTO_YOUTUBE = "https://www.youtube.com/watch?v=ArKbAx1K-2U"
+# Directo de TN, que emite siempre y tiene el chat lleno. Lo eligio el
+# dueno el 26/08/2026 como el sitio donde probar: es publico, va rapido
+# y a nadie le llama la atencion un mensaje suelto.
+DIRECTO_YOUTUBE = "https://www.youtube.com/watch?v=cb12KmMMDJA"
 DIRECTO_TIKTOK = "https://www.tiktok.com/@rolon_100/live"
 
 
@@ -2162,7 +2242,7 @@ def _entradas_de_menu(segundos: float = 8.0) -> list:
     limite = time.time() + segundos
     while time.time() < limite:
         try:
-            for w in Desktop(backend="uia").windows(top_level_only=False):
+            for w in _candidatas_uia(Desktop):
                 try:
                     if w.element_info.control_type != "Menu":
                         continue
@@ -2377,6 +2457,89 @@ def escenario_redactar(app: Aplicacion, args, res: Resultado):
         res.fallo("redactar: el orden de Tab no pasa por lista, cuadro y "
                   "boton; da %s" % juntos)
 
+    # Se deja como se encontro: este escenario necesita el estado SIN conectar
+    # para su primera mitad, y el de mas adelante mide el paso de uno al otro.
+    app.restaurar_desconectado()
+    time.sleep(0.5)
+
+
+def escenario_enviar_live(app: Aplicacion, args, res: Resultado):
+    """Manda un mensaje de verdad al chat de un directo, punta a punta.
+
+    Es el unico que prueba la ruta de ESCRITURA de la API: credenciales, token,
+    `liveChatId` y la llamada. Todo lo demas del cuadro se comprueba sin red en
+    `redactar`, pero eso no toca la API ni una vez.
+
+    Necesita tres cosas que no dependen del codigo: un directo emitiendo, sesion
+    OAuth iniciada y que el directo tenga el chat abierto. Cuando falle, eso es
+    lo primero que hay que descartar. Por eso vive fuera de `todos`.
+
+    Manda la palabra «test» y nada mas, en el directo que el dueno eligio para
+    esto. No se manda nada que parezca dirigido a nadie.
+    """
+    url = getattr(args, "url_youtube", None) or DIRECTO_YOUTUBE
+    res.nota(f"enviar al chat: {url}")
+    if not conectar_de_verdad(app, res, url, "enviar al chat", espera=75.0):
+        return
+
+    # El motivo dentro del nombre del boton es el que dice si se puede escribir.
+    # Si sigue ahi conectado, no hay sesion o el directo no tiene chat, y eso no
+    # es un fallo del cuadro: se dice y se para, en vez de mandar a ciegas.
+    boton = None
+    limite = time.time() + 30
+    while time.time() < limite:
+        rama = subarbol(app.arbol(), "PanelRedactar")
+        boton = next((c for c in rama if c["clase"] == "Button"), None)
+        if boton and "(" not in (boton.get("etiqueta") or ""):
+            break
+        time.sleep(1.0)
+    if boton is None:
+        res.fallo("enviar al chat: no encuentro el boton de enviar")
+        return
+    etiqueta = (boton.get("etiqueta") or "").replace("&", "")
+    if "(" in etiqueta:
+        res.nota("enviar al chat: NO se manda nada, el boton dice «%s». "
+                 "Falta sesion o el directo no tiene chat abierto." % etiqueta)
+        return
+
+    app.pedir("foco", nombre="Mensaje para el chat")
+    app.pedir("texto", valor="test")
+    n = len(app.anuncios)
+    app.pedir("pulsar", nombre="Enviar mensaje al chat")
+
+    # Se espera a lo que DICE, no a un reloj: la llamada va en un hilo aparte y
+    # tarda lo que tarde la red.
+    dicho = ""
+    limite = time.time() + 45
+    while time.time() < limite:
+        dicho = " ".join(a.get("texto", "") for a in app.anuncios[n:]).lower()
+        if "enviado" in dicho or "error" in dicho or "no se pudo" in dicho:
+            break
+        time.sleep(0.5)
+
+    for d in [a.get("texto", "") for a in app.anuncios[n:]][:6]:
+        res.nota("  enviar al chat dice: " + d[:90])
+    if "enviado" in dicho:
+        res.nota("enviar al chat: el mensaje salio y se anuncio")
+    elif not dicho:
+        res.fallo("enviar al chat: pulse enviar y la aplicacion no dijo nada "
+                  "en 45 s. Sin voz, quien no ve no sabe si salio")
+    else:
+        res.fallo("enviar al chat: no confirmo el envio, dijo: " + dicho[:120])
+
+    # Despues de enviar, el cuadro queda vacio y con el foco: si no, hay que
+    # volver a buscarlo con Tab para escribir el siguiente.
+    rama = subarbol(app.arbol(), "PanelRedactar")
+    cuadro = next((c for c in rama if c["clase"] == "TextCtrl"), None)
+    if cuadro is None:
+        res.fallo("enviar al chat: el cuadro desaparecio despues de enviar")
+    else:
+        if (cuadro.get("valor") or "").strip():
+            res.fallo("enviar al chat: el cuadro conserva el texto ya enviado, "
+                      "asi que el siguiente mensaje saldria repetido")
+        else:
+            res.nota("enviar al chat: el cuadro queda vacio")
+
 
 def escenario_cierre(app: Aplicacion, args, res: Resultado):
     """Cerrar la ventana con una sesion abierta.
@@ -2475,6 +2638,7 @@ FUERA_DE_TODOS = frozenset({
     "directo_youtube",   # pide un directo de YouTube vivo
     "directo_tiktok",    # pide un directo de TikTok vivo
     "dos_conexiones",    # conecta dos veces a un directo vivo
+    "enviar_live",       # escribe de verdad en un chat: pide directo y sesion
 })
 
 ESCENARIOS = {
@@ -2502,6 +2666,7 @@ ESCENARIOS = {
     "directo_tiktok": escenario_directo_tiktok,
     "overlay": escenario_overlay,
     "programados": escenario_programados,
+    "enviar_live": escenario_enviar_live,
 }
 
 
