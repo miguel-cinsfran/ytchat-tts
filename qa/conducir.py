@@ -2273,21 +2273,28 @@ def _escape() -> None:
 
 
 def escenario_captura_atajo(app: Aplicacion, args, res: Resultado):
-    """El dialogo que graba una combinacion de teclas.
+    """La pestana Atajos, ahora que la captura ya no abre ninguna ventana.
 
-    Se llega desde Preferencias, pestana Atajos, pulsando cualquiera de los
-    veinte botones. El banco auditaba esos botones pero no pulsaba ninguno, asi
-    que el dialogo, que se maneja SOLO por teclado y existe solo para quien no
-    ve la pantalla, no habia entrado nunca.
+    Hasta el 26/08/2026 esto pulsaba un boton y esperaba un dialogo «Capturar
+    atajo». Ese dialogo se borro: ahora el propio boton entra en modo captura.
+    El escenario viejo daba un fallo que parecia de la aplicacion y era del
+    banco, y estuvo dos dias en el informe.
+
+    LO QUE ESTE ESCENARIO NO CUBRE, y conviene saberlo: no comprueba que teclas
+    de verdad lleguen al boton, porque el simulador de wx escribe en la ventana
+    que Windows tenga al frente y el banco trae al frente la ventana PRINCIPAL,
+    no el dialogo modal de Preferencias. Esa parte, o sea que Escape cancele,
+    que Tab salga y que Alt+Enter se capture en vez de desactivar, la cubren
+    las pruebas de `tests/test_atajos_captura.py`, una por rama.
     """
     app.pedir("frente")
     try:
         app.abrir_por_menu("Preferencias")
     except Exception as exc:
-        res.fallo("captura de atajo: no se pudo abrir Preferencias, %s" % exc)
+        res.fallo("atajos: no se pudo abrir Preferencias, %s" % exc)
         return
     if app.esperar_ventana("Preferencias", segundos=15) is None:
-        res.fallo("captura de atajo: Preferencias no abrio")
+        res.fallo("atajos: Preferencias no abrio")
         return
 
     try:
@@ -2297,96 +2304,83 @@ def escenario_captura_atajo(app: Aplicacion, args, res: Resultado):
         app.pedir("pestanas", ventana="Preferencias", indice=indice)
         time.sleep(0.8)
     except Exception as exc:
-        res.fallo("captura de atajo: no se pudo llegar a la pestana, %s" % exc)
+        res.fallo("atajos: no se pudo llegar a la pestana, %s" % exc)
         app.pedir("cerrar_ventana", ventana="Preferencias")
         return
 
-    # Se abre con el TECLADO y no con `pulsar`, que manda un evento sintetico:
-    # este dialogo depende de la activacion de la ventana, y un evento
-    # sintetico no reproduce ese camino. Espacio sobre el boton enfocado es lo
-    # que hace una persona que no usa raton.
-    try:
-        app.pedir("foco", ventana="Preferencias", nombre="Atajo_conectar")
-        app.teclas("space")
-    except Exception as exc:
-        res.fallo("captura de atajo: no se pudo activar el boton, %s" % exc)
+    def boton_de(nombre):
+        for c in app.arbol("Preferencias"):
+            if (c.get("nombre") or "") == nombre:
+                return c
+        return None
+
+    # Cada boton dice su atajo en la etiqueta, y eso NO es decoracion: es lo
+    # unico que lee un lector de pantalla al recorrer la pestana.
+    conectar = boton_de("Atajo_conectar")
+    if conectar is None:
+        res.fallo("atajos: no encuentro el boton de la accion Conectar")
         app.pedir("cerrar_ventana", ventana="Preferencias")
         return
-
-    dlg = app.esperar_ventana("Capturar atajo", segundos=10)
-    if dlg is None:
-        res.fallo("captura de atajo: pulsar el boton no abrio el dialogo")
-        app.pedir("cerrar_ventana", ventana="Preferencias")
-        return
-    res.nota("captura de atajo: el dialogo abre, clase %s" % dlg["clase"])
-
-    controles = app.arbol("Capturar atajo")
-    revisar_nombres(controles, res, "captura de atajo")
-
-    # Lo que de verdad importa: que explique que hacer, porque el dialogo no
-    # tiene ninguna pista visual util para quien no ve.
-    juntos = " ".join(((c.get("nombre") or "") + " " + (c.get("etiqueta") or ""))
-                      for c in controles).lower()
-    for esperado in ("pulsa", "escape"):
-        if esperado not in juntos:
-            res.fallo("captura de atajo: el dialogo no dice «%s», y sin eso "
-                      "nadie sabe que hacer" % esperado)
-
-    # Aca NO se recorre con Tab, y no es un olvido: este dialogo se queda con
-    # TODAS las teclas a proposito, porque su trabajo es capturar
-    # combinaciones. Tab dentro de el es una combinacion mas, no una forma de
-    # navegar. Lo que hay que comprobar es que capture.
-    # Lo primero es la activacion, porque de ella depende todo lo demas: un
-    # dialogo que no queda activo no recibe ninguna tecla, ni siquiera Escape.
-    activa = _ventana_activa_segun_windows()
-    if activa and "capturar" not in activa.lower():
-        res.fallo("captura de atajo: el dialogo abre pero NO queda activo. "
-                  "Windows dice que la ventana activa es «%s», asi que no le "
-                  "llega ninguna tecla y no puede capturar nada" % activa)
+    etiqueta_inicial = (conectar.get("etiqueta") or "").replace("&", "")
+    if ":" not in etiqueta_inicial:
+        res.fallo("atajos: el boton se llama «%s» y no dice que atajo tiene"
+                  % etiqueta_inicial)
     else:
-        res.nota("captura de atajo: la ventana activa es «%s»" % activa)
+        res.nota("atajos, el boton dice: " + etiqueta_inicial)
 
-    antes = _resultado_captura(app)
-    app.teclas(("k", ["alt"]))
-    time.sleep(1.0)
-    despues = _resultado_captura(app)
-    if despues and despues != antes:
-        res.nota("captura de atajo: al pulsar Alt+K el dialogo muestra «%s»"
-                 % despues[:40])
+    # Entrar en modo captura tiene que anunciarse Y cambiar la etiqueta. Si
+    # solo se anunciara, quien vuelve sobre el control mas tarde no tendria
+    # forma de saber que esta esperando una combinacion.
+    n = len(app.anuncios)
+    # El foco PRIMERO, y no es un adorno: el modo captura se sale al perder el
+    # foco, asi que si se entra con un evento sintetico sin foco, el boton
+    # nunca lo pierde y la comprobacion de mas abajo da un fallo que parece de
+    # la aplicacion. Pasó el 26/08/2026 al escribir este escenario.
+    app.pedir("foco", ventana="Preferencias", nombre="Atajo_conectar")
+    app.pedir("pulsar", nombre="Atajo_conectar")
+    time.sleep(0.5)
+    if app.esperar_dicho("combinación", segundos=6, desde=n):
+        res.nota("atajos: entrar en captura se anuncia")
     else:
-        res.fallo("captura de atajo: se pulso Alt+K y el dialogo sigue "
-                  "diciendo «%s», asi que no capturo nada" % (antes or "nada"))
+        res.fallo("atajos: pulsar el boton no anuncio nada, asi que nadie sabe "
+                  "que la aplicacion esta esperando una combinacion")
+    ahora = boton_de("Atajo_conectar")
+    texto = (ahora.get("etiqueta") or "").replace("&", "") if ahora else ""
+    if "combinación" not in texto.lower():
+        res.fallo("atajos: en modo captura el boton sigue diciendo «%s», asi "
+                  "que su estado no se puede leer" % texto)
+    else:
+        res.nota("atajos, en captura el boton dice: " + texto)
 
-    app.pedir("cerrar_ventana", ventana="Capturar atajo")
-    if app.esperar_ventana("Capturar atajo", segundos=4) is not None:
-        res.fallo("captura de atajo: el dialogo no cerro con Escape")
+    # Se sale del modo por el mismo camino que usaria alguien que se arrepiente
+    # sin teclado disponible: mover el foco a otro control.
+    app.pedir("foco", ventana="Preferencias", nombre="RestablecerAtajos")
+    time.sleep(0.5)
+    vuelto = boton_de("Atajo_conectar")
+    texto = (vuelto.get("etiqueta") or "").replace("&", "") if vuelto else ""
+    if texto != etiqueta_inicial:
+        res.fallo("atajos: al perder el foco el boton quedo en «%s» y antes "
+                  "decia «%s»" % (texto, etiqueta_inicial))
+    else:
+        res.nota("atajos: perder el foco devuelve la etiqueta a como estaba")
+
+    restablecer = boton_de("RestablecerAtajos")
+    if restablecer is None:
+        res.fallo("atajos: no hay boton para restablecer los valores de fabrica")
+    elif not restablecer.get("habilitado"):
+        res.fallo("atajos: el boton de restablecer esta deshabilitado, asi que "
+                  "sale del orden de Tab")
+    else:
+        n = len(app.anuncios)
+        app.pedir("pulsar", nombre="RestablecerAtajos")
+        if app.esperar_dicho("restablecid", segundos=6, desde=n):
+            res.nota("atajos: restablecer se anuncia")
+        else:
+            res.fallo("atajos: restablecer no anuncio nada")
+
+    revisar_nombres(subarbol(app.arbol("Preferencias"), "PagAtajos"),
+                    res, "atajos")
     app.pedir("cerrar_ventana", ventana="Preferencias")
-
-
-def _ventana_activa_segun_windows() -> str:
-    """El titulo de la ventana que Windows considera activa.
-
-    Se pregunta al sistema y no a wx a proposito: si un dialogo no queda
-    activo, wx puede seguir creyendo que existe y estar en lo cierto, pero las
-    teclas del usuario van a ir a otra parte. Esa diferencia es justo la que
-    hay que poder ver.
-    """
-    try:
-        import ctypes
-        u = ctypes.windll.user32
-        buf = ctypes.create_unicode_buffer(256)
-        u.GetWindowTextW(u.GetForegroundWindow(), buf, 256)
-        return buf.value
-    except Exception:
-        return ""
-
-
-def _resultado_captura(app: Aplicacion) -> str:
-    """Lo que muestra el dialogo de captura como combinacion reconocida."""
-    for c in app.arbol("Capturar atajo"):
-        if (c.get("nombre") or "") == "ResultadoCaptura":
-            return (c.get("etiqueta") or "").strip()
-    return ""
 
 
 def escenario_redactar(app: Aplicacion, args, res: Resultado):
