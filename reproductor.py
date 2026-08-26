@@ -175,7 +175,7 @@ def _mejor_audio(info: dict) -> str:
     # idioma, gana el bitrate (como antes), así que un vídeo de una sola pista
     # se comporta igual que siempre.
     auds = [f for f in info.get("formats", []) or []
-            if f.get("acodec") not in (None, "none")
+            if f.get("acodec") != "none"
             and f.get("vcodec") in (None, "none") and f.get("url")]
     if not auds:
         return ""
@@ -205,6 +205,19 @@ def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:
     # 3) Lo mejor progresivo que haya.
     if prog:
         return max(prog, key=lambda x: int(x["height"]))["url"], True
+    # 4) Si no hay progresivos, se acompañará el mejor vídeo solo con audio.
+    solo = [f for f in fmts if f.get("vcodec") not in (None, "none")
+            and f.get("acodec") in (None, "none") and f.get("url")
+            and f.get("height")]
+    if solo:
+        cand = [f for f in solo if int(f["height"]) <= altura]
+        if cand:
+            altura_elegida = max(int(f["height"]) for f in cand)
+            cand = [f for f in cand if int(f["height"]) == altura_elegida]
+        else:
+            altura_elegida = min(int(f["height"]) for f in solo)
+            cand = [f for f in solo if int(f["height"]) == altura_elegida]
+        return max(cand, key=lambda x: x.get("tbr") or 0)["url"], False
     return "", False
 
 

@@ -8,6 +8,87 @@ import sys
 import reproductor
 
 
+FORMATOS_SEPARADOS = [
+    {"format_id": "233", "height": None, "vcodec": "none",
+     "acodec": None, "abr": None, "tbr": None, "url": "audio-233"},
+    {"format_id": "234", "height": None, "vcodec": "none",
+     "acodec": None, "abr": None, "tbr": None, "url": "audio-234"},
+    {"format_id": "269", "height": 144, "vcodec": "avc1.42C00B",
+     "acodec": "none", "abr": 0, "tbr": 269.034, "url": "video-144"},
+    {"format_id": "229", "height": 240, "vcodec": "avc1.4D4015",
+     "acodec": "none", "abr": 0, "tbr": 507.418, "url": "video-240"},
+    {"format_id": "230", "height": 360, "vcodec": "avc1.4D401E",
+     "acodec": "none", "abr": 0, "tbr": 1000.0, "url": "video-360"},
+    {"format_id": "231", "height": 480, "vcodec": "avc1.4D401F",
+     "acodec": "none", "abr": 0, "tbr": 1500.0, "url": "video-480"},
+    {"format_id": "232", "height": 720, "vcodec": "avc1.4D401F",
+     "acodec": "none", "abr": 0, "tbr": 2500.0, "url": "video-720"},
+    {"format_id": "270", "height": 1080, "vcodec": "avc1.640028",
+     "acodec": "none", "abr": 0, "tbr": 4500.0, "url": "video-1080"},
+]
+
+
+class TestSeleccionFormatos(unittest.TestCase):
+
+    def test_elige_audio_con_acodec_nulo(self):
+        self.assertIn(
+            reproductor._mejor_audio({"formats": FORMATOS_SEPARADOS}),
+            ("audio-233", "audio-234"),
+        )
+
+    def test_elige_video_1080_sin_progresivo(self):
+        self.assertEqual(
+            reproductor._video_para_altura(
+                {"formats": FORMATOS_SEPARADOS}, 10000),
+            ("video-1080", False),
+        )
+
+    def test_elige_video_480_sin_progresivo(self):
+        self.assertEqual(
+            reproductor._video_para_altura(
+                {"formats": FORMATOS_SEPARADOS}, 480),
+            ("video-480", False),
+        )
+
+    def test_a_igual_altura_gana_mayor_tbr(self):
+        formatos = [
+            {"vcodec": "avc1", "acodec": "none", "height": 720,
+             "tbr": 2000, "url": "video-720-lento"},
+            {"vcodec": "avc1", "acodec": "none", "height": 720,
+             "tbr": 3000, "url": "video-720-rapido"},
+        ]
+        self.assertEqual(
+            reproductor._video_para_altura({"formats": formatos}, 1000),
+            ("video-720-rapido", False),
+        )
+
+    def test_descarta_guion_grafico_como_audio(self):
+        formato = {"vcodec": "none", "acodec": "none", "url": "grafico"}
+        self.assertEqual(reproductor._mejor_audio({"formats": [formato]}), "")
+
+    def test_conserva_la_seleccion_progresiva(self):
+        formatos = [
+            {"vcodec": "avc1", "acodec": "mp4a", "height": 360,
+             "url": "progresivo-360"},
+            {"vcodec": "avc1", "acodec": "mp4a", "height": 720,
+             "url": "progresivo-720"},
+        ]
+        self.assertEqual(
+            reproductor._video_para_altura({"formats": formatos}, 720),
+            ("progresivo-720", True),
+        )
+
+    def test_prefiere_idioma_alto_antes_que_bitrate(self):
+        formatos = [
+            {"vcodec": "none", "acodec": None, "abr": 320,
+             "language_preference": 1, "url": "doblaje"},
+            {"vcodec": "none", "acodec": None, "abr": 128,
+             "language_preference": 10, "url": "original"},
+        ]
+        self.assertEqual(
+            reproductor._mejor_audio({"formats": formatos}), "original")
+
+
 class _YoutubeDL:
     def __init__(self, opciones):
         pass
