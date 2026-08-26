@@ -242,9 +242,13 @@ pantalla y hay que desplazar la tabla en horizontal.
   moderador. En la lista del chat, el menú contextual de un mensaje (tecla
   Aplicaciones o Mayúsculas+F10) ofrece **Expulsar 5 minutos** y **Banear del
   directo**. Se pide confirmación antes de actuar.
-- **Enviar un mensaje al chat del directo:** menú **Enviar mensaje al chat del
-  directo**, que se activa al conectarse a un directo de YouTube con la sesión
-  iniciada.
+- **Escribir en el chat del directo:** en la pestaña *Chat en vivo*, debajo de
+  la lista, hay un cuadro de escritura con su botón **Enviar**. `Intro` envía y
+  `Mayúsculas+Intro` inserta un salto de línea. `Alt+Intro` lleva el foco al
+  cuadro desde cualquier parte de la ventana. Mientras falte algún requisito,
+  el botón sigue alcanzándose con el tabulador y su nombre incluye el motivo,
+  por ejemplo "Enviar (inicia sesión en Configuración de API para escribir en
+  el chat)".
 
 ---
 

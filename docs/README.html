@@ -435,6 +435,33 @@ directo en el reproductor.</p>
 una interfaz oficial que permita comentar ni moderar, de modo que esas
 funciones no están disponibles. Opcionalmente puede anunciarse la
 entrada de cada espectador, desde <em>Preferencias, Lectura</em>.</p>
+<h2 id="escribir-en-el-chat">Escribir en el chat</h2>
+<p>En la pestaña <em>Chat en vivo</em>, debajo de la lista de mensajes,
+hay un cuadro de escritura con su botón <strong>Enviar</strong> al lado.
+El orden de tabulación es lista, cuadro y botón, que es el orden en que
+se usan.</p>
+<p>Se llega de tres formas: tabulando desde la lista, con
+<code>Alt+Intro</code> desde cualquier parte de la ventana, o con
+<code>Alt+M</code>.</p>
+<p>Dentro del cuadro, <code>Intro</code> envía el mensaje y
+<code>Mayúsculas+Intro</code> inserta un salto de línea. Tras enviarlo,
+el cuadro se vacía y el foco permanece dentro, de modo que puede
+escribirse el siguiente sin tabular.</p>
+<p>Escribir en el chat requiere estar conectado a un directo de YouTube
+con chat en vivo y con la sesión de Google iniciada. <strong>Cuando
+falta alguno de esos requisitos, el cuadro y el botón siguen presentes y
+siguen alcanzándose con el tabulador</strong>, y el motivo concreto
+forma parte del nombre del botón, de modo que el lector de pantalla lo
+anuncia al llegar. Activarlo lo repite con voz sin enviar nada.
+Deshabilitar el botón lo habría sacado del orden de tabulación, y
+entonces el motivo habría quedado fuera del alcance de quien no ve la
+pantalla.</p>
+<p>El mismo cuadro se abre, esta vez en una ventana, al pulsar
+<strong>Comentar en el vídeo</strong> o <strong>Responder</strong> en la
+pestaña <em>Comentarios</em>.</p>
+<p>El límite de un mensaje del chat en vivo es de 200 caracteres, y lo
+impone la API de YouTube. Si se supera, se avisa al enviar indicando la
+longitud actual.</p>
 <h2 id="funciones-con-la-api-de-youtube">Funciones con la API de
 YouTube</h2>
 <p>Tres funciones requieren credenciales propias y sesión de Google
@@ -442,8 +469,8 @@ iniciada:</p>
 <ul>
 <li><strong>Moderar el chat</strong>: expulsar temporalmente o vetar a
 un usuario, desde el menú contextual de la lista.</li>
-<li><strong>Enviar un mensaje al chat del directo</strong>, con
-<code>Alt+Intro</code>.</li>
+<li><strong>Escribir en el chat del directo</strong>, desde el cuadro
+que hay debajo de la lista, en la pestaña <em>Chat en vivo</em>.</li>
 <li><strong>Publicar y responder comentarios</strong> en vídeos ya
 publicados.</li>
 </ul>
@@ -463,7 +490,8 @@ personalizarlos.</p>
 <p>Conexión y chat:</p>
 <ul>
 <li><code>Alt+C</code> conectar, <code>Alt+D</code> desconectar.</li>
-<li><code>Alt+Intro</code> enviar un mensaje al chat del directo.</li>
+<li><code>Alt+Intro</code> llevar el foco al cuadro de escritura del
+chat.</li>
 <li><code>Alt+L</code> ir a la lista de mensajes.</li>
 </ul>
 <p>Voz y lectura:</p>

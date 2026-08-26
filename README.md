@@ -236,13 +236,41 @@ permita comentar ni moderar, de modo que esas funciones no están disponibles.
 Opcionalmente puede anunciarse la entrada de cada espectador, desde
 *Preferencias, Lectura*.
 
+## Escribir en el chat
+
+En la pestaña *Chat en vivo*, debajo de la lista de mensajes, hay un cuadro de
+escritura con su botón **Enviar** al lado. El orden de tabulación es lista,
+cuadro y botón, que es el orden en que se usan.
+
+Se llega de tres formas: tabulando desde la lista, con `Alt+Intro` desde
+cualquier parte de la ventana, o con `Alt+M`.
+
+Dentro del cuadro, `Intro` envía el mensaje y `Mayúsculas+Intro` inserta un
+salto de línea. Tras enviarlo, el cuadro se vacía y el foco permanece dentro,
+de modo que puede escribirse el siguiente sin tabular.
+
+Escribir en el chat requiere estar conectado a un directo de YouTube con chat
+en vivo y con la sesión de Google iniciada. **Cuando falta alguno de esos
+requisitos, el cuadro y el botón siguen presentes y siguen alcanzándose con el
+tabulador**, y el motivo concreto forma parte del nombre del botón, de modo que
+el lector de pantalla lo anuncia al llegar. Activarlo lo repite con voz sin
+enviar nada. Deshabilitar el botón lo habría sacado del orden de tabulación, y
+entonces el motivo habría quedado fuera del alcance de quien no ve la pantalla.
+
+El mismo cuadro se abre, esta vez en una ventana, al pulsar **Comentar en el
+vídeo** o **Responder** en la pestaña *Comentarios*.
+
+El límite de un mensaje del chat en vivo es de 200 caracteres, y lo impone la
+API de YouTube. Si se supera, se avisa al enviar indicando la longitud actual.
+
 ## Funciones con la API de YouTube
 
 Tres funciones requieren credenciales propias y sesión de Google iniciada:
 
 - **Moderar el chat**: expulsar temporalmente o vetar a un usuario, desde el
   menú contextual de la lista.
-- **Enviar un mensaje al chat del directo**, con `Alt+Intro`.
+- **Escribir en el chat del directo**, desde el cuadro que hay debajo
+  de la lista, en la pestaña *Chat en vivo*.
 - **Publicar y responder comentarios** en vídeos ya publicados.
 
 Cada usuario emplea credenciales propias, creadas en su cuenta de Google. La
@@ -263,7 +291,7 @@ personalizarlos.
 Conexión y chat:
 
 - `Alt+C` conectar, `Alt+D` desconectar.
-- `Alt+Intro` enviar un mensaje al chat del directo.
+- `Alt+Intro` llevar el foco al cuadro de escritura del chat.
 - `Alt+L` ir a la lista de mensajes.
 
 Voz y lectura:
