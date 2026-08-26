@@ -81,7 +81,9 @@ class TestParsearAtajos(unittest.TestCase):
                     mock.patch.object(gui_preferencias.cfg, "ATAJOS_FIJOS", set()):
                 dialogo._pag_atajos(object())
         etiqueta.assert_called_once_with("accion_nueva")
-        self.assertEqual(crear_boton.call_args.kwargs["label"],
+        llamada = next(llamada for llamada in crear_boton.call_args_list
+                       if llamada.kwargs["name"] == "Atajo_accion_nueva")
+        self.assertEqual(llamada.kwargs["label"],
                          "Acción desconocida: Ctrl+A")
 
     def test_todas_las_acciones_tienen_etiqueta(self):
