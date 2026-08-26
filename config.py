@@ -167,7 +167,8 @@ ATAJOS_AREA = {ac: _AREA_POR_GRUPO[i]
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
 # Teclas con nombre admitidas (además de una letra/símbolo o una tecla F).
 _TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space"}
-_RE_ATAJO = re.compile(r"^(ctrl|alt)\+(.+)$", re.IGNORECASE)
+# Ctrl+Shift debe probarse antes que Ctrl para no quedarse con «shift+tecla».
+_RE_ATAJO = re.compile(r"^(ctrl\+shift|ctrl|alt)\+(.+)$", re.IGNORECASE)
 _RE_FKEY  = re.compile(r"^f(1[0-2]|[1-9])$", re.IGNORECASE)
 
 logger = logging.getLogger(__name__)
@@ -188,7 +189,7 @@ def todos_los_atajos_default() -> dict[str, str]:
 def _normalizar_atajo(valor: str | None) -> str | None:
     """Normaliza a 'ctrl+x' / 'alt+enter' / 'ctrl+left' / 'f5'. None si no vale.
 
-    Modificador único (ctrl o alt) + tecla, o una tecla F sin modificador.
+    Ctrl+Shift, Ctrl o Alt + tecla, o una tecla F sin modificador.
     """
     if valor is None:
         return None
@@ -219,6 +220,9 @@ def atajo_valido_para_area(accion: str, normalizado: str | None) -> bool:
         return True
     if area == "f":
         return bool(_RE_FKEY.match(normalizado))
+    # Ctrl+Shift pertenece a su área propia, no a la general de Ctrl.
+    if area == "ctrl" and normalizado.startswith("ctrl+shift+"):
+        return False
     return normalizado.startswith(area + "+")
 
 

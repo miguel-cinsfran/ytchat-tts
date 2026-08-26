@@ -6,12 +6,13 @@ from unittest import mock
 
 from config import (
     _normalizar_atajo, parsear_atajos, detectar_conflictos_atajos,
-    ATAJOS_DEFAULTS, ATAJOS_AREA,
+    ATAJOS_DEFAULTS, ATAJOS_AREA, atajo_valido_para_area,
     ATAJOS_FIJOS, ATAJOS_FIJOS_DEFAULTS, ATAJOS_GRUPOS, todos_los_atajos_default,
 )
 import gui_preferencias
 import gui
 import atajos_captura
+import config
 from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
@@ -56,6 +57,20 @@ class TestNormalizarAtajo(unittest.TestCase):
 
     def test_tecla_nombre_desconocida(self):
         self.assertIsNone(_normalizar_atajo("ctrl+home"))
+
+    def test_ctrl_shift_tecla_con_nombre(self):
+        self.assertEqual(_normalizar_atajo("ctrl+shift+left"), "ctrl+shift+left")
+
+
+class TestAreasAtajo(unittest.TestCase):
+
+    def test_ctrl_shift_no_pertenece_al_area_ctrl(self):
+        with mock.patch.dict(config.ATAJOS_AREA, {"accion": "ctrl"}):
+            self.assertFalse(atajo_valido_para_area("accion", "ctrl+shift+p"))
+
+    def test_ctrl_shift_pertenece_a_su_area(self):
+        with mock.patch.dict(config.ATAJOS_AREA, {"accion": "ctrl+shift"}):
+            self.assertTrue(atajo_valido_para_area("accion", "ctrl+shift+p"))
 
 
 class TestParsearAtajos(unittest.TestCase):
