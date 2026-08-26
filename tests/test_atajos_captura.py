@@ -76,6 +76,8 @@ class TestAtajosCaptura(unittest.TestCase):
         resolver.assert_called_once_with(
             "rep_play", "ctrl+q", {"rep_play": "ctrl+q"})
         self.assertEqual(dialogo._valores_atajo["rep_play"], "ctrl+q")
+        boton.SetLabel.assert_called_once_with(
+            "Reproducir o pausa: Ctrl+Q")
 
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_restablecer_cambia_solo_los_atajos_editables(self):
@@ -91,8 +93,24 @@ class TestAtajosCaptura(unittest.TestCase):
             dialogo._restablecer_atajos(None)
         self.assertEqual(dialogo._valores_atajo["rep_play"], "ctrl+p")
         self.assertEqual(dialogo._valores_atajo["salir"], "alt+x")
+        dialogo._botones_atajo["rep_play"].SetLabel.assert_called_once_with(
+            "Reproducir o pausa: Ctrl+P")
         anunciar.assert_called_once_with(
             "Atajos restablecidos a los valores de fábrica")
+
+    @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
+    def test_cancelar_restaurar_la_etiqueta_y_anunciar_sin_cambios(self):
+        import gui_preferencias as gp
+        dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
+        boton = mock.Mock()
+        dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")
+        dialogo._valores_atajo = {"rep_play": "ctrl+q"}
+        dialogo._botones_atajo = {"rep_play": boton}
+        with mock.patch.object(gp, "anunciar") as anunciar:
+            dialogo._salir_captura_atajo(True)
+        boton.SetLabel.assert_called_once_with(
+            "Reproducir o pausa: Ctrl+Q")
+        anunciar.assert_called_once_with("Sin cambios")
 
 
 if __name__ == "__main__":
