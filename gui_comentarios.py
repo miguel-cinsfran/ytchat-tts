@@ -104,14 +104,18 @@ class ComentariosPanel(wx.Panel):
         self.btn_mas.Bind(wx.EVT_BUTTON, lambda e: self._cargar_pagina(self._next_token))
         self.btn_comentar.Bind(wx.EVT_BUTTON, lambda e: self._comentar())
         self.lb.Bind(wx.EVT_LISTBOX_DCLICK, lambda e: self._leer())
-        self.lb.Bind(wx.EVT_KEY_DOWN, self._on_key)
-        self.lb.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
+        self._enlazar_eventos_lista()
         # Type-ahead: escribir letras seguidas salta al comentario que empiece
         # así (mismo helper que el chat en vivo; ver gui.instalar_busqueda_tipo).
         instalar_busqueda_tipo(
             self.lb, lambda: [self.lb.GetString(i) for i in range(self.lb.GetCount())])
 
         self._actualizar_botones_sesion()
+
+    def _enlazar_eventos_lista(self):
+        self.lb.Bind(wx.EVT_KEY_DOWN, self._on_key)
+        self.lb.Bind(wx.EVT_CHAR_HOOK, self._on_char_hook)
+        self.lb.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
 
     def _actualizar_botones_sesion(self):
         # Comentar requiere sesión; Responder se gobierna en el menú contextual.
@@ -267,12 +271,17 @@ class ComentariosPanel(wx.Panel):
 
     def _on_key(self, event):
         k = event.GetKeyCode()
-        if k in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
-            self._leer()
-        elif k == ord('C') and event.ControlDown():
+        if k == ord('C') and event.ControlDown():
             self._copiar()
         elif k == wx.WXK_WINDOWS_MENU:
             self._mostrar_menu()
+        else:
+            # Enter se atiende en EVT_CHAR_HOOK porque wx no lo entrega aquí.
+            event.Skip()
+
+    def _on_char_hook(self, event):
+        if event.GetKeyCode() in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
+            self._leer()
         else:
             event.Skip()
 

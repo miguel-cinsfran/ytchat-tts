@@ -8,10 +8,75 @@ from pathlib import Path
 from unittest import mock
 
 import gui
+import gui_comentarios
 import gui_preferencias
 import apagado
 import programados
 import ytdlp_bin
+
+
+class EventoTecladoFalso:
+    def __init__(self, codigo):
+        self.codigo = codigo
+        self.omitido = False
+
+    def GetKeyCode(self):
+        return self.codigo
+
+    def Skip(self):
+        self.omitido = True
+
+
+class TestEnterEnListas(unittest.TestCase):
+
+    def test_chat_enlaza_el_gancho_de_caracteres(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame.lb_chat = mock.Mock()
+        frame._enlazar_eventos_chat()
+        enlaces = [llamada.args[0] for llamada in frame.lb_chat.Bind.call_args_list]
+        self.assertIn(gui.wx.EVT_CHAR_HOOK, enlaces)
+
+    def test_chat_enter_copia_sin_omitirlo(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._copiar_mensaje = mock.Mock()
+        evento = EventoTecladoFalso(gui.wx.WXK_RETURN)
+        frame._on_chat_char_hook(evento)
+        frame._copiar_mensaje.assert_called_once_with()
+        self.assertFalse(evento.omitido)
+
+    def test_chat_otra_tecla_se_deja_pasar(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._copiar_mensaje = mock.Mock()
+        evento = EventoTecladoFalso(ord("a"))
+        frame._on_chat_char_hook(evento)
+        frame._copiar_mensaje.assert_not_called()
+        self.assertTrue(evento.omitido)
+
+    def test_comentarios_enlaza_el_gancho_de_caracteres(self):
+        panel = gui_comentarios.ComentariosPanel.__new__(
+            gui_comentarios.ComentariosPanel)
+        panel.lb = mock.Mock()
+        panel._enlazar_eventos_lista()
+        enlaces = [llamada.args[0] for llamada in panel.lb.Bind.call_args_list]
+        self.assertIn(gui_comentarios.wx.EVT_CHAR_HOOK, enlaces)
+
+    def test_comentarios_enter_lee_sin_omitirlo(self):
+        panel = gui_comentarios.ComentariosPanel.__new__(
+            gui_comentarios.ComentariosPanel)
+        panel._leer = mock.Mock()
+        evento = EventoTecladoFalso(gui_comentarios.wx.WXK_RETURN)
+        panel._on_char_hook(evento)
+        panel._leer.assert_called_once_with()
+        self.assertFalse(evento.omitido)
+
+    def test_comentarios_otra_tecla_se_deja_pasar(self):
+        panel = gui_comentarios.ComentariosPanel.__new__(
+            gui_comentarios.ComentariosPanel)
+        panel._leer = mock.Mock()
+        evento = EventoTecladoFalso(ord("a"))
+        panel._on_char_hook(evento)
+        panel._leer.assert_not_called()
+        self.assertTrue(evento.omitido)
 
 
 class GrabadorDeVoz:
