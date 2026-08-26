@@ -219,6 +219,51 @@
 <h1 id="novedades-de-ytchat-tts">Novedades de YTChat TTS</h1>
 <p>Qué cambia en cada versión, en lenguaje llano. El detalle técnico
 está en el historial de git.</p>
+<h2 id="210--agosto-de-2026">2.1.0 — agosto de 2026</h2>
+<p>Esta versión añade la posibilidad de escribir en el chat desde la
+propia aplicación, simplifica la personalización de los atajos y corrige
+la carga del vídeo en los directos.</p>
+<ul>
+<li><strong>Ya se puede escribir en el chat en vivo.</strong> Debajo de
+la lista de mensajes hay un cuadro de escritura con su botón
+<em>Enviar</em>. <code>Intro</code> envía el mensaje y
+<code>Mayúsculas+Intro</code> inserta un salto de línea. Tras enviarlo,
+el cuadro se vacía y el foco permanece dentro, de modo que puede
+escribirse el siguiente sin tabular. Cuando falta la conexión o la
+sesión de Google, el cuadro y el botón siguen alcanzándose con el
+tabulador y el motivo forma parte del nombre del botón, para que el
+lector de pantalla lo anuncie.</li>
+<li><strong>Comentar y responder en los vídeos.</strong> En la pestaña
+<em>Comentarios</em>, los botones <em>Comentar en el vídeo</em> y
+<em>Responder</em> abren ese mismo cuadro en una ventana.</li>
+<li><strong>El vídeo de los directos vuelve a cargarse.</strong> YouTube
+dejó de ofrecer un único flujo con imagen y sonido juntos, y la
+aplicación seguía esperándolo. Los directos mostraban «No se pudo cargar
+el vídeo» aunque el chat funcionara.</li>
+<li><strong><code>Intro</code> copia el mensaje seleccionado.</strong>
+En la lista del chat y en la de comentarios no hacía nada.</li>
+<li><strong>Los atajos se cambian en un solo paso.</strong> Antes se
+abría una ventana aparte y había que confirmar en un botón. Ahora se
+activa el botón de la acción, se pulsa la combinación y queda guardada
+de inmediato, sin salir de la lista. <code>Intro</code> a solas deja la
+acción sin atajo y <code>Escape</code> cancela. Si la combinación no es
+válida o ya está en uso, se indica el motivo por voz y en un aviso en
+pantalla, y el botón sigue esperando otra.</li>
+<li><strong>Restablecer los atajos.</strong> Un botón al final de la
+lista devuelve todas las combinaciones personalizables a sus valores
+originales.</li>
+<li><strong>Tres atajos nuevos para abrir ventanas</strong>:
+<code>Ctrl+Mayúsculas+P</code> abre Preferencias,
+<code>Ctrl+Mayúsculas+H</code> el historial de directos y
+<code>Ctrl+Mayúsculas+I</code> marca una incidencia en el registro.</li>
+<li><strong>El registro detallado viene desactivado.</strong> Es una
+opción de diagnóstico y estaba activa de fábrica, lo que hacía crecer el
+archivo de registro sin necesidad.</li>
+<li><strong>La guía de configuración de la API está reescrita.</strong>
+Cada paso indica la dirección exacta de la pantalla de Google Cloud
+correspondiente, y se explican los tres puntos en los que es fácil
+quedarse atascado con un lector de pantalla.</li>
+</ul>
 <h2 id="201--agosto-de-2026">2.0.1 — agosto de 2026</h2>
 <p>Versión de arreglos. No trae funciones nuevas grandes: trae que las
 que ya había molesten menos y avisen mejor.</p>

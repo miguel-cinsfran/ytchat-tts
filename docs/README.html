@@ -440,9 +440,8 @@ entrada de cada espectador, desde <em>Preferencias, Lectura</em>.</p>
 hay un cuadro de escritura con su botón <strong>Enviar</strong> al lado.
 El orden de tabulación es lista, cuadro y botón, que es el orden en que
 se usan.</p>
-<p>Se llega de tres formas: tabulando desde la lista, con
-<code>Alt+Intro</code> desde cualquier parte de la ventana, o con
-<code>Alt+M</code>.</p>
+<p>Se llega de dos formas: tabulando desde la lista, o con
+<code>Alt+Intro</code> desde cualquier parte de la ventana.</p>
 <p>Dentro del cuadro, <code>Intro</code> envía el mensaje y
 <code>Mayúsculas+Intro</code> inserta un salto de línea. Tras enviarlo,
 el cuadro se vacía y el foco permanece dentro, de modo que puede
@@ -484,9 +483,9 @@ el historial no las necesitan.</p>
 <h2 id="atajos-de-teclado">Atajos de teclado</h2>
 <p>El modificador indica el área a la que pertenece cada acción:
 <strong>Ctrl</strong> para el reproductor, <strong>Alt</strong> para la
-conexión y el chat, y las <strong>teclas de función</strong> para la voz
-y la lectura. Esa correspondencia se respeta también al
-personalizarlos.</p>
+conexión y el chat, <strong>Ctrl+Mayúsculas</strong> para abrir ventanas
+y paneles, y las <strong>teclas de función</strong> para la voz y la
+lectura. Esa correspondencia se respeta también al personalizarlos.</p>
 <p>Conexión y chat:</p>
 <ul>
 <li><code>Alt+C</code> conectar, <code>Alt+D</code> desconectar.</li>
@@ -516,6 +515,13 @@ audio.</li>
 <li><code>Ctrl+F</code> pantalla completa.</li>
 <li><code>Ctrl+S</code> abrir el gestor de descargas.</li>
 </ul>
+<p>Ventanas y paneles:</p>
+<ul>
+<li><code>Ctrl+Mayúsculas+P</code> abrir Preferencias.</li>
+<li><code>Ctrl+Mayúsculas+H</code> abrir el historial de directos.</li>
+<li><code>Ctrl+Mayúsculas+I</code> marcar una incidencia en el
+registro.</li>
+</ul>
 <p>Navegación, no personalizables:</p>
 <ul>
 <li><code>F6</code> y <code>Mayús+F6</code> cambiar de región.</li>
@@ -523,10 +529,24 @@ audio.</li>
 <li><code>Alt+F4</code> salir.</li>
 </ul>
 <p>Los atajos se personalizan en <em>Herramientas, Preferencias,
-Atajos</em>. Se elige la acción, se pulsa la combinación deseada y la
-aplicación comprueba que sea válida y que no coincida con otra ya
-asignada; si hay coincidencia, se indica con cuál. Las combinaciones de
-navegación y la de salir aparecen en la lista como fijas.</p>
+Atajos</em>. Cada acción tiene su botón, y el nombre del botón incluye
+el atajo asignado en ese momento, de modo que el lector de pantalla lo
+anuncia al recorrer la lista.</p>
+<p>Para cambiar uno se activa su botón y se pulsa la combinación
+deseada: queda guardada de inmediato, sin ningún paso de confirmación, y
+el foco permanece en el mismo botón. <code>Intro</code> sin ninguna otra
+tecla deja la acción sin atajo, y <code>Escape</code> sale sin cambiar
+nada.</p>
+<p>La aplicación comprueba que la combinación sea válida para su área y
+que no coincida con otra ya asignada. Si no lo es, se indica el motivo
+por voz y en un aviso en pantalla, y el botón sigue esperando otra
+combinación, de modo que no hay que volver a empezar. Las combinaciones
+de navegación y la de salir aparecen en la lista como fijas y no pueden
+cambiarse.</p>
+<p>Al final de la lista, el botón <strong>Restablecer los atajos a los
+valores de fábrica</strong> devuelve todas las combinaciones
+personalizables a su valor original. El cambio no se escribe hasta
+pulsar <em>Guardar</em>, de modo que <em>Cancelar</em> lo deshace.</p>
 <p>Todos los atajos figuran además junto a su acción en la barra de
 menú.</p>
 <h2 id="accesibilidad">Accesibilidad</h2>

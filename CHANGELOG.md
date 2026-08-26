@@ -3,6 +3,46 @@
 Qué cambia en cada versión, en lenguaje llano. El detalle técnico está en el
 historial de git.
 
+## 2.1.0 — agosto de 2026
+
+Esta versión añade la posibilidad de escribir en el chat desde la propia
+aplicación, simplifica la personalización de los atajos y corrige la carga del
+vídeo en los directos.
+
+- **Ya se puede escribir en el chat en vivo.** Debajo de la lista de mensajes
+  hay un cuadro de escritura con su botón *Enviar*. `Intro` envía el mensaje y
+  `Mayúsculas+Intro` inserta un salto de línea. Tras enviarlo, el cuadro se
+  vacía y el foco permanece dentro, de modo que puede escribirse el siguiente
+  sin tabular. Cuando falta la conexión o la sesión de Google, el cuadro y el
+  botón siguen alcanzándose con el tabulador y el motivo forma parte del nombre
+  del botón, para que el lector de pantalla lo anuncie.
+- **Comentar y responder en los vídeos.** En la pestaña *Comentarios*, los
+  botones *Comentar en el vídeo* y *Responder* abren ese mismo cuadro en una
+  ventana.
+- **El vídeo de los directos vuelve a cargarse.** YouTube dejó de ofrecer un
+  único flujo con imagen y sonido juntos, y la aplicación seguía esperándolo.
+  Los directos mostraban «No se pudo cargar el vídeo» aunque el chat funcionara.
+- **`Intro` copia el mensaje seleccionado.** En la lista del chat y en la de
+  comentarios no hacía nada.
+- **Los atajos se cambian en un solo paso.** Antes se abría una ventana aparte y
+  había que confirmar en un botón. Ahora se activa el botón de la acción, se
+  pulsa la combinación y queda guardada de inmediato, sin salir de la lista.
+  `Intro` a solas deja la acción sin atajo y `Escape` cancela. Si la combinación
+  no es válida o ya está en uso, se indica el motivo por voz y en un aviso en
+  pantalla, y el botón sigue esperando otra.
+- **Restablecer los atajos.** Un botón al final de la lista devuelve todas las
+  combinaciones personalizables a sus valores originales.
+- **Tres atajos nuevos para abrir ventanas**: `Ctrl+Mayúsculas+P` abre
+  Preferencias, `Ctrl+Mayúsculas+H` el historial de directos y
+  `Ctrl+Mayúsculas+I` marca una incidencia en el registro.
+- **El registro detallado viene desactivado.** Es una opción de diagnóstico y
+  estaba activa de fábrica, lo que hacía crecer el archivo de registro sin
+  necesidad.
+- **La guía de configuración de la API está reescrita.** Cada paso indica la
+  dirección exacta de la pantalla de Google Cloud correspondiente, y se explican
+  los tres puntos en los que es fácil quedarse atascado con un lector de
+  pantalla.
+
 ## 2.0.1 — agosto de 2026
 
 Versión de arreglos. No trae funciones nuevas grandes: trae que las que ya

@@ -242,8 +242,8 @@ En la pestaña *Chat en vivo*, debajo de la lista de mensajes, hay un cuadro de
 escritura con su botón **Enviar** al lado. El orden de tabulación es lista,
 cuadro y botón, que es el orden en que se usan.
 
-Se llega de tres formas: tabulando desde la lista, con `Alt+Intro` desde
-cualquier parte de la ventana, o con `Alt+M`.
+Se llega de dos formas: tabulando desde la lista, o con `Alt+Intro` desde
+cualquier parte de la ventana.
 
 Dentro del cuadro, `Intro` envía el mensaje y `Mayúsculas+Intro` inserta un
 salto de línea. Tras enviarlo, el cuadro se vacía y el foco permanece dentro,
@@ -284,9 +284,9 @@ necesitan.
 ## Atajos de teclado
 
 El modificador indica el área a la que pertenece cada acción: **Ctrl** para el
-reproductor, **Alt** para la conexión y el chat, y las **teclas de función**
-para la voz y la lectura. Esa correspondencia se respeta también al
-personalizarlos.
+reproductor, **Alt** para la conexión y el chat, **Ctrl+Mayúsculas** para abrir
+ventanas y paneles, y las **teclas de función** para la voz y la lectura. Esa
+correspondencia se respeta también al personalizarlos.
 
 Conexión y chat:
 
@@ -313,16 +313,37 @@ Reproductor:
 - `Ctrl+F` pantalla completa.
 - `Ctrl+S` abrir el gestor de descargas.
 
+Ventanas y paneles:
+
+- `Ctrl+Mayúsculas+P` abrir Preferencias.
+- `Ctrl+Mayúsculas+H` abrir el historial de directos.
+- `Ctrl+Mayúsculas+I` marcar una incidencia en el registro.
+
 Navegación, no personalizables:
 
 - `F6` y `Mayús+F6` cambiar de región.
 - `Ctrl+Tab` cambiar de pestaña.
 - `Alt+F4` salir.
 
-Los atajos se personalizan en *Herramientas, Preferencias, Atajos*. Se elige la
-acción, se pulsa la combinación deseada y la aplicación comprueba que sea válida
-y que no coincida con otra ya asignada; si hay coincidencia, se indica con cuál.
-Las combinaciones de navegación y la de salir aparecen en la lista como fijas.
+Los atajos se personalizan en *Herramientas, Preferencias, Atajos*. Cada acción
+tiene su botón, y el nombre del botón incluye el atajo asignado en ese momento,
+de modo que el lector de pantalla lo anuncia al recorrer la lista.
+
+Para cambiar uno se activa su botón y se pulsa la combinación deseada: queda
+guardada de inmediato, sin ningún paso de confirmación, y el foco permanece en
+el mismo botón. `Intro` sin ninguna otra tecla deja la acción sin atajo, y
+`Escape` sale sin cambiar nada.
+
+La aplicación comprueba que la combinación sea válida para su área y que no
+coincida con otra ya asignada. Si no lo es, se indica el motivo por voz y en un
+aviso en pantalla, y el botón sigue esperando otra combinación, de modo que no
+hay que volver a empezar. Las combinaciones de navegación y la de salir aparecen
+en la lista como fijas y no pueden cambiarse.
+
+Al final de la lista, el botón **Restablecer los atajos a los valores de
+fábrica** devuelve todas las combinaciones personalizables a su valor original.
+El cambio no se escribe hasta pulsar *Guardar*, de modo que *Cancelar* lo
+deshace.
 
 Todos los atajos figuran además junto a su acción en la barra de menú.
 
