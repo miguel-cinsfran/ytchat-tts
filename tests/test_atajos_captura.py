@@ -77,6 +77,23 @@ class TestAtajosCaptura(unittest.TestCase):
             "rep_play", "ctrl+q", {"rep_play": "ctrl+q"})
         self.assertEqual(dialogo._valores_atajo["rep_play"], "ctrl+q")
 
+    @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
+    def test_restablecer_cambia_solo_los_atajos_editables(self):
+        import gui_preferencias as gp
+        import config as cfg
+        dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
+        dialogo._valores_atajo = cfg.todos_los_atajos_default()
+        dialogo._valores_atajo["rep_play"] = "ctrl+q"
+        dialogo._valores_atajo["salir"] = "alt+x"
+        dialogo._botones_atajo = {
+            accion: mock.Mock() for accion in dialogo._valores_atajo}
+        with mock.patch.object(gp, "anunciar") as anunciar:
+            dialogo._restablecer_atajos(None)
+        self.assertEqual(dialogo._valores_atajo["rep_play"], "ctrl+p")
+        self.assertEqual(dialogo._valores_atajo["salir"], "alt+x")
+        anunciar.assert_called_once_with(
+            "Atajos restablecidos a los valores de fábrica")
+
 
 if __name__ == "__main__":
     unittest.main()

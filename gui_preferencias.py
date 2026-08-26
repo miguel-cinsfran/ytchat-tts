@@ -392,6 +392,14 @@ class PreferenciasDialog(wx.Dialog):
                 box.Add(btn, 0, wx.EXPAND | wx.ALL, 4)
             vs.Add(box, 0, wx.EXPAND | wx.ALL, 8)
 
+        btn_restablecer = wx.Button(
+            p, label="&Restablecer los atajos a los valores de fábrica",
+            name="RestablecerAtajos")
+        btn_restablecer.SetBackgroundColour(_T.btn)
+        btn_restablecer.SetForegroundColour(_T.btn_t)
+        btn_restablecer.Bind(wx.EVT_BUTTON, self._restablecer_atajos)
+        vs.Add(btn_restablecer, 0, wx.ALL, 10)
+
         p.Bind(wx.EVT_CHAR_HOOK, self._on_tecla_captura)
         p.SetSizer(vs)
         return p
@@ -417,6 +425,14 @@ class PreferenciasDialog(wx.Dialog):
         self._restaurar_etiqueta_atajo(accion, etiqueta)
         if anunciar_cambio:
             anunciar("Sin cambios")
+
+    def _restablecer_atajos(self, event):
+        for accion, valor in cfg.ATAJOS_DEFAULTS.items():
+            if accion in cfg.ATAJOS_FIJOS:
+                continue
+            self._valores_atajo[accion] = valor
+            self._restaurar_etiqueta_atajo(accion, etiqueta_de_accion(accion))
+        anunciar("Atajos restablecidos a los valores de fábrica")
 
     def _atajo_perdio_foco(self, event):
         self._salir_captura_atajo()
