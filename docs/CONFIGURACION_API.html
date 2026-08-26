@@ -288,6 +288,15 @@ credentials → API key").</li>
 restricciones de API, limítala a "YouTube Data API v3". No es
 obligatorio pero es más seguro.</li>
 </ol>
+<blockquote>
+<p><strong>Para volver a ver una clave que ya existe.</strong> En la
+lista de <strong>Credenciales</strong>, la columna con el valor de la
+clave está a la derecha del todo y puede quedar fuera de la pantalla:
+hay que desplazar la tabla en horizontal hasta encontrar el enlace
+<strong>Mostrar clave</strong>. La ficha que se abre al pulsar el
+<em>nombre</em> de la clave sirve para editarla, pero
+<strong>no</strong> muestra su valor.</p>
+</blockquote>
 <p>➡️ Con esto ya puedes <strong>leer comentarios</strong>. Abre YTChat
 TTS, pulsa <strong>Configuración</strong>, pega la clave en el campo
 <strong>API key</strong>, pulsa <strong>Guardar claves</strong> y
@@ -298,40 +307,74 @@ id="paso-4--configurar-la-pantalla-de-consentimiento-solo-para-moderarcomentar">
 4 — Configurar la pantalla de consentimiento (solo para
 moderar/comentar)</h2>
 <p>Esto es obligatorio antes de crear el cliente OAuth.</p>
+<blockquote>
+<p><strong>Google cambió esta parte.</strong> Lo que antes se llamaba
+"Pantalla de consentimiento de OAuth" ahora es <strong>Google Auth
+Platform</strong>, y son cuatro pasos numerados dentro de una sola
+página en vez de un formulario largo. Los textos que se indican abajo
+son los de la consola en agosto de 2026.</p>
+</blockquote>
 <ol type="1">
 <li>Ve a <strong>APIs y servicios → Pantalla de consentimiento de
-OAuth</strong> ("OAuth consent screen").</li>
-<li>Elige tipo de usuario <strong>Externo</strong> ("External") y pulsa
-<strong>Crear</strong>.</li>
-<li>Rellena lo mínimo: nombre de la app (por ejemplo
-<code>YTChat TTS</code>), tu correo de asistencia y tu correo de
-contacto. Lo demás puedes dejarlo en blanco. Guarda y continúa hasta el
-final.</li>
-<li>En la sección <strong>Usuarios de prueba</strong> ("Test users"),
-pulsa <strong>Añadir usuarios</strong> y añade <strong>tu propia
-dirección de Gmail</strong>. Guarda.</li>
+OAuth</strong>. El enlace sigue funcionando y lleva a <strong>Google
+Auth Platform</strong>.</li>
+<li>Si el proyecto no tiene nada configurado, aparece "Aún no se
+configuró Google Auth Platform". Pulsa <strong>Comenzar</strong>.</li>
+<li><strong>1 Información de la app.</strong> Escribe el <strong>Nombre
+de la aplicación</strong>, por ejemplo <code>YTChat TTS</code>, y elige
+tu correo en <strong>Correo electrónico de asistencia al
+usuario</strong>, que es una lista desplegable con tus direcciones.
+Pulsa <strong>Siguiente</strong>.</li>
+<li><strong>2 Público.</strong> Elige <strong>Usuarios externos</strong>
+y pulsa <strong>Siguiente</strong>.</li>
+<li><strong>3 Información de contacto.</strong> Escribe tu dirección de
+correo en <strong>Direcciones de correo electrónico</strong> y pulsa
+<strong>Siguiente</strong>.</li>
+<li><strong>4 Finalizar.</strong> Marca la casilla <strong>Acepto la
+Política de Datos del Usuario de los Servicios de las APIs de
+Google</strong> y pulsa <strong>Continuar</strong>.</li>
+<li>Pulsa <strong>Crear</strong>. Aparece el aviso "Se creó la
+configuración de OAuth".</li>
+</ol>
+<h3 id="añadir-tu-cuenta-como-usuario-de-prueba">Añadir tu cuenta como
+usuario de prueba</h3>
+<p>Sin esto el inicio de sesión se rechaza, aunque la cuenta sea la
+tuya.</p>
+<ol type="1">
+<li>En el menú de la izquierda, entra en <strong>Público</strong>.</li>
+<li>Baja hasta <strong>Usuarios de prueba</strong> y pulsa <strong>Add
+users</strong>.</li>
+<li>Escribe tu dirección de Gmail y pulsa <strong>Guardar</strong>. El
+contador de arriba tiene que pasar a decir "1 usuario (1 de
+prueba)".</li>
 </ol>
 <blockquote>
 <p><strong>Importante (la caducidad de 7 días).</strong> Mientras la app
 esté en modo "Prueba" ("Testing"), tu sesión caduca cada <strong>7
 días</strong> y tendrás que volver a pulsar "Iniciar sesión" en
 Configuración. Es un clic, no se pierde nada. Si te molesta, puedes
-pulsar "Publicar app" ("Publish app") en esa misma pantalla: entonces no
-caduca, pero la primera vez verás un aviso de "app no verificada" que
-hay que aceptar manualmente. Cualquiera de las dos opciones sirve.</p>
+pulsar <strong>Publicar app</strong> en la página
+<strong>Público</strong>: entonces no caduca, pero la primera vez verás
+un aviso de "app no verificada" que hay que aceptar manualmente.
+Cualquiera de las dos opciones sirve.</p>
 </blockquote>
 <h2 id="paso-5--crear-el-cliente-oauth-para-moderarcomentar">Paso 5 —
 Crear el cliente OAuth (para moderar/comentar)</h2>
 <ol type="1">
-<li>Vuelve a <strong>APIs y servicios → Credenciales</strong>.</li>
-<li>Pulsa <strong>Crear credenciales → ID de cliente de OAuth</strong>
-("Create credentials → OAuth client ID").</li>
-<li>En <strong>Tipo de aplicación</strong> ("Application type") elige
-<strong>Aplicación de escritorio</strong> ("Desktop app"). Ponle un
-nombre y pulsa <strong>Crear</strong>.</li>
-<li>Se mostrarán dos datos: el <strong>ID de cliente</strong> ("Client
-ID") y el <strong>Secreto de cliente</strong> ("Client secret").
-<strong>Cópialos los dos.</strong></li>
+<li>En <strong>Google Auth Platform</strong>, entra en
+<strong>Clientes</strong> y pulsa <strong>Crear cliente de
+OAuth</strong>. (También se llega desde <strong>APIs y servicios →
+Credenciales → Crear credenciales → ID de cliente de
+OAuth</strong>.)</li>
+<li>En <strong>Tipo de aplicación</strong> elige <strong>App de
+escritorio</strong>.</li>
+<li>Ponle un nombre, por ejemplo <code>YTChat TTS escritorio</code>, y
+pulsa <strong>Crear</strong>.</li>
+<li>Se abre un cuadro con el <strong>ID de cliente</strong> y el
+<strong>Secreto del cliente</strong>, cada uno con su botón de copiar.
+<strong>Cópialos los dos antes de cerrarlo</strong>: el propio cuadro
+avisa de que el secreto no se puede volver a ver ni descargar una vez
+que se cierra. Si se pierde, hay que crear otro cliente.</li>
 </ol>
 <hr />
 <h2 id="paso-6--meter-los-datos-en-la-aplicación">Paso 6 — Meter los
