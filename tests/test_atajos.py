@@ -204,6 +204,33 @@ class TestParsearAtajos(unittest.TestCase):
             "rechazado", None,
             "Ya lo usa: Salir de la aplicación. Elige otra."))
 
+    def test_rechazo_muestra_aviso_y_vuelve_a_capturar(self):
+        import wx
+        dialogo = gui_preferencias.PreferenciasDialog.__new__(
+            gui_preferencias.PreferenciasDialog)
+        boton = mock.Mock()
+        dialogo._capturando_atajo = ("ir_lista", "Ir a la lista del panel actual")
+        dialogo._valores_atajo = {"ir_lista": "alt+l", "salir": "alt+f4"}
+        dialogo._botones_atajo = {"ir_lista": boton}
+        evento = mock.Mock()
+        evento.GetKeyCode.return_value = wx.WXK_F4
+        evento.GetModifiers.return_value = wx.MOD_ALT
+        texto = "Ya lo usa: Salir de la aplicación. Elige otra."
+        anuncios = []
+        with mock.patch.object(gui_preferencias, "anunciar",
+                               side_effect=anuncios.append), \
+                mock.patch.object(gui_preferencias.wx, "MessageBox") as aviso:
+            dialogo._on_tecla_captura(evento)
+        aviso.assert_called_once_with(
+            texto, gui_preferencias.APP_NAME, wx.OK | wx.ICON_ERROR, dialogo)
+        boton.SetFocus.assert_called_once_with()
+        self.assertEqual(dialogo._capturando_atajo,
+                         ("ir_lista", "Ir a la lista del panel actual"))
+        self.assertEqual(anuncios, [texto,
+                                    atajos_captura.texto_de_espera(
+                                        "Ir a la lista del panel actual",
+                                        "Debe ser Alt y una tecla (por ejemplo Alt+C).")])
+
     def test_arranque_anuncia_la_accion_que_pierde(self):
         anuncios = []
         with mock.patch.object(gui, "anunciar", side_effect=anuncios.append):

@@ -22,6 +22,7 @@ import programados
 import sound_player as _snd
 import credenciales
 import youtube_api
+from config import APP_NAME
 from gui import anunciar, caja_de_grupo
 
 logger = logging.getLogger(__name__)
@@ -463,6 +464,10 @@ class PreferenciasDialog(wx.Dialog):
                 accion, combo, self._valores_atajo)
         anunciar(texto)
         if estado == "rechazado":
+            wx.MessageBox(texto, APP_NAME, wx.OK | wx.ICON_ERROR, self)
+            boton = self._botones_atajo[accion]
+            boton.SetFocus()
+            self._capturar_atajo(accion, etiqueta)
             return
         self._valores_atajo[accion] = valor
         self._capturando_atajo = None
