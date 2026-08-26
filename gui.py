@@ -38,6 +38,8 @@ import ytdlp_bin
 import apagado
 import overlay_servidor
 import programados
+import redaccion
+from gui_redactar import PanelRedactar
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
 _NOMBRES_FILTRO = ("todos", "texto", "superchat", "miembro")
@@ -566,7 +568,6 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self._on_about, mi_about)
 
         self.SetMenuBar(mb)
-        self.mi_enviar_live.Enable(False)
 
     def _on_overlay(self, event):
         self._cambiar_overlay(event.IsChecked())
@@ -766,7 +767,12 @@ class YTChatFrame(wx.Frame):
         nombre_accesible(self.lb_chat, "Chat en vivo", msaa=False)
         vs.Add(self.lb_chat, 1, wx.EXPAND | wx.ALL, 8)
 
+        self._panel_redactar = PanelRedactar(
+            pag, "&Mensaje:", redaccion.MAXIMO_CHAT, self._enviar_live_redactado)
+        vs.Add(self._panel_redactar, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+
         pag.SetSizer(vs)
+        self._actualizar_motivo_redaccion()
         return pag
 
     def _build_pagina_info(self, parent) -> wx.Panel:
@@ -1234,17 +1240,12 @@ class YTChatFrame(wx.Frame):
     # ── Enviar al chat del directo (API oficial) ─────────────────────────────
 
     def _on_enviar_live(self, event):
-        if not self._puede_escribir_live():
-            return
-        dlg = wx.TextEntryDialog(self, "Mensaje a enviar al chat del directo:",
-                                 "Enviar al chat")
-        if dlg.ShowModal() == wx.ID_OK:
-            texto = dlg.GetValue().strip()
-            if texto:
-                lcid = self._live_chat_id
-                self._accion_api(lambda cli: cli.enviar_mensaje_live(lcid, texto),
-                                 "Mensaje enviado al chat")
-        dlg.Destroy()
+        self._panel_redactar.enfocar()
+
+    def _enviar_live_redactado(self, texto):
+        lcid = self._live_chat_id
+        self._accion_api(lambda cli: cli.enviar_mensaje_live(lcid, texto),
+                         "Mensaje enviado al chat")
 
     def _puede_escribir_live(self) -> bool:
         if not (youtube_api.google_disponible() and credenciales.hay_sesion()):
@@ -1283,10 +1284,18 @@ class YTChatFrame(wx.Frame):
         wx.MessageBox(msg, "Error de la API", wx.OK | wx.ICON_ERROR, self)
 
     def _actualizar_estado_online(self):
-        puede = bool(self._conectado and self._live_chat_id
-                     and self._sesion_api_disponible())
-        try:    self.mi_enviar_live.Enable(puede)
+        self._actualizar_motivo_redaccion()
+        try:    self._com_panel.actualizar_estado()
         except Exception: pass
+
+    def _actualizar_motivo_redaccion(self):
+        try:
+            motivo = redaccion.motivo_chat(
+                self._conectado, self._es_tiktok, bool(self._live_chat_id),
+                self._sesion_api_disponible())
+            self._panel_redactar.establecer_motivo(motivo)
+        except Exception:
+            pass
 
     def _sesion_api_disponible(self) -> bool:
         return bool(youtube_api.google_disponible() and credenciales.hay_sesion())

@@ -17,6 +17,8 @@ import wx
 import credenciales
 import youtube_api
 import sound_player as _snd
+import redaccion
+from gui_redactar import DialogoRedactar
 from gui import (
     anunciar, copiar_al_portapapeles, nombre_accesible, instalar_busqueda_tipo,
     _T, _tc,
@@ -118,9 +120,14 @@ class ComentariosPanel(wx.Panel):
         self.lb.Bind(wx.EVT_CONTEXT_MENU, self._on_context_menu)
 
     def _actualizar_botones_sesion(self):
-        # Comentar requiere sesión; Responder se gobierna en el menú contextual.
-        hay = credenciales.hay_sesion() and youtube_api.google_disponible()
-        self.btn_comentar.Enable(hay)
+        self.btn_comentar.Enable()
+        motivo = redaccion.motivo_comentario(
+            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible())
+        base = "Comen&tar en el vídeo"
+        self.btn_comentar.SetLabel(redaccion.etiqueta_con_motivo(base, motivo))
+
+    def actualizar_estado(self):
+        self._actualizar_botones_sesion()
 
     # ── API pública (la ventana la llama al conectar) ─────────────────────────
 
@@ -151,7 +158,7 @@ class ComentariosPanel(wx.Panel):
         comentario real: leer o copiar sobre él no hacen nada."""
         self.limpiar()
         self.lb.Append(texto)
-        self.btn_comentar.Disable()
+        self._actualizar_botones_sesion()
 
     def anclar_foco(self) -> None:
         try:    self.lb.SetFocus()
@@ -348,26 +355,33 @@ class ComentariosPanel(wx.Panel):
         if not c:
             anunciar("Sin comentario seleccionado")
             return
-        dlg = wx.TextEntryDialog(self, f"Responder a {c.autor}:", "Responder comentario")
+        dlg = DialogoRedactar(
+            self, f"&Comentario para {c.autor}:", redaccion.MAXIMO_CHAT,
+            lambda texto: self._enviar_escritura(
+                lambda cli: cli.responder_comentario(c.comment_id, texto),
+                "Respuesta publicada"),
+            titulo="Responder comentario", nombre_texto="Texto del comentario",
+            nombre_boton="Publicar")
         if dlg.ShowModal() == wx.ID_OK:
-            texto = dlg.GetValue().strip()
-            if texto:
-                self._enviar_escritura(
-                    lambda cli: cli.responder_comentario(c.comment_id, texto),
-                    "Respuesta publicada")
+            pass
         dlg.Destroy()
 
     def _comentar(self):
+        motivo = redaccion.motivo_comentario(
+            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible())
+        if motivo:
+            anunciar(motivo)
         if not self._video_id:
-            anunciar("Conecta primero un vídeo")
             return
-        dlg = wx.TextEntryDialog(self, "Tu comentario en el vídeo:", "Comentar")
+        dlg = DialogoRedactar(
+            self, "&Comentario:", redaccion.MAXIMO_CHAT,
+            lambda texto: self._enviar_escritura(
+                lambda cli: cli.publicar_comentario(self._video_id, texto),
+                "Comentario publicado"),
+            titulo="Comentar", motivo=motivo,
+            nombre_texto="Texto del comentario", nombre_boton="Publicar")
         if dlg.ShowModal() == wx.ID_OK:
-            texto = dlg.GetValue().strip()
-            if texto:
-                self._enviar_escritura(
-                    lambda cli: cli.publicar_comentario(self._video_id, texto),
-                    "Comentario publicado")
+            pass
         dlg.Destroy()
 
     def _enviar_escritura(self, accion, mensaje_ok):
