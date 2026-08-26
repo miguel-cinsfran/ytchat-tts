@@ -8,10 +8,11 @@ import os
 import re
 import tempfile
 
+from redaccion import MAXIMO_CHAT as MAX_CARACTERES
+
 
 MINUTOS_MINIMOS = 5  # Piso de prudencia contra el antispam.
 SEGUNDOS_ENTRE_ENVIOS = 60  # Si dos vencen a la vez, el segundo espera.
-MAX_CARACTERES = 200  # Límite del chat en vivo de YouTube.
 
 VALORES_POR_DEFECTO = {
     "texto": "",

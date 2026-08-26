@@ -3,6 +3,12 @@ from pathlib import Path
 import tempfile
 
 import programados
+import redaccion
+
+
+class TestConstantes(unittest.TestCase):
+    def test_limite_de_chat_es_un_alias_de_redaccion(self):
+        self.assertIs(programados.MAX_CARACTERES, redaccion.MAXIMO_CHAT)
 
 
 class TestValidarMensaje(unittest.TestCase):
