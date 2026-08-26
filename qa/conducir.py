@@ -1377,6 +1377,148 @@ def escenario_tiktok(app: Aplicacion, args, res: Resultado):
         res.nota("tiktok: «Descargar este vídeo» correctamente apagado")
 
 
+def escenario_comentarios(app: Aplicacion, args, res: Resultado):
+    """El panel de comentarios, que hasta el 26/08/2026 no entraba en el banco.
+
+    Va sin red a propósito: traer comentarios de verdad necesita clave de API y
+    sesión iniciada, y eso ya lo cubren las pruebas de `youtube_api`. Lo que
+    solo se puede comprobar con la aplicación viva es otra cosa: que los
+    controles tengan nombre, que Tab los alcance, y que la lista diga algo
+    cuando se pulsa sobre nada.
+    """
+    app.pedir("frente")
+
+    respuesta = app.pedir("pestanas")
+    if not respuesta.get("ok"):
+        res.fallo("comentarios: no se pudieron listar las pestañas, "
+                  + str(respuesta.get("error", "sin motivo")))
+        return
+    paginas = respuesta.get("datos", {}).get("paginas", [])
+    if "Comentarios" not in paginas:
+        res.fallo("comentarios: no hay ninguna pestaña «Comentarios»; hay "
+                  + ", ".join(paginas))
+        return
+    pagina = paginas.index("Comentarios")
+    app.pedir("pestanas", indice=pagina)
+
+    visibles = _panel_comentarios(app)
+    revisar_nombres(visibles, res, "comentarios")
+
+    lista = _lista_de_comentarios(visibles)
+    if lista is None:
+        res.fallo("comentarios: no encontré la lista del panel")
+        return
+    res.nota("comentarios: la lista arranca con %d entradas"
+             % len(lista.get("items", [])))
+
+    # «Cargar más» sin ninguna página cargada tiene que estar apagado: si
+    # figura encendido, invita a pulsar algo que no puede hacer nada.
+    botones = {(c.get("etiqueta") or "").replace("&", ""): c
+               for c in visibles if c["clase"] == "Button"}
+    mas = botones.get("Cargar más")
+    if mas is None:
+        res.fallo("comentarios: no está el botón «Cargar más»")
+    elif mas["habilitado"]:
+        res.fallo("comentarios: «Cargar más» está habilitado sin ninguna "
+                  "página cargada")
+    else:
+        res.nota("comentarios: «Cargar más» correctamente apagado al empezar")
+
+    # Este otro depende de que haya sesión iniciada, que no está en manos del
+    # banco. Se anota lo que se encontró, sin juzgarlo.
+    comentar = botones.get("Comentar en el vídeo")
+    if comentar is None:
+        res.fallo("comentarios: no está el botón «Comentar en el vídeo»")
+    else:
+        res.nota("comentarios: «Comentar en el vídeo» "
+                 + ("habilitado, hay sesión" if comentar["habilitado"]
+                    else "apagado, no hay sesión iniciada"))
+
+    # Tab hay que empezarlo DENTRO de la pagina: desde el marco no recorre
+    # nada, igual que en la ventana principal.
+    app.pedir("foco", nombre="Lista de comentarios")
+    orden = recorrer_tab(app, res, "comentarios", vueltas=12)
+    res.nota("comentarios, orden de Tab, %d paradas: %s"
+             % (len(orden), " > ".join(orden[:10])))
+
+    # Enter sobre la lista vacía tiene que decir algo. Callarse es lo peor que
+    # puede hacer: quien no ve la pantalla no sabe si la tecla llegó.
+    app.pedir("foco", nombre="Lista de comentarios")
+    n = len(app.anuncios)
+    app.teclas("return")
+    if app.esperar_dicho("sin comentario", segundos=5, desde=n):
+        res.nota("comentarios: Enter sin selección avisa en vez de callarse")
+    else:
+        res.fallo("comentarios: Enter sobre la lista vacía no anunció nada")
+
+    # El aviso de TikTok es la única entrada que el panel muestra sin red, y
+    # existe para que la pestaña vacía no parezca una avería. Esto deja la
+    # aplicación en sesión de TikTok, así que el escenario va justo antes de
+    # `tiktok` en la corrida completa.
+    app.simular_sesion_tiktok()
+    app.pedir("pestanas", indice=pagina)
+    items = []
+    limite = time.time() + 8
+    while time.time() < limite:
+        actual = _lista_de_comentarios(subarbol(app.arbol(), "PanelComentarios"))
+        items = actual.get("items", []) if actual else []
+        if items:
+            break
+        time.sleep(0.3)
+    if any("tiktok" in i.lower() for i in items):
+        res.nota("comentarios: en TikTok la lista explica por qué está vacía")
+    else:
+        res.fallo("comentarios: en TikTok la lista no explica por qué está "
+                  "vacía; dice %r" % (items,))
+
+
+def subarbol(controles: list[dict], nombre: str) -> list[dict]:
+    """Los controles que cuelgan del panel con ese nombre, el panel incluido.
+
+    Hace falta porque en el marco principal NINGUNA de las dos banderas de
+    visibilidad acota una pagina del cuaderno, medido el 26/08/2026: wx deja
+    `IsShown` en True para las paginas que no estan al frente, asi que
+    `visible` las incluye a todas, y `IsShownOnScreen` da False para todo lo
+    que cuelga por debajo del nivel 3, asi que `en_pantalla` no deja ni la
+    pagina que si esta seleccionada. En un dialogo aparte, como Preferencias,
+    `en_pantalla` si funciona, y por eso el escenario de preferencias lo usa.
+
+    Lo que si es fiable es el nivel, que `_arbol` pone en cada control.
+    """
+    inicio = None
+    for i, c in enumerate(controles):
+        if (c.get("nombre") or "") == nombre:
+            inicio = i
+            break
+    if inicio is None:
+        return []
+    base = controles[inicio]["nivel"]
+    for j in range(inicio + 1, len(controles)):
+        if controles[j]["nivel"] <= base:
+            return controles[inicio:j]
+    return controles[inicio:]
+
+
+def _lista_de_comentarios(controles: list[dict]) -> dict | None:
+    for c in controles:
+        if (c["clase"] == "ListBox"
+                and "comentario" in (c.get("nombre") or "").lower()):
+            return c
+    return None
+
+
+def _panel_comentarios(app: Aplicacion, segundos: float = 8.0) -> list[dict]:
+    """Espera a que el panel este construido y devuelve solo sus controles."""
+    limite = time.time() + segundos
+    rama: list[dict] = []
+    while time.time() < limite:
+        rama = subarbol(app.arbol(), "PanelComentarios")
+        if _lista_de_comentarios(rama) is not None:
+            return rama
+        time.sleep(0.3)
+    return rama
+
+
 def dialogo_nativo(titulo: str, segundos: float = 8.0):
     """Busca un cuadro de diálogo NATIVO de Windows, de los de `wx.MessageBox`.
 
@@ -1876,6 +2018,44 @@ def escenario_programados(app: Aplicacion, args, res: Resultado):
         app.pedir("cerrar_ventana", ventana="Preferencias")
 
 
+# Cada modulo de interfaz con el escenario que lo recorre. Los `gui*.py` NO se
+# listan aca: se descubren del disco en `superficies_sin_escenario`, y esa es
+# toda la gracia. Una lista escrita a mano solo caza lo que alguien se acordo
+# de anotar, y el 25/08/2026 eso ya dejo dos escenarios registrados fuera de la
+# corrida completa sin que nadie avisara. Descubriendo, un `gui_algo.py` nuevo
+# sin escenario detiene la corrida y queda nombrado.
+#
+# La idea es de `miguel-cinsfran/tesis-orquestacion`, donde el barrido de
+# accesibilidad descubre las pantallas del sistema de archivos por el mismo
+# motivo.
+#
+# `reproductor.py` e `iconos.py` van a mano porque dibujan interfaz y no se
+# llaman `gui*`: sin ellos el descubrimiento miraria para otro lado.
+SUPERFICIES = {
+    "gui.py": "principal",
+    "gui_comentarios.py": "comentarios",
+    "gui_descargas.py": "descargas",
+    "gui_historial.py": "historial",
+    "gui_preferencias.py": "preferencias",
+    "reproductor.py": "reproductor",
+    "iconos.py": "reproductor",
+}
+
+EXTRAS_DE_INTERFAZ = ("reproductor.py", "iconos.py")
+
+
+def superficies_sin_escenario() -> list[str]:
+    """Modulos de interfaz que existen en el disco y no tiene quien los mire."""
+    modulos = {p.name for p in RAIZ.glob("gui*.py")}
+    modulos.update(n for n in EXTRAS_DE_INTERFAZ if (RAIZ / n).exists())
+    huerfanos = []
+    for nombre in sorted(modulos):
+        escenario = SUPERFICIES.get(nombre)
+        if escenario is None or escenario not in ESCENARIOS:
+            huerfanos.append(nombre)
+    return huerfanos
+
+
 # Escenarios que a proposito NO entran en `todos`, con su motivo. Los tres
 # necesitan un directo de verdad emitiendo ahora mismo: en una corrida rutinaria
 # fallarian por la red o porque el directo termino, no por la aplicacion.
@@ -1894,6 +2074,7 @@ ESCENARIOS = {
     "ayuda": escenario_ayuda,
     "dialogos_ayuda": escenario_dialogos_ayuda,
     "chat": escenario_chat,
+    "comentarios": escenario_comentarios,
     "tiktok": escenario_tiktok,
     "avisos_wx": escenario_avisos_wx,
     "diagnostico": escenario_diagnostico,
@@ -1966,7 +2147,7 @@ def main() -> int:
         pedidos = ["arranque_frio", "reproductor",
                    "menus", "principal", "descargas", "preferencias",
                    "programados", "historial", "ayuda", "dialogos_ayuda",
-                   "overlay", "chat",
+                   "overlay", "chat", "comentarios",
                    "tiktok", "avisos_wx", "diagnostico"]
         # Un escenario registrado que no este ni aca ni entre los excluidos no
         # se corre NUNCA con `todos`, y no lo dice nadie. Paso el 25/08/2026:
@@ -1979,6 +2160,16 @@ def main() -> int:
                     "`todos` ni figuran en FUERA_DE_TODOS: %s. Agregalos a la "
                     "lista, en el lugar que corresponda por orden, o a "
                     "FUERA_DE_TODOS con su motivo." % ", ".join(olvidados))
+
+        # Y el otro lado del mismo agujero: un modulo de interfaz que nacio y
+        # no tiene quien lo recorra. La guarda de arriba solo mira lo que ya
+        # esta registrado, asi que no habria dicho nada de `gui_comentarios.py`,
+        # que existia desde el principio y nunca entro en el banco.
+        huerfanos = superficies_sin_escenario()
+        if huerfanos:
+            p.error("estos modulos de interfaz no tienen escenario que los "
+                    "recorra: %s. Escribi uno y anotalo en SUPERFICIES."
+                    % ", ".join(huerfanos))
 
     # Por defecto, dentro de `qa/salida/`, que está en el `.gitignore`: las
     # grabaciones llevan la salida cruda de la aplicación y no se suben. Fuera de
