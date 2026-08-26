@@ -53,7 +53,7 @@ class TestAtajosCaptura(unittest.TestCase):
         self.assertEqual(
             atajos_captura.texto_de_espera(
                 "Conectar", "Debe ser Alt y una tecla (por ejemplo Alt+C)."),
-            "Pulsá la combinación para Conectar. "
+            "Pulsa la combinación para Conectar. "
             "Debe ser Alt y una tecla (por ejemplo Alt+C). "
             "Enter la deja sin atajo. Escape cancela.")
 

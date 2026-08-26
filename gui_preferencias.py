@@ -408,7 +408,7 @@ class PreferenciasDialog(wx.Dialog):
     def _capturar_atajo(self, accion, etiqueta):
         self._capturando_atajo = (accion, etiqueta)
         boton = self._botones_atajo[accion]
-        boton.SetLabel(f"{etiqueta}: pulsá la combinación")
+        boton.SetLabel(f"{etiqueta}: pulsa la combinación")
         anunciar(atajos_captura.texto_de_espera(
             etiqueta, _AREA_AYUDA.get(cfg.ATAJOS_AREA.get(accion), "")))
 
@@ -646,7 +646,7 @@ class PreferenciasDialog(wx.Dialog):
     def _guardar_programado(self, event):
         indice = self.lista_programados.GetSelection()
         if indice == wx.NOT_FOUND:
-            anunciar("Elegí primero un mensaje de la lista")
+            anunciar("Elige primero un mensaje de la lista")
             return
         mensaje = self._datos_programado()
         if not self._validar_programado(mensaje):
@@ -660,7 +660,7 @@ class PreferenciasDialog(wx.Dialog):
     def _quitar_programado(self, event):
         indice = self.lista_programados.GetSelection()
         if indice == wx.NOT_FOUND:
-            anunciar("Elegí primero un mensaje de la lista")
+            anunciar("Elige primero un mensaje de la lista")
             return
         self._mensajes_programados.pop(indice)
         programados.guardar(self._ruta_programados, self._mensajes_programados)

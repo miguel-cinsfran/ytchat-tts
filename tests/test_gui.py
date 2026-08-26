@@ -253,7 +253,7 @@ class TestProgramadosEnPreferencias(unittest.TestCase):
         with mock.patch.object(gui_preferencias, "anunciar") as anunciar:
             dialogo._quitar_programado(None)
 
-        anunciar.assert_called_once_with("Elegí primero un mensaje de la lista")
+        anunciar.assert_called_once_with("Elige primero un mensaje de la lista")
 
 
 class TestProgramadorGui(unittest.TestCase):

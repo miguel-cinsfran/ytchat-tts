@@ -50,7 +50,7 @@ def etiqueta_boton(etiqueta: str, valor: str) -> str:
 
 def texto_de_espera(etiqueta: str, ayuda_area: str) -> str:
     """Devuelve el anuncio para entrar en modo captura."""
-    return (f"Pulsá la combinación para {etiqueta}. {ayuda_area} "
+    return (f"Pulsa la combinación para {etiqueta}. {ayuda_area} "
             "Enter la deja sin atajo. Escape cancela.")
 
 
