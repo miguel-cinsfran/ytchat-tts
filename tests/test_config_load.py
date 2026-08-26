@@ -43,6 +43,16 @@ class TestCargarConfiguracion(unittest.TestCase):
             config.configurar_logging()
             crear.assert_not_called()
 
+    def test_registro_detallado_si_falla_lectura_no_activa_manejador(self):
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+             mock.patch.object(config.logging, "getLogger") as obtener_logger, \
+             mock.patch.object(config, "RotatingFileHandler"), \
+             mock.patch.object(config.configparser.ConfigParser, "read",
+                               side_effect=Exception("fallo de prueba")), \
+             mock.patch.object(config.diagnostico, "crear_manejador_detallado") as crear:
+            config.configurar_logging()
+            crear.assert_not_called()
+
     def test_registro_detallado_ausente_se_persiste_apagado(self):
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[diagnostico]\n", encoding="utf-8")
