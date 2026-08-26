@@ -417,7 +417,8 @@ class YTChatFrame(wx.Frame):
         self.mi_conectar = m.Append(wx.ID_ANY, "&Conectar" + self._accel("conectar"))
         self.mi_desconectar = m.Append(wx.ID_ANY, "&Desconectar" + self._accel("desconectar"))
         m.AppendSeparator()
-        mi_historial = m.Append(wx.ID_ANY, "&Historial de directos…")
+        mi_historial = m.Append(
+            wx.ID_ANY, "&Historial de directos…" + self._accel("abrir_historial"))
         m.AppendSeparator()
         mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
         mb.Append(m, "&Archivo")
@@ -534,7 +535,8 @@ class YTChatFrame(wx.Frame):
 
         # Herramientas
         m = wx.Menu()
-        mi_pref = m.Append(wx.ID_ANY, "&Preferencias…")
+        mi_pref = m.Append(
+            wx.ID_ANY, "&Preferencias…" + self._accel("abrir_preferencias"))
         m.AppendSeparator()
         self.mi_enviar_live = m.Append(
             wx.ID_ANY,
@@ -558,7 +560,8 @@ class YTChatFrame(wx.Frame):
         # Ayuda
         m = wx.Menu()
         mi_guia = m.Append(wx.ID_ANY, "&Guía de configuración de la API…")
-        mi_incidente = m.Append(wx.ID_ANY, "&Marcar incidencia")
+        mi_incidente = m.Append(
+            wx.ID_ANY, "&Marcar incidencia" + self._accel("marcar_incidencia"))
         mi_about = m.Append(wx.ID_ABOUT, "&Acerca de")
         mb.Append(m, "A&yuda")
         self.Bind(wx.EVT_MENU, lambda e: webbrowser.open(

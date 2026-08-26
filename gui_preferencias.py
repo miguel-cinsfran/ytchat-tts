@@ -865,6 +865,9 @@ _ETIQUETAS_ATAJO = {
     "rep_vol_mas":       "Subir volumen del reproductor",
     "descargas_abrir":   "Abrir el gestor de descargas",
     "pantalla_completa": "Pantalla completa",
+    "abrir_preferencias": "Abrir Preferencias",
+    "abrir_historial":    "Abrir el historial de directos",
+    "marcar_incidencia":  "Marcar incidencia",
     # Conexión y chat
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",

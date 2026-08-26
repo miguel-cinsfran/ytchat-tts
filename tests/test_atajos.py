@@ -194,7 +194,10 @@ class TestParsearAtajos(unittest.TestCase):
     def test_nuevos_atajos_editables_tienen_area_y_grupo(self):
         for accion, valor, area in (
                 ("pantalla_completa", "ctrl+f", "ctrl"),
-                ("ir_lista", "alt+l", "alt")):
+                ("ir_lista", "alt+l", "alt"),
+                ("abrir_preferencias", "ctrl+shift+p", "ctrl+shift"),
+                ("abrir_historial", "ctrl+shift+h", "ctrl+shift"),
+                ("marcar_incidencia", "ctrl+shift+i", "ctrl+shift")):
             self.assertEqual(ATAJOS_DEFAULTS[accion], valor)
             self.assertEqual(ATAJOS_AREA[accion], area)
             self.assertNotIn(accion, ATAJOS_FIJOS)
@@ -206,6 +209,9 @@ class TestParsearAtajos(unittest.TestCase):
         fuente = inspect.getsource(gui.YTChatFrame._build_menubar)
         self.assertIn('self._accel("ir_lista")', fuente)
         self.assertIn('self._accel("pantalla_completa")', fuente)
+        self.assertIn('self._accel("abrir_historial")', fuente)
+        self.assertIn('self._accel("abrir_preferencias")', fuente)
+        self.assertIn('self._accel("marcar_incidencia")', fuente)
         self.assertNotIn("\\tAlt+L", fuente)
         self.assertNotIn("\\tCtrl+F", fuente)
 

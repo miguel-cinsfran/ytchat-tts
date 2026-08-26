@@ -112,6 +112,10 @@ ATAJOS_DEFAULTS = {
     "rep_vol_mas":       "ctrl+up",
     "descargas_abrir":   "ctrl+s",
     "pantalla_completa": "ctrl+f",
+    # Ventanas y paneles (Ctrl+Shift)
+    "abrir_preferencias": "ctrl+shift+p",
+    "abrir_historial":    "ctrl+shift+h",
+    "marcar_incidencia":  "ctrl+shift+i",
     # Conexión y chat (Alt)
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
@@ -150,6 +154,8 @@ ATAJOS_GRUPOS = [
       "rep_vol_menos", "rep_vol_mas", "descargas_abrir", "pantalla_completa"]),
     ("Conexión y chat (Alt)",
      ["conectar", "desconectar", "enviar_chat", "ir_lista"]),
+    ("Ventanas y paneles (Ctrl+Shift)",
+     ["abrir_preferencias", "abrir_historial", "marcar_incidencia"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",
@@ -160,7 +166,7 @@ ATAJOS_GRUPOS = [
 
 # Modificador obligatorio por acción: reproductor → Ctrl, app → Alt, voz → F.
 # El grupo de atajos fijos no impone modificador.
-_AREA_POR_GRUPO = ("ctrl", "alt", "f", None)
+_AREA_POR_GRUPO = ("ctrl", "alt", "ctrl+shift", "f", None)
 ATAJOS_AREA = {ac: _AREA_POR_GRUPO[i]
                for i, (_titulo, acs) in enumerate(ATAJOS_GRUPOS) for ac in acs}
 
