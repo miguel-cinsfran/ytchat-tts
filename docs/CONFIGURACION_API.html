@@ -230,7 +230,7 @@ usuarios).</li>
 </ul>
 <p>Todo se gestiona desde el botón <strong>Configuración</strong> de la
 aplicación; no hay que editar archivos a mano. Lo único que se hace
-fuera de la app, una sola vez, es crear tus credenciales en Google
+fuera de la app, una sola vez, es crear las credenciales en Google
 Cloud, y eso es lo que cubre esta guía.</p>
 <blockquote>
 <p><strong>Por qué cada usuario crea sus propias credenciales.</strong>
@@ -239,212 +239,268 @@ usa las suyas, tiene su propia cuota diaria completa, no necesita que
 Google verifique nada y no comparte límites con nadie. Es la forma más
 sana y privada de usar la API.</p>
 </blockquote>
-<p>La parte de moderar/comentar es opcional. Si solo quieres
-<strong>leer comentarios</strong>, te basta con la <strong>API
-key</strong> (pasos 1 a 3); puedes saltarte el OAuth.</p>
+<p>La parte de moderar y comentar es opcional. Para <strong>leer
+comentarios</strong> basta con la API key, o sea los pasos 1 a 3; el
+resto se puede saltar.</p>
+<hr />
+<h2 id="cómo-seguir-esta-guía-con-lector-de-pantalla">Cómo seguir esta
+guía con lector de pantalla</h2>
+<p>La consola de Google Cloud es incómoda de recorrer: tiene menús que
+se despliegan, tablas que se desplazan en horizontal y un selector de
+proyecto que cuesta manejar. Estas cuatro cosas evitan casi todo
+eso.</p>
+<p><strong>Ir por enlace directo, no por los menús.</strong> Cada paso
+de esta guía trae la dirección exacta de su pantalla. Pegarla en la
+barra de direcciones lleva directo, sin recorrer ningún menú.</p>
+<p><strong>Añadir el proyecto a la dirección para saltarse el
+selector.</strong> Una vez creado el proyecto, su identificador se puede
+pegar al final de cualquier dirección de la consola. Si el identificador
+es <code>ytchat-tts</code>, entonces
+<code>https://console.cloud.google.com/apis/credentials?project=ytchat-tts</code>
+abre las credenciales de ese proyecto sin tocar el selector. Los enlaces
+de esta guía llevan un hueco <code>TU-PROYECTO</code> para
+reemplazar.</p>
+<p><strong>Buscar los botones por su texto con Ctrl+F.</strong> Los
+nombres exactos de esta guía son los de la consola en agosto de 2026, en
+español.</p>
+<p><strong>La consola tarda.</strong> Varias pantallas se quedan unos
+segundos en blanco antes de dibujar la tabla. No es que no haya nada:
+conviene esperar y volver a recorrer antes de dar por hecho que falta
+algo.</p>
 <hr />
 <h2 id="antes-de-empezar">Antes de empezar</h2>
 <ul>
-<li>Necesitas una <strong>cuenta de Google</strong> (la misma del canal
-de YouTube si vas a moderar tu propio directo).</li>
+<li>Hace falta una <strong>cuenta de Google</strong>, la misma del canal
+de YouTube si se va a moderar el propio directo.</li>
 <li>Es <strong>gratis</strong>. La API no cuesta dinero dentro de la
-cuota diaria (10.000 unidades, de sobra para uso personal).</li>
-<li>La consola de Google Cloud no es la web más accesible del mundo. Ve
-con calma, usa la búsqueda del navegador (Ctrl+F) para encontrar los
-botones por su texto, y sigue los pasos en orden.</li>
+cuota diaria de 10.000 unidades, de sobra para uso personal.</li>
+<li>El proceso completo son unos diez minutos y se hace una sola
+vez.</li>
 </ul>
 <hr />
-<h2 id="paso-1--crear-un-proyecto-en-google-cloud">Paso 1 — Crear un
-proyecto en Google Cloud</h2>
+<h2 id="paso-1--crear-el-proyecto">Paso 1 — Crear el proyecto</h2>
+<p>Dirección directa: <a
+href="https://console.cloud.google.com/projectcreate">https://console.cloud.google.com/projectcreate</a></p>
 <ol type="1">
-<li>Entra en <a
-href="https://console.cloud.google.com/">https://console.cloud.google.com/</a>.</li>
-<li>Arriba, junto al logo, hay un <strong>selector de proyecto</strong>.
-Ábrelo y elige <strong>Nuevo proyecto</strong> ("New project").</li>
-<li>Ponle un nombre, por ejemplo <code>YTChat TTS</code>, y pulsa
-<strong>Crear</strong> ("Create").</li>
-<li>Espera unos segundos y asegúrate de que ese proyecto queda
-<strong>seleccionado</strong> en el selector de arriba.</li>
-</ol>
-<h2 id="paso-2--activar-la-youtube-data-api-v3">Paso 2 — Activar la
-YouTube Data API v3</h2>
-<ol type="1">
-<li>En el buscador superior de la consola, escribe <strong>YouTube Data
-API v3</strong>.</li>
-<li>Entra en el resultado y pulsa <strong>Habilitar</strong>
-("Enable").</li>
-</ol>
-<h2 id="paso-3--crear-la-api-key-para-leer-comentarios">Paso 3 — Crear
-la API key (para leer comentarios)</h2>
-<ol type="1">
-<li>Ve al menú <strong>APIs y servicios → Credenciales</strong> ("APIs
-&amp; Services → Credentials"). Puedes buscar "Credenciales" en el
-buscador superior.</li>
-<li>Pulsa <strong>Crear credenciales → Clave de API</strong> ("Create
-credentials → API key").</li>
-<li>Se generará una clave larga. <strong>Cópiala.</strong> Esta es tu
-<strong>API key</strong>.</li>
-<li>(Recomendado) Pulsa <strong>Restringir clave</strong> y, en
-restricciones de API, limítala a "YouTube Data API v3". No es
-obligatorio pero es más seguro.</li>
+<li>En <strong>Nombre del proyecto</strong>, escribir por ejemplo
+<code>YTChat TTS</code>.</li>
+<li>Debajo del campo, la consola muestra una línea que dice <strong>ID
+del proyecto</strong> seguida del identificador que ha generado.
+<strong>Conviene anotarlo ahora</strong>: es lo que se pega en las
+direcciones del resto de la guía, y no se puede cambiar después. Junto a
+esa línea hay un enlace <strong>Editar</strong> por si se prefiere
+elegirlo a mano.</li>
+<li>Pulsar <strong>Crear</strong> y esperar unos segundos.</li>
 </ol>
 <blockquote>
-<p><strong>Para volver a ver una clave que ya existe.</strong> En la
-lista de <strong>Credenciales</strong>, la columna con el valor de la
-clave está a la derecha del todo y puede quedar fuera de la pantalla:
-hay que desplazar la tabla en horizontal hasta encontrar el enlace
-<strong>Mostrar clave</strong>. La ficha que se abre al pulsar el
-<em>nombre</em> de la clave sirve para editarla, pero
-<strong>no</strong> muestra su valor.</p>
+<p>Si ya existe un proyecto de una vez anterior, no hace falta crear
+otro. La lista de proyectos, con sus identificadores, está en <a
+href="https://console.cloud.google.com/cloud-resource-manager">https://console.cloud.google.com/cloud-resource-manager</a></p>
 </blockquote>
-<p>➡️ Con esto ya puedes <strong>leer comentarios</strong>. Abre YTChat
-TTS, pulsa <strong>Configuración</strong>, pega la clave en el campo
-<strong>API key</strong>, pulsa <strong>Guardar claves</strong> y
-cierra. Si solo quieres leer, has terminado.</p>
+<h2 id="paso-2--activar-la-youtube-data-api-v3">Paso 2 — Activar la
+YouTube Data API v3</h2>
+<p>Dirección directa, reemplazando el identificador:</p>
+<pre><code>https://console.cloud.google.com/apis/library/youtube.googleapis.com?project=TU-PROYECTO</code></pre>
+<p>Pulsar <strong>Habilitar</strong>. Si el botón dice
+<strong>Administrar</strong> en vez de Habilitar, ya estaba activada y
+no hay que hacer nada.</p>
+<h2 id="paso-3--crear-la-api-key">Paso 3 — Crear la API key</h2>
+<p>Dirección directa:</p>
+<pre><code>https://console.cloud.google.com/apis/credentials?project=TU-PROYECTO</code></pre>
+<ol type="1">
+<li>Pulsar <strong>Crear credenciales</strong> y, en el menú que se
+abre, <strong>Clave de API</strong>.</li>
+<li>Se abre un cuadro con la clave recién creada y un botón para
+copiarla. <strong>Copiarla ahora.</strong></li>
+<li>Recomendado, no obligatorio: pulsar <strong>Restringir
+clave</strong> y, en las restricciones de API, limitarla a "YouTube Data
+API v3".</li>
+</ol>
+<blockquote>
+<p><strong>Para recuperar una clave que ya existe.</strong> Esto tiene
+una trampa que cuesta encontrar. En la lista de
+<strong>Credenciales</strong>, la tabla de claves de API es más ancha
+que la pantalla, y el enlace <strong>Mostrar clave</strong> está en la
+última columna, fuera de la vista: hay que desplazar <strong>la
+tabla</strong> en horizontal para alcanzarlo. Pulsar el <em>nombre</em>
+de la clave abre su ficha de edición, que permite restringirla y
+renombrarla pero <strong>no muestra su valor</strong>.</p>
+</blockquote>
+<p>Con esto ya se pueden <strong>leer comentarios</strong>. En YTChat
+TTS: botón <strong>Configuración</strong>, pegar la clave en el campo
+<strong>API key</strong>, pulsar <strong>Guardar claves</strong> y
+cerrar. Quien solo quiera leer ha terminado aquí.</p>
 <hr />
-<h2
-id="paso-4--configurar-la-pantalla-de-consentimiento-solo-para-moderarcomentar">Paso
-4 — Configurar la pantalla de consentimiento (solo para
-moderar/comentar)</h2>
-<p>Esto es obligatorio antes de crear el cliente OAuth.</p>
+<h2 id="paso-4--configurar-la-pantalla-de-consentimiento">Paso 4 —
+Configurar la pantalla de consentimiento</h2>
+<p>Obligatorio antes de crear el cliente OAuth, y solo hace falta para
+moderar, comentar y enviar mensajes al chat.</p>
 <blockquote>
 <p><strong>Google cambió esta parte.</strong> Lo que antes se llamaba
 "Pantalla de consentimiento de OAuth" ahora es <strong>Google Auth
-Platform</strong>, y son cuatro pasos numerados dentro de una sola
-página en vez de un formulario largo. Los textos que se indican abajo
-son los de la consola en agosto de 2026.</p>
+Platform</strong>, y son cuatro pasos numerados dentro de una misma
+página en vez de un formulario largo.</p>
 </blockquote>
+<p>Dirección directa:</p>
+<pre><code>https://console.cloud.google.com/auth/overview?project=TU-PROYECTO</code></pre>
 <ol type="1">
-<li>Ve a <strong>APIs y servicios → Pantalla de consentimiento de
-OAuth</strong>. El enlace sigue funcionando y lleva a <strong>Google
-Auth Platform</strong>.</li>
-<li>Si el proyecto no tiene nada configurado, aparece "Aún no se
-configuró Google Auth Platform". Pulsa <strong>Comenzar</strong>.</li>
-<li><strong>1 Información de la app.</strong> Escribe el <strong>Nombre
-de la aplicación</strong>, por ejemplo <code>YTChat TTS</code>, y elige
-tu correo en <strong>Correo electrónico de asistencia al
-usuario</strong>, que es una lista desplegable con tus direcciones.
-Pulsa <strong>Siguiente</strong>.</li>
-<li><strong>2 Público.</strong> Elige <strong>Usuarios externos</strong>
-y pulsa <strong>Siguiente</strong>.</li>
-<li><strong>3 Información de contacto.</strong> Escribe tu dirección de
-correo en <strong>Direcciones de correo electrónico</strong> y pulsa
-<strong>Siguiente</strong>.</li>
-<li><strong>4 Finalizar.</strong> Marca la casilla <strong>Acepto la
-Política de Datos del Usuario de los Servicios de las APIs de
-Google</strong> y pulsa <strong>Continuar</strong>.</li>
-<li>Pulsa <strong>Crear</strong>. Aparece el aviso "Se creó la
+<li>Si el proyecto no tiene nada configurado, la página dice "Aún no se
+configuró Google Auth Platform". Pulsar <strong>Comenzar</strong>.</li>
+<li><strong>Paso 1, Información de la app.</strong> Escribir el
+<strong>Nombre de la aplicación</strong>, por ejemplo
+<code>YTChat TTS</code>. En <strong>Correo electrónico de asistencia al
+usuario</strong> hay una lista desplegable: elegir la propia dirección.
+Pulsar <strong>Siguiente</strong>.</li>
+<li><strong>Paso 2, Público.</strong> Elegir <strong>Usuarios
+externos</strong> y pulsar <strong>Siguiente</strong>.</li>
+<li><strong>Paso 3, Información de contacto.</strong> Escribir la propia
+dirección de correo en <strong>Direcciones de correo
+electrónico</strong> y pulsar <strong>Siguiente</strong>.</li>
+<li><strong>Paso 4, Finalizar.</strong> Marcar la casilla <strong>Acepto
+la Política de Datos del Usuario de los Servicios de las APIs de
+Google</strong> y pulsar <strong>Continuar</strong>.</li>
+<li>Pulsar <strong>Crear</strong>. Aparece el aviso "Se creó la
 configuración de OAuth".</li>
 </ol>
-<h3 id="añadir-tu-cuenta-como-usuario-de-prueba">Añadir tu cuenta como
-usuario de prueba</h3>
-<p>Sin esto el inicio de sesión se rechaza, aunque la cuenta sea la
-tuya.</p>
+<h3 id="añadir-la-propia-cuenta-como-usuario-de-prueba">Añadir la propia
+cuenta como usuario de prueba</h3>
+<p><strong>Este paso es obligatorio y es el que más se olvida.</strong>
+Sin él, el inicio de sesión se rechaza aunque la cuenta sea la dueña del
+proyecto.</p>
+<p>Dirección directa:</p>
+<pre><code>https://console.cloud.google.com/auth/audience?project=TU-PROYECTO</code></pre>
 <ol type="1">
-<li>En el menú de la izquierda, entra en <strong>Público</strong>.</li>
-<li>Baja hasta <strong>Usuarios de prueba</strong> y pulsa <strong>Add
-users</strong>.</li>
-<li>Escribe tu dirección de Gmail y pulsa <strong>Guardar</strong>. El
-contador de arriba tiene que pasar a decir "1 usuario (1 de
-prueba)".</li>
+<li>Bajar hasta el apartado <strong>Usuarios de prueba</strong> y pulsar
+<strong>Add users</strong>.</li>
+<li>Escribir la dirección de Gmail y pulsar
+<strong>Guardar</strong>.</li>
+<li>Comprobar que el contador de la página pasa a decir "1 usuario (1 de
+prueba)". Si sigue en cero, no se guardó.</li>
 </ol>
 <blockquote>
-<p><strong>Importante (la caducidad de 7 días).</strong> Mientras la app
-esté en modo "Prueba" ("Testing"), tu sesión caduca cada <strong>7
-días</strong> y tendrás que volver a pulsar "Iniciar sesión" en
-Configuración. Es un clic, no se pierde nada. Si te molesta, puedes
-pulsar <strong>Publicar app</strong> en la página
-<strong>Público</strong>: entonces no caduca, pero la primera vez verás
-un aviso de "app no verificada" que hay que aceptar manualmente.
-Cualquiera de las dos opciones sirve.</p>
+<p><strong>La caducidad de 7 días.</strong> Mientras la app esté en
+estado "Prueba", la sesión caduca cada <strong>7 días</strong> y hay que
+volver a pulsar "Iniciar sesión" en Configuración. Es un clic y no se
+pierde nada. En esa misma página hay un botón <strong>Publicar
+app</strong> que quita la caducidad; a cambio, la primera vez aparece un
+aviso de "app no verificada" que hay que aceptar a mano. Cualquiera de
+las dos opciones sirve.</p>
 </blockquote>
-<h2 id="paso-5--crear-el-cliente-oauth-para-moderarcomentar">Paso 5 —
-Crear el cliente OAuth (para moderar/comentar)</h2>
+<h2 id="paso-5--crear-el-cliente-oauth">Paso 5 — Crear el cliente
+OAuth</h2>
+<p>Dirección directa:</p>
+<pre><code>https://console.cloud.google.com/auth/clients?project=TU-PROYECTO</code></pre>
 <ol type="1">
-<li>En <strong>Google Auth Platform</strong>, entra en
-<strong>Clientes</strong> y pulsa <strong>Crear cliente de
-OAuth</strong>. (También se llega desde <strong>APIs y servicios →
-Credenciales → Crear credenciales → ID de cliente de
-OAuth</strong>.)</li>
-<li>En <strong>Tipo de aplicación</strong> elige <strong>App de
-escritorio</strong>.</li>
-<li>Ponle un nombre, por ejemplo <code>YTChat TTS escritorio</code>, y
-pulsa <strong>Crear</strong>.</li>
-<li>Se abre un cuadro con el <strong>ID de cliente</strong> y el
-<strong>Secreto del cliente</strong>, cada uno con su botón de copiar.
-<strong>Cópialos los dos antes de cerrarlo</strong>: el propio cuadro
-avisa de que el secreto no se puede volver a ver ni descargar una vez
-que se cierra. Si se pierde, hay que crear otro cliente.</li>
+<li>Pulsar <strong>Crear cliente de OAuth</strong>.</li>
+<li>En <strong>Tipo de aplicación</strong>, elegir <strong>App de
+escritorio</strong>. La lista trae otras opciones (Aplicación web,
+Android, Extensión de Chrome, iOS, TVs); ninguna de ellas sirve para
+esta aplicación.</li>
+<li>En <strong>Nombre</strong>, escribir por ejemplo
+<code>YTChat TTS escritorio</code>, y pulsar
+<strong>Crear</strong>.</li>
+<li>Se abre un cuadro titulado "Se creó el cliente de OAuth" con el
+<strong>ID de cliente</strong> y el <strong>Secreto del
+cliente</strong>, cada uno con su botón de copiar.</li>
 </ol>
+<blockquote>
+<p><strong>Copiar los dos antes de cerrar ese cuadro.</strong> El propio
+cuadro lo advierte: el secreto <strong>no se puede volver a ver ni
+descargar</strong> una vez que se cierra. Si se pierde, no hay forma de
+recuperarlo y hay que crear otro cliente. El ID de cliente sí queda
+visible después, en la lista de clientes.</p>
+</blockquote>
 <hr />
 <h2 id="paso-6--meter-los-datos-en-la-aplicación">Paso 6 — Meter los
 datos en la aplicación</h2>
 <ol type="1">
-<li>Abre YTChat TTS y pulsa el botón
+<li>Abrir YTChat TTS y pulsar el botón
 <strong>Configuración</strong>.</li>
-<li>Pega:
-<ul>
-<li>La <strong>API key</strong> en su campo (paso 3).</li>
-<li>El <strong>ID de cliente OAuth</strong> y el <strong>Secreto de
-cliente OAuth</strong> (paso 5).</li>
-</ul></li>
-<li>Pulsa <strong>Guardar claves</strong>.</li>
-<li>Pulsa <strong>Iniciar sesión</strong>. Se abrirá el navegador: elige
-tu cuenta de Google, acepta los permisos y vuelve a la aplicación. Oirás
-"Sesión iniciada correctamente".</li>
+<li>Pegar la <strong>API key</strong> del paso 3, y el <strong>ID de
+cliente</strong> y el <strong>Secreto de cliente</strong> del paso 5,
+cada uno en su campo.</li>
+<li>Pulsar <strong>Guardar claves</strong>.</li>
+<li>Pulsar <strong>Iniciar sesión</strong>. Se abre el navegador.</li>
 </ol>
-<p>A partir de aquí, el estado en Configuración dirá "sesión iniciada" y
+<p>En el navegador, la secuencia es de tres pantallas:</p>
+<ol type="1">
+<li><strong>"Elegir una cuenta"</strong>: pulsar sobre la cuenta.</li>
+<li><strong>"Google no verificó esta app"</strong>: pulsar
+<strong>Continuar</strong>. Este aviso es normal y aparece porque la app
+está en estado "Prueba"; el enlace grande que dice "Volver a un sitio
+seguro" es el que <strong>no</strong> hay que pulsar.</li>
+<li><strong>"YTChat TTS requiere acceso a tu Cuenta de Google"</strong>:
+pulsar <strong>Continuar</strong>. El permiso que se concede es solo de
+YouTube.</li>
+</ol>
+<p>Al terminar, el navegador muestra "Sesión iniciada. Ya puedes volver
+a la aplicación", y la aplicación anuncia que la sesión se inició
+correctamente.</p>
+<p>A partir de aquí, el estado en Configuración dice "sesión iniciada" y
 se activan la moderación, el envío al chat y publicar comentarios.</p>
+<hr />
+<h2 id="si-algo-sale-mal">Si algo sale mal</h2>
+<p><strong>"Error 403: access_denied" al iniciar sesión.</strong> Falta
+el usuario de prueba. Volver al paso 4, apartado de usuarios de prueba,
+y comprobar que el contador dice "1 usuario (1 de prueba)".</p>
+<p><strong>Se perdió el secreto de cliente.</strong> No se puede
+recuperar. Hay que crear otro cliente OAuth con el paso 5; el anterior
+se puede borrar desde la lista de clientes.</p>
+<p><strong>Pide iniciar sesión otra vez a los pocos días.</strong> Es la
+caducidad de 7 días del estado "Prueba". Se resuelve con un clic en
+"Iniciar sesión", o publicando la app como explica el paso 4.</p>
+<p><strong>"Se agotó la cuota".</strong> Cada acción de escritura gasta
+unas 50 unidades y leer comentarios gasta muy poco. Agotar las 10.000
+diarias requiere un uso muy intenso. Se renueva al día siguiente.</p>
+<p><strong>No aparece la clave de API en la lista.</strong> Es la trampa
+de la tabla ancha del paso 3: el enlace "Mostrar clave" está en una
+columna que queda fuera de la pantalla y hay que desplazar la tabla en
+horizontal.</p>
 <hr />
 <h2 id="cómo-se-usan-las-funciones">Cómo se usan las funciones</h2>
 <ul>
-<li><strong>Leer comentarios:</strong> conéctate a un vídeo en la barra
-superior y abre la pestaña <strong>Comentarios</strong>. Elige el orden
-y pulsa <strong>Recargar comentarios</strong>. Navega la lista con las
-flechas; <strong>Enter</strong> lo lee con la voz y
-<strong>Ctrl+C</strong> lo copia. Para más acciones, abre el menú
-contextual (tecla <strong>Aplicaciones</strong> o
-<strong>Mayúsculas+F10</strong>): <strong>Leer con TTS</strong>,
-<strong>Copiar</strong> y <strong>Responder</strong>. <strong>Cargar
-más</strong> trae la página siguiente. (Con orden «Más relevantes»
-YouTube puede devolver páginas repetidas; se descartan y se avisa «No
-hay comentarios nuevos». «Más recientes» pagina de forma más
-estable.)</li>
-<li><strong>Responder / Comentar:</strong> con la sesión iniciada,
+<li><strong>Leer comentarios:</strong> conectarse a un vídeo en la barra
+superior y abrir la pestaña <strong>Comentarios</strong>. Elegir el
+orden y pulsar <strong>Recargar comentarios</strong>. La lista se
+recorre con las flechas; <strong>Enter</strong> lo lee con la voz y
+<strong>Ctrl+C</strong> lo copia. Para más acciones, el menú contextual
+(tecla <strong>Aplicaciones</strong> o <strong>Mayúsculas+F10</strong>):
+<strong>Leer con TTS</strong>, <strong>Copiar</strong> y
+<strong>Responder</strong>. <strong>Cargar más</strong> trae la página
+siguiente. Con el orden "Más relevantes", YouTube puede devolver páginas
+repetidas; se descartan y se avisa "No hay comentarios nuevos". "Más
+recientes" pagina de forma más estable.</li>
+<li><strong>Responder y comentar:</strong> con la sesión iniciada,
 <strong>Responder</strong> está en el menú contextual de un comentario
-seleccionado; <strong>Comentar en el vídeo</strong> es un botón. Nota:
-la API de YouTube <strong>no permite dar «me gusta» a
-comentarios</strong> (solo a vídeos), así que esa acción no existe en la
-app.</li>
-<li><strong>Moderar el chat en vivo:</strong> conéctate a un directo del
-que seas dueño o moderador. En la lista del chat, abre el menú
-contextual de un mensaje (tecla Aplicaciones o Mayúsculas+F10):
-aparecerán <strong>Expulsar 5 minutos</strong> y <strong>Banear del
+seleccionado, y <strong>Comentar en el vídeo</strong> es un botón. La
+API de YouTube <strong>no permite dar "me gusta" a comentarios</strong>,
+solo a vídeos, así que esa acción no existe en la aplicación.</li>
+<li><strong>Moderar el chat en vivo:</strong> conectarse a un directo
+del que se sea dueño o moderador. En la lista del chat, el menú
+contextual de un mensaje (tecla Aplicaciones o Mayúsculas+F10) ofrece
+<strong>Expulsar 5 minutos</strong> y <strong>Banear del
 directo</strong>. Se pide confirmación antes de actuar.</li>
-<li><strong>Enviar un mensaje al chat del directo:</strong> botón
-<strong>Enviar al chat</strong> (se activa al conectarte a un directo
-con sesión iniciada).</li>
+<li><strong>Enviar un mensaje al chat del directo:</strong> menú
+<strong>Enviar mensaje al chat del directo</strong>, que se activa al
+conectarse a un directo de YouTube con la sesión iniciada.</li>
 </ul>
 <hr />
 <h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
-<p><strong>¿Es peligroso para mi cuenta?</strong> El permiso solo cubre
-acciones de YouTube (leer, comentar, moderar como tu canal). No puede
-cambiar tu contraseña, leer tu correo ni borrar tu cuenta. Puedes
-revocarlo cuando quieras desde <a
-href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a>.</p>
-<p><strong>¿Dónde se guardan mis claves?</strong> En un archivo
-<code>credenciales.json</code> junto al programa, solo en tu equipo.
-Nunca se sube a internet ni al repositorio (está excluido por
-<code>.gitignore</code>).</p>
-<p><strong>¿Se nota que escribo desde una aplicación?</strong> Para los
-espectadores, no: tus mensajes y comentarios salen como tu canal, sin
-etiqueta. El único matiz es que YouTube a veces retiene o filtra los
-comentarios publicados por API más que los hechos desde la web.</p>
-<p><strong>Se agotó la cuota.</strong> Cada acción de escritura gasta
-unas 50 unidades y leer comentarios gasta muy poco. Si agotas las 10.000
-del día (uso muy intenso), se renueva al día siguiente.</p>
-<p><strong>Me pide iniciar sesión otra vez.</strong> Normal si dejaste
-la app en modo "Prueba": la sesión caduca a los 7 días. Pulsa "Iniciar
-sesión" de nuevo, o publica la app (paso 4) para que no caduque.</p>
+<p><strong>¿Es peligroso para la cuenta?</strong> El permiso solo cubre
+acciones de YouTube: leer, comentar y moderar como el propio canal. No
+puede cambiar la contraseña, leer el correo ni borrar la cuenta. Se
+puede revocar en cualquier momento desde <a
+href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a></p>
+<p><strong>¿Dónde se guardan las claves?</strong> En un archivo
+<code>credenciales.json</code> junto al programa, solo en ese equipo.
+Nunca se sube a internet ni al repositorio: está excluido por
+<code>.gitignore</code>. Eso significa también que <strong>no viajan a
+otro ordenador</strong>: en una segunda máquina hay que repetir el paso
+6, aunque el proyecto de Google ya esté creado y sirva el mismo ID de
+cliente.</p>
+<p><strong>¿Se nota que los mensajes salen de una aplicación?</strong>
+Para los espectadores, no: salen como el propio canal, sin etiqueta. El
+único matiz es que YouTube a veces retiene o filtra los comentarios
+publicados por API más que los hechos desde la web.</p>
 </body>
 </html>
