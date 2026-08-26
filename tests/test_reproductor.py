@@ -8,6 +8,17 @@ import sys
 import reproductor
 
 
+class RelojMonotonic:
+    def __init__(self, primero, despues):
+        self._llamadas = 0
+        self._primero = primero
+        self._despues = despues
+
+    def __call__(self):
+        self._llamadas += 1
+        return self._primero if self._llamadas == 1 else self._despues
+
+
 FORMATOS_SEPARADOS = [
     {"format_id": "233", "height": None, "vcodec": "none",
      "acodec": None, "abr": None, "tbr": None, "url": "audio-233"},
@@ -243,14 +254,17 @@ class TestPrecalentamiento(unittest.TestCase):
         anterior = reproductor._VLC_PREPARADO
         try:
             reproductor._VLC_PREPARADO = False
+            reloj = RelojMonotonic(1.0, 1.25)
             with mock.patch.object(reproductor, "_carpeta_vlc_empaquetada",
                                    return_value=None), \
                     mock.patch.object(reproductor.time, "monotonic",
-                                      side_effect=[1.0, 1.25]), \
+                                      side_effect=reloj), \
                     mock.patch.object(reproductor.diagnostico.logger, "info") as registrar:
                 reproductor._preparar_vlc()
-            registrar.assert_called_once_with(
+            registrar.assert_any_call(
                 "VLC_PRECALENTAMIENTO tramo=%s ms=%.0f", "preparar_dll", 250)
+            self.assertEqual(sum(llamada.args[1] == "preparar_dll"
+                                 for llamada in registrar.call_args_list), 1)
         finally:
             reproductor._VLC_PREPARADO = anterior
 
@@ -258,13 +272,17 @@ class TestPrecalentamiento(unittest.TestCase):
         anterior = reproductor._vlc
         try:
             reproductor._vlc = None
+            reloj = RelojMonotonic(2.0, 2.5)
             with mock.patch.object(reproductor, "_preparar_vlc"), \
                     mock.patch.object(reproductor.time, "monotonic",
-                                      side_effect=[2.0, 2.5]), \
+                                      side_effect=reloj), \
                     mock.patch.object(reproductor.diagnostico.logger, "info") as registrar, \
                     mock.patch.dict(sys.modules, {"vlc": types.SimpleNamespace()}):
                 self.assertTrue(reproductor._cargar_vlc())
-            self.assertEqual(registrar.call_args.args[1:], ("importar_modulo", 500))
+            registrar.assert_any_call(
+                "VLC_PRECALENTAMIENTO tramo=%s ms=%.0f", "importar_modulo", 500)
+            self.assertEqual(sum(llamada.args[1] == "importar_modulo"
+                                 for llamada in registrar.call_args_list), 1)
         finally:
             reproductor._vlc = anterior
 
@@ -279,12 +297,16 @@ class TestPrecalentamiento(unittest.TestCase):
         anterior = reproductor._vlc
         try:
             reproductor._vlc = types.SimpleNamespace(Instance=lambda *_: instancia)
+            reloj = RelojMonotonic(3.0, 3.75)
             with mock.patch.object(reproductor, "_cargar_vlc", return_value=True), \
                     mock.patch.object(reproductor.time, "monotonic",
-                                      side_effect=[3.0, 3.75]), \
+                                      side_effect=reloj), \
                     mock.patch.object(reproductor.diagnostico.logger, "info") as registrar:
                 self.assertTrue(panel._asegurar_instancia())
-            self.assertEqual(registrar.call_args.args[1:], ("crear_instancia", 750))
+            registrar.assert_any_call(
+                "VLC_PRECALENTAMIENTO tramo=%s ms=%.0f", "crear_instancia", 750)
+            self.assertEqual(sum(llamada.args[1] == "crear_instancia"
+                                 for llamada in registrar.call_args_list), 1)
         finally:
             reproductor._vlc = anterior
 
