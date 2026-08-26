@@ -62,6 +62,30 @@ class TestSeleccionFormatos(unittest.TestCase):
             ("video-720-rapido", False),
         )
 
+    def test_sin_progresivo_elige_la_menor_altura_no_superior(self):
+        formatos = [
+            {"vcodec": "avc1", "acodec": "none", "height": 720,
+             "url": "video-720"},
+            {"vcodec": "avc1", "acodec": "none", "height": 1080,
+             "url": "video-1080"},
+        ]
+        self.assertEqual(
+            reproductor._video_para_altura({"formats": formatos}, 480),
+            ("video-720", False),
+        )
+
+    def test_sin_progresivo_elige_la_menor_altura_disponible(self):
+        formatos = [
+            {"vcodec": "avc1", "acodec": "none", "height": 720,
+             "url": "video-720"},
+            {"vcodec": "avc1", "acodec": "none", "height": 1080,
+             "url": "video-1080"},
+        ]
+        self.assertEqual(
+            reproductor._video_para_altura({"formats": formatos}, 144),
+            ("video-720", False),
+        )
+
     def test_descarta_guion_grafico_como_audio(self):
         formato = {"vcodec": "none", "acodec": "none", "url": "grafico"}
         self.assertEqual(reproductor._mejor_audio({"formats": [formato]}), "")
