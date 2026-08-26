@@ -16,7 +16,7 @@ import diagnostico
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
 APP_NAME    = "YTChat TTS"
-APP_VERSION = "2.0.1"
+APP_VERSION = "2.1.0"
 
 # ── Tipos de mensaje ──────────────────────────────────────────────────────────
 
