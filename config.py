@@ -67,13 +67,13 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
     except Exception as exc:
         logging.getLogger(__name__).warning("No se pudo crear ytchat.log: %s", exc)
 
-    # Temporalmente activado para reunir evidencia en la máquina afectada.
-    detallado = True
+    # El registro detallado se activa únicamente si se solicita en Preferencias.
+    detallado = False
     try:
         p_diag = _mk_parser()
         p_diag.read(app_dir() / "config.ini", encoding="utf-8")
         detallado = p_diag.getboolean("diagnostico", "registro_detallado",
-                                     fallback=True)
+                                     fallback=False)
     except Exception as exc:
         logging.getLogger(__name__).warning(
             "No se pudo leer la configuración de diagnóstico: %s", exc)
@@ -368,9 +368,9 @@ silenciar_lectura = false
 anunciar_entradas = false
 [programados]
 activo = false
-# Registro detallado temporal para diagnosticar una instalación concreta.
+# Registro detallado para diagnosticar problemas de la aplicación.
 [diagnostico]
-registro_detallado = true
+registro_detallado = false
 [overlay]
 activo = false
 puerto = 8730
@@ -632,7 +632,7 @@ def cargar_configuracion() -> dict:
     if not p.has_option("tiktok", "anunciar_entradas"):
         guardar_opcion(ruta, "tiktok", "anunciar_entradas", "false")
     if not p.has_option("diagnostico", "registro_detallado"):
-        guardar_opcion(ruta, "diagnostico", "registro_detallado", "true")
+        guardar_opcion(ruta, "diagnostico", "registro_detallado", "false")
     if not p.has_option("voz", "multivoz"):
         guardar_opcion(ruta, "voz", "multivoz", "false")
     if not p.has_option("voz", "voz_eventos"):

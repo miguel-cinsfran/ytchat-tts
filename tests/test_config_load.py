@@ -30,6 +30,34 @@ class TestCargarConfiguracion(unittest.TestCase):
             cfg = config.cargar_configuracion()
         self.assertTrue((tmp / "config.ini").exists())
         self.assertEqual(cfg["formato_prefijo"], "nombre_mensaje")
+        texto = (tmp / "config.ini").read_text(encoding="utf-8")
+        self.assertIn("registro_detallado = false", texto)
+
+    def test_registro_detallado_ausente_no_activa_manejador(self):
+        ruta = Path(self._tmp.name) / "config.ini"
+        ruta.write_text("[diagnostico]\n", encoding="utf-8")
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+             mock.patch.object(config.logging, "getLogger") as obtener_logger, \
+             mock.patch.object(config, "RotatingFileHandler"), \
+             mock.patch.object(config.diagnostico, "crear_manejador_detallado") as crear:
+            config.configurar_logging()
+            crear.assert_not_called()
+
+    def test_registro_detallado_ausente_se_persiste_apagado(self):
+        ruta = Path(self._tmp.name) / "config.ini"
+        ruta.write_text("[diagnostico]\n", encoding="utf-8")
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+            config.cargar_configuracion()
+        texto = ruta.read_text(encoding="utf-8")
+        self.assertIn("registro_detallado = false", texto)
+
+    def test_registro_detallado_true_se_conserva(self):
+        ruta = Path(self._tmp.name) / "config.ini"
+        ruta.write_text("[diagnostico]\nregistro_detallado = true\n", encoding="utf-8")
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+            config.cargar_configuracion()
+        texto = ruta.read_text(encoding="utf-8")
+        self.assertIn("registro_detallado = true", texto)
 
     def test_valores_basicos(self):
         cfg = self._cargar_en(config._CONFIG_FALLBACK)
