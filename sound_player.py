@@ -27,7 +27,7 @@ _winmm = None
 _eventos: dict[str, Path] = {}
 _volumen: float = 0.7
 _activo:  bool  = True
-_silenciado_usuario: bool = False   # Toggle en caliente (Alt+M).
+_silenciado_usuario: bool = False   # Toggle en caliente (F7).
 
 _alias_activos: dict[str, float] = {}
 _alias_lock = threading.Lock()
