@@ -83,6 +83,8 @@ class Conexiones:
                 if not (youtube_api.google_disponible() and
                         credenciales.hay_lectura()):
                     return
+                if not self._registro.vigente(gen):
+                    return
                 cliente = youtube_api.ClienteYouTube(credenciales.cargar())
                 while not ps.wait(60):
                     if not self._registro.vigente(gen):
