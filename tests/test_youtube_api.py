@@ -1,10 +1,55 @@
 """Tests de los parsers puros de youtube_api (sin red ni libs de Google)."""
 
 import unittest
+from unittest import mock
 
 from youtube_api import (
-    normalizar_comentario, parsear_pagina_comentarios, mensaje_error_api,
+    ClienteYouTube, normalizar_comentario, parsear_pagina_comentarios,
+    mensaje_error_api,
 )
+
+
+class ServicioFalso:
+    def __init__(self, respuesta):
+        self.respuesta = respuesta
+
+    def videos(self):
+        return self
+
+    def list(self, **kwargs):
+        self.parametros = kwargs
+        return self
+
+    def execute(self):
+        return self.respuesta
+
+
+class TestDetallesDirecto(unittest.TestCase):
+
+    def cliente(self, respuesta):
+        cliente = ClienteYouTube({"api_key": "clave"})
+        cliente._svc_lectura = ServicioFalso(respuesta)
+        return cliente
+
+    def test_respuesta_completa(self):
+        cliente = self.cliente({"items": [{"liveStreamingDetails": {
+            "concurrentViewers": "30",
+            "actualStartTime": "2026-08-27T14:03:12Z",
+        }}]})
+        self.assertEqual(cliente.detalles_directo("abc"), {
+            "espectadores": 30, "comienzo": "2026-08-27T14:03:12Z"})
+
+    def test_respuesta_sin_espectadores(self):
+        cliente = self.cliente({"items": [{"liveStreamingDetails": {
+            "actualStartTime": "2026-08-27T14:03:12Z",
+        }}]})
+        self.assertEqual(cliente.detalles_directo("abc"), {
+            "espectadores": None, "comienzo": "2026-08-27T14:03:12Z"})
+
+    def test_respuesta_vacia(self):
+        cliente = self.cliente({"items": []})
+        self.assertEqual(cliente.detalles_directo("abc"), {
+            "espectadores": None, "comienzo": ""})
 
 
 class TestNormalizarComentario(unittest.TestCase):

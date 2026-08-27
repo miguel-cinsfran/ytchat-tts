@@ -236,6 +236,21 @@ class ClienteYouTube:
         det = items[0].get("liveStreamingDetails", {}) or {}
         return det.get("activeLiveChatId", "") or ""
 
+    def detalles_directo(self, video_id: str) -> dict:
+        try:
+            resp = self._lectura().videos().list(
+                part="liveStreamingDetails", id=video_id).execute()
+            items = resp.get("items", []) or []
+            if not items:
+                return {"espectadores": None, "comienzo": ""}
+            det = items[0].get("liveStreamingDetails", {}) or {}
+            espectadores = det.get("concurrentViewers")
+            espectadores = int(espectadores) if espectadores is not None else None
+            return {"espectadores": espectadores,
+                    "comienzo": det.get("actualStartTime", "") or ""}
+        except Exception:
+            return {"espectadores": None, "comienzo": ""}
+
     # -- escrituras (OAuth) --
     def enviar_mensaje_live(self, live_chat_id: str, texto: str) -> None:
         self._escritura().liveChatMessages().insert(
