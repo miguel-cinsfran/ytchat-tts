@@ -65,6 +65,7 @@ def construir_tts(autor: str, mensaje: str, config: dict) -> str:
     fmt = config.get("formato_prefijo", "nombre_mensaje")
     if fmt == "solo_mensaje": return mensaje
     if fmt == "solo_nombre":  return autor_limpio
+    if fmt == "mensaje_nombre": return f"{mensaje}, de {autor_limpio}"
     return f"{autor_limpio}: {mensaje}"
 
 

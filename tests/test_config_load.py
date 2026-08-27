@@ -124,6 +124,10 @@ class TestCargarConfiguracion(unittest.TestCase):
         cfg = self._cargar_en("[lectura]\nformato_prefijo = raro\n")
         self.assertEqual(cfg["formato_prefijo"], "nombre_mensaje")
 
+    def test_formato_mensaje_nombre_se_conserva(self):
+        cfg = self._cargar_en("[lectura]\nformato_prefijo = mensaje_nombre\n")
+        self.assertEqual(cfg["formato_prefijo"], "mensaje_nombre")
+
     def test_inyecta_seccion_descargas_con_defaults(self):
         # Sin [descargas] en el INI, cargar_configuracion debe inyectar los
         # defaults (mp4, 192, app_dir()/Descargas, false) y devolverlos en el

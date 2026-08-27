@@ -48,6 +48,7 @@ URL_GUIA = "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGU
 
 _FORMATOS = [
     ("Nombre y mensaje", "nombre_mensaje"),
+    ("Mensaje y después el nombre", "mensaje_nombre"),
     ("Solo el mensaje",  "solo_mensaje"),
     ("Solo el nombre",   "solo_nombre"),
 ]

@@ -59,6 +59,16 @@ class TestConstruirTTS(unittest.TestCase):
         self.assertEqual(
             construir_tts("Juan", "hola", self._cfg("solo_nombre")), "Juan")
 
+    def test_mensaje_nombre(self):
+        self.assertEqual(
+            construir_tts("Juan", "hola", self._cfg("mensaje_nombre")),
+            "hola, de Juan")
+
+    def test_mensaje_nombre_autor_vacio_usa_placeholder(self):
+        self.assertEqual(
+            construir_tts("", "hola", self._cfg("mensaje_nombre")),
+            "hola, de Usuario")
+
     def test_autor_vacio_usa_placeholder(self):
         self.assertEqual(construir_tts("", "hola", self._cfg()), "Usuario: hola")
 

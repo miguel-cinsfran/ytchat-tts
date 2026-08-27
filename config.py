@@ -612,7 +612,7 @@ def cargar_configuracion() -> dict:
     estrategia = _gs(p, "cola", "estrategia").lower()
     if estrategia not in ("todas", "limite"): estrategia = "limite"
     formato = _gs(p, "lectura", "formato_prefijo").lower()
-    if formato not in ("nombre_mensaje", "solo_mensaje", "solo_nombre"): formato = "nombre_mensaje"
+    if formato not in ("nombre_mensaje", "mensaje_nombre", "solo_mensaje", "solo_nombre"): formato = "nombre_mensaje"
     guardar = _gs(p, "sesion", "guardar_historial").lower()
     if guardar not in ("no", "csv", "txt"): guardar = "no"
 
