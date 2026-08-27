@@ -234,6 +234,8 @@ cada versión</a>.</p>
 <li><a href="#reproductor">Reproductor</a></li>
 <li><a href="#panel-de-chat-para-transmitir">Panel de chat para
 transmitir</a></li>
+<li><a href="#componer-la-escena-desde-la-aplicación">Componer la escena
+desde la aplicación</a></li>
 <li><a href="#mensajes-automáticos">Mensajes automáticos</a></li>
 <li><a href="#gestor-de-descargas">Gestor de descargas</a></li>
 <li><a href="#historial-de-directos">Historial de directos</a></li>
@@ -308,11 +310,38 @@ del chat.</li>
 sin desconectar, y <code>F7</code> silencia los sonidos.</p>
 <p>En <em>Herramientas, Preferencias, Filtros</em> se configuran las
 palabras y los usuarios que no deben leerse. En <em>Preferencias,
-Lectura</em> se elige el formato de lo que se lee (nombre y mensaje,
-solo el mensaje o solo el nombre), y se puede activar una
-<strong>segunda voz para los eventos</strong>, de modo que los Super
-Chats, los regalos, las membresías y las entradas se distingan de los
-mensajes normales.</p>
+Lectura</em> se elige el formato de lo que se lee, entre cuatro:</p>
+<ul>
+<li><strong>Nombre y mensaje</strong>: «Lucía: hola a todos».</li>
+<li><strong>Mensaje y después el nombre</strong>: «hola a todos, de
+Lucía». Útil cuando llegan muchos mensajes seguidos, porque se oye el
+contenido antes que el nombre y puede decidirse si interesa sin
+esperar.</li>
+<li><strong>Solo el mensaje</strong>.</li>
+<li><strong>Solo el nombre</strong>.</li>
+</ul>
+<p>En esa misma pestaña se puede activar una <strong>segunda voz para
+los eventos</strong>, de modo que los Super Chats, los regalos, las
+membresías y las entradas se distingan de los mensajes normales.</p>
+<h3 id="alias-para-los-nombres-difíciles-de-escuchar">Alias para los
+nombres difíciles de escuchar</h3>
+<p>Muchos nombres de usuario son cadenas de letras y números que la voz
+lee enteras en cada mensaje. Puede dárseles un nombre corto:</p>
+<ol type="1">
+<li>En la lista del chat, abrir el menú contextual sobre uno de sus
+mensajes.</li>
+<li>Elegir <em>Poner alias</em>.</li>
+<li>Escribir el nombre que quiera oírse y aceptar.</li>
+</ol>
+<p>Desde ese momento ese usuario se lee y se muestra con el alias,
+también en los mensajes que ya estaban en pantalla. Para quitarlo se
+abre lo mismo y se deja el campo vacío.</p>
+<p>El nombre real no se pierde: expulsar, vetar, silenciar y responder
+siguen actuando sobre la cuenta de verdad. Las entradas del menú pasan a
+nombrar al usuario como se lo ve en la lista, para que no digan cosas
+distintas.</p>
+<p>Los alias se guardan en <code>alias.json</code>, junto al programa, y
+se conservan entre sesiones.</p>
 <h2 id="comentarios-de-vídeos">Comentarios de vídeos</h2>
 <p>Cuando la dirección corresponde a un vídeo ya publicado y no a un
 directo, la pestaña de comentarios muestra los comentarios del vídeo y
@@ -376,10 +405,47 @@ pantalla.</p>
 problema. El fondo de este panel es transparente: solo se ven las
 tarjetas de los mensajes, y solo tapan lo que hay justo debajo de ellas.
 El resto del rectángulo deja pasar la imagen.</p>
-<p>El panel se coloca desde el programa de emisión. En OBS Studio, las
-propiedades de la fuente permiten escribir la anchura y la altura, y el
-diálogo de transformación, que se abre con <code>Ctrl+E</code>, permite
-escribir la posición en píxeles en lugar de arrastrar con el ratón.</p>
+<h3 id="componer-la-escena-desde-la-aplicación">Componer la escena desde
+la aplicación</h3>
+<p>Con OBS Studio no hace falta colocar nada a mano. <em>Herramientas,
+Transmisión</em>, o <code>Ctrl+Mayúsculas+T</code>, abre una ventana que
+habla con OBS y permite ordenar la escena entera sin ver la
+pantalla.</p>
+<p>Antes de usarla hay que activar el servidor de OBS una sola vez, en
+<em>Herramientas, Configuración del servidor WebSocket</em>, dentro del
+propio OBS. La aplicación lee sola el puerto y la contraseña que queden
+guardados ahí.</p>
+<p>La ventana permite:</p>
+<ul>
+<li>Elegir la <strong>escena</strong> y, dentro de ella, <strong>qué
+fuente</strong> se va a mover: el panel de chat, la cámara, la captura
+del juego o cualquier otra.</li>
+<li>Llevarla a una de las <strong>nueve posiciones habituales</strong>,
+por ejemplo inferior derecha o superior centro.</li>
+<li>Cambiarle el <strong>tamaño</strong>, mostrarla u ocultarla,
+<strong>fijarla</strong> para no moverla sin querer, y ponerla
+<strong>por delante</strong> de las demás.</li>
+<li>Entrar en <strong>ajuste fino</strong>: a partir de ahí las flechas
+mueven la fuente, en pasos normales, grandes con <code>Control</code> o
+de un píxel con <code>Mayúsculas</code>. <code>Intro</code> confirma y
+<code>Escape</code> deshace.</li>
+<li>Guardar una <strong>captura de la escena</strong> en un archivo,
+para enseñársela a alguien que vea.</li>
+<li><strong>Restablecer</strong> todo lo hecho desde que se abrió la
+ventana.</li>
+</ul>
+<p>Cada cambio se anuncia con lo que hace falta saber: en qué posición
+quedó, qué tamaño tiene, qué parte de la pantalla ocupa, cuánto se
+recorta si se sale del borde y, sobre todo, <strong>si otra fuente la
+está tapando y cuánto</strong>. Esa es la pregunta que no puede
+responderse mirando.</p>
+<p>Así puede armarse una escena completa a ciegas: el juego en el
+centro, la cámara en un recuadro más pequeño arriba a la derecha y el
+chat en una esquina.</p>
+<p>Con otros programas de emisión, o si se prefiere hacerlo a mano, las
+propiedades de la fuente permiten escribir la anchura y la altura, y en
+OBS el diálogo de transformación se abre con <code>Ctrl+E</code> y
+admite la posición en píxeles en lugar de arrastrar con el ratón.</p>
 <p>Como no es posible comprobar visualmente si el panel se está
 mostrando, esa información se consulta por voz: <code>F2</code> indica
 si el panel está activo, en qué puerto, y si algún programa lo está
@@ -444,8 +510,11 @@ como tales, porque su enlace deja de servir.</p>
 <h2 id="estado-por-voz">Estado por voz</h2>
 <p><code>F2</code> anuncia un resumen de la situación actual: estado de
 la conexión, título del directo, canal, espectadores en ese momento,
-mensajes leídos, donaciones recibidas, y el estado del panel de chat y
-de los mensajes automáticos cuando están activos.</p>
+<strong>cuánto lleva emitiendo</strong>, mensajes leídos, donaciones
+recibidas, y el estado del panel de chat y de los mensajes automáticos
+cuando están activos.</p>
+<p>El número de espectadores y el tiempo de emisión se actualizan solos
+cada minuto, y necesitan tener configurada la API de YouTube.</p>
 <p>Qué se incluye en ese resumen se elige en <em>Herramientas,
 Preferencias, Estado (F2)</em>, de modo que sea posible dejar solo lo
 relevante y que el anuncio no se alargue.</p>

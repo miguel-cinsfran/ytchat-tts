@@ -16,6 +16,7 @@ Versión 2.0.1 · Windows 10 y 11 · [novedades de cada versión](CHANGELOG.md).
 - [Comentarios de vídeos](#comentarios-de-vídeos)
 - [Reproductor](#reproductor)
 - [Panel de chat para transmitir](#panel-de-chat-para-transmitir)
+- [Componer la escena desde la aplicación](#componer-la-escena-desde-la-aplicación)
 - [Mensajes automáticos](#mensajes-automáticos)
 - [Gestor de descargas](#gestor-de-descargas)
 - [Historial de directos](#historial-de-directos)
@@ -93,9 +94,38 @@ La velocidad se ajusta con `F9` y `F10`, y el volumen de la voz con `F11` y
 
 En *Herramientas, Preferencias, Filtros* se configuran las palabras y los
 usuarios que no deben leerse. En *Preferencias, Lectura* se elige el formato de
-lo que se lee (nombre y mensaje, solo el mensaje o solo el nombre), y se puede
-activar una **segunda voz para los eventos**, de modo que los Super Chats, los
-regalos, las membresías y las entradas se distingan de los mensajes normales.
+lo que se lee, entre cuatro:
+
+- **Nombre y mensaje**: «Lucía: hola a todos».
+- **Mensaje y después el nombre**: «hola a todos, de Lucía». Útil cuando llegan
+  muchos mensajes seguidos, porque se oye el contenido antes que el nombre y
+  puede decidirse si interesa sin esperar.
+- **Solo el mensaje**.
+- **Solo el nombre**.
+
+En esa misma pestaña se puede activar una **segunda voz para los eventos**, de
+modo que los Super Chats, los regalos, las membresías y las entradas se
+distingan de los mensajes normales.
+
+### Alias para los nombres difíciles de escuchar
+
+Muchos nombres de usuario son cadenas de letras y números que la voz lee
+enteras en cada mensaje. Puede dárseles un nombre corto:
+
+1. En la lista del chat, abrir el menú contextual sobre uno de sus mensajes.
+2. Elegir *Poner alias*.
+3. Escribir el nombre que quiera oírse y aceptar.
+
+Desde ese momento ese usuario se lee y se muestra con el alias, también en los
+mensajes que ya estaban en pantalla. Para quitarlo se abre lo mismo y se deja el
+campo vacío.
+
+El nombre real no se pierde: expulsar, vetar, silenciar y responder siguen
+actuando sobre la cuenta de verdad. Las entradas del menú pasan a nombrar al
+usuario como se lo ve en la lista, para que no digan cosas distintas.
+
+Los alias se guardan en `alias.json`, junto al programa, y se conservan entre
+sesiones.
 
 ## Comentarios de vídeos
 
@@ -168,10 +198,43 @@ fondo de este panel es transparente: solo se ven las tarjetas de los mensajes, y
 solo tapan lo que hay justo debajo de ellas. El resto del rectángulo deja pasar
 la imagen.
 
-El panel se coloca desde el programa de emisión. En OBS Studio, las propiedades
-de la fuente permiten escribir la anchura y la altura, y el diálogo de
-transformación, que se abre con `Ctrl+E`, permite escribir la posición en
-píxeles en lugar de arrastrar con el ratón.
+### Componer la escena desde la aplicación
+
+Con OBS Studio no hace falta colocar nada a mano. *Herramientas, Transmisión*,
+o `Ctrl+Mayúsculas+T`, abre una ventana que habla con OBS y permite ordenar la
+escena entera sin ver la pantalla.
+
+Antes de usarla hay que activar el servidor de OBS una sola vez, en *Herramientas,
+Configuración del servidor WebSocket*, dentro del propio OBS. La aplicación lee
+sola el puerto y la contraseña que queden guardados ahí.
+
+La ventana permite:
+
+- Elegir la **escena** y, dentro de ella, **qué fuente** se va a mover: el panel
+  de chat, la cámara, la captura del juego o cualquier otra.
+- Llevarla a una de las **nueve posiciones habituales**, por ejemplo inferior
+  derecha o superior centro.
+- Cambiarle el **tamaño**, mostrarla u ocultarla, **fijarla** para no moverla
+  sin querer, y ponerla **por delante** de las demás.
+- Entrar en **ajuste fino**: a partir de ahí las flechas mueven la fuente, en
+  pasos normales, grandes con `Control` o de un píxel con `Mayúsculas`. `Intro`
+  confirma y `Escape` deshace.
+- Guardar una **captura de la escena** en un archivo, para enseñársela a alguien
+  que vea.
+- **Restablecer** todo lo hecho desde que se abrió la ventana.
+
+Cada cambio se anuncia con lo que hace falta saber: en qué posición quedó, qué
+tamaño tiene, qué parte de la pantalla ocupa, cuánto se recorta si se sale del
+borde y, sobre todo, **si otra fuente la está tapando y cuánto**. Esa es la
+pregunta que no puede responderse mirando.
+
+Así puede armarse una escena completa a ciegas: el juego en el centro, la cámara
+en un recuadro más pequeño arriba a la derecha y el chat en una esquina.
+
+Con otros programas de emisión, o si se prefiere hacerlo a mano, las propiedades
+de la fuente permiten escribir la anchura y la altura, y en OBS el diálogo de
+transformación se abre con `Ctrl+E` y admite la posición en píxeles en lugar de
+arrastrar con el ratón.
 
 Como no es posible comprobar visualmente si el panel se está mostrando, esa
 información se consulta por voz: `F2` indica si el panel está activo, en qué
@@ -243,9 +306,12 @@ terminados aparecen señalados como tales, porque su enlace deja de servir.
 ## Estado por voz
 
 `F2` anuncia un resumen de la situación actual: estado de la conexión, título
-del directo, canal, espectadores en ese momento, mensajes leídos, donaciones
-recibidas, y el estado del panel de chat y de los mensajes automáticos cuando
-están activos.
+del directo, canal, espectadores en ese momento, **cuánto lleva emitiendo**,
+mensajes leídos, donaciones recibidas, y el estado del panel de chat y de los
+mensajes automáticos cuando están activos.
+
+El número de espectadores y el tiempo de emisión se actualizan solos cada
+minuto, y necesitan tener configurada la API de YouTube.
 
 Qué se incluye en ese resumen se elige en *Herramientas, Preferencias, Estado
 (F2)*, de modo que sea posible dejar solo lo relevante y que el anuncio no se
