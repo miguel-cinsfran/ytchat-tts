@@ -70,7 +70,7 @@ class MensajesDeFalloTest(unittest.TestCase):
 
     def test_fallo_de_autenticacion(self):
         self.assertEqual(obs_cliente.mensaje_de_fallo_obs("error 4009 unauthorized"),
-                         "OBS rechazó la contraseña. Vuelve a leerla desde OBS.")
+                         "OBS rechazó la contraseña guardada. Vuelve a conectar para leerla de nuevo.")
 
     def test_fuente_duplicada(self):
         self.assertEqual(obs_cliente.mensaje_de_fallo_obs("601"),

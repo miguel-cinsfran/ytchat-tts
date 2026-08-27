@@ -63,7 +63,7 @@ def mensaje_de_fallo_obs(motivo):
         return ("No se pudo conectar con OBS. Comprueba que OBS esté abierto y "
                 "que su servidor websocket esté activado.")
     if any(clave in texto for clave in ("authentication", "4009", "unauthorized")):
-        return "OBS rechazó la contraseña. Vuelve a leerla desde OBS."
+        return "OBS rechazó la contraseña guardada. Vuelve a conectar para leerla de nuevo."
     if any(clave in texto for clave in ("601", "already exists")):
         return "Ya existe una fuente con ese nombre en OBS."
     if any(clave in texto for clave in ("600", "not found", "no scene")):
