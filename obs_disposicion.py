@@ -126,10 +126,10 @@ def _texto_posicion(snap, largo):
                           (snap.lienzo_ancho - derecha, "derecha")]
             distancia_x, lado_x = min(horizontal)
         if snap.arriba < 0:
-            lado_y = "fuera por el superior"
+            lado_y = "fuera por arriba"
             distancia_y = abs(snap.arriba)
         elif abajo > snap.lienzo_alto:
-            lado_y = "fuera por el inferior"
+            lado_y = "fuera por abajo"
             distancia_y = abajo - snap.lienzo_alto
         else:
             vertical = [(snap.arriba, "superior"),
