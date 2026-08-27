@@ -28,7 +28,68 @@ class GeometriaTest(unittest.TestCase):
 
     def test_reconoce_anclaje_con_tolerancia(self):
         self.assertEqual(obs.anclaje_de((32, 18, 460, 620), 1600, 900), "superior-izquierda")
-            self.assertEqual(obs.anclaje_de((41, 18, 460, 620), 1600, 900), "")
+        self.assertEqual(obs.anclaje_de((41, 18, 460, 620), 1600, 900), "")
+
+    def test_posicion_libre_y_anclajes_personalizados(self):
+        snap = obs.SnapshotPanel(izquierda=80, arriba=253, ancho=460, alto=620,
+                                 lienzo_ancho=1600, lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)), "Izquierda 5%, inferior 3%.")
+        self.assertEqual(obs.describir(snap, ("posicion",), "largo"),
+                         "Posición: izquierda 5%, inferior 3%")
+
+    def test_coordenadas_con_margen_cero(self):
+        self.assertEqual(obs.coordenadas("superior-derecha", 100, 50, 0), (100, 0, 6))
+
+    def test_rectangulo_centrado(self):
+        self.assertEqual(obs.rectangulo(50, 50, 20, 10, 0), (40, 45, 20, 10))
+
+    def test_rectangulo_solo_eje_horizontal(self):
+        self.assertEqual(obs.rectangulo(50, 50, 20, 10, 2), (30, 45, 20, 10))
+
+    def test_rectangulo_solo_eje_vertical(self):
+        self.assertEqual(obs.rectangulo(50, 50, 20, 10, 8), (40, 40, 20, 10))
+
+    def test_solape_sin_contacto(self):
+        self.assertEqual(obs.solape((0, 0, 10, 10), (10, 0, 10, 10)), 0.0)
+
+    def test_solape_completo(self):
+        self.assertEqual(obs.solape((0, 0, 20, 20), (2, 2, 4, 4)), 100.0)
+
+    def test_fuera_completo(self):
+        self.assertEqual(obs.fuera_del_lienzo((200, 200, 10, 10), 100, 100), 100.0)
+
+    def test_fuera_parcial_vertical(self):
+        self.assertEqual(obs.fuera_del_lienzo((0, 90, 100, 20), 100, 100), 50.0)
+
+    def test_anclaje_de_centro(self):
+        self.assertEqual(obs.anclaje_de((30, 20, 40, 20), 100, 60, 0), "centro")
+
+    def test_anclaje_de_inferior_derecha(self):
+        self.assertEqual(obs.anclaje_de((70, 30, 30, 30), 100, 60, 0), "inferior-derecha")
+
+    def test_anclaje_de_fuera_de_tolerancia_vertical(self):
+        self.assertEqual(obs.anclaje_de((32, 24, 460, 620), 1600, 900), "")
+
+    def test_conexion_conectada_corta_es_vacia(self):
+        self.assertEqual(obs.describir(obs.SnapshotPanel(conectado=True), ("conexion",)), "")
+
+    def test_escena_fuera_del_aire(self):
+        snap = obs.SnapshotPanel(escena="Juego", al_aire=False)
+        self.assertEqual(obs.describir(snap, ("escena",)), "Juego, no al aire.")
+
+    def test_tamano_sin_datos(self):
+        self.assertEqual(obs.describir(obs.SnapshotPanel(), ("tamano",)), "")
+
+    def test_varios_solapes(self):
+        snap = obs.SnapshotPanel(solapes=(("Cámara", 12.4), ("Juego", 4.1)))
+        self.assertEqual(obs.describir(snap, ("solape",)), "Cámara 12%, Juego 4%.")
+
+    def test_aspecto_parcial(self):
+        snap = obs.SnapshotPanel(tamano_letra=18)
+        self.assertEqual(obs.describir(snap, ("aspecto",)), "0 mensajes, letra 18.")
+
+    def test_componentes_desconocidos_se_omiten(self):
+        self.assertEqual(obs.describir(obs.SnapshotPanel(), ("inexistente",)), "")
 
 
 class DescripcionTest(unittest.TestCase):

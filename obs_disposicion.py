@@ -109,7 +109,9 @@ def _texto_posicion(snap, largo):
     rect = (snap.izquierda, snap.arriba, snap.ancho, snap.alto)
     nombre = anclaje_de(rect, snap.lienzo_ancho, snap.lienzo_alto)
     if nombre:
-        texto = nombre.replace("-", " ").capitalize()
+        texto = nombre.replace("-", " ")
+        if not largo:
+            texto = texto.capitalize()
     else:
         horizontal = [(abs(snap.izquierda), "izquierda"),
                       (abs(snap.lienzo_ancho - snap.izquierda - snap.ancho), "derecha")]
@@ -117,8 +119,10 @@ def _texto_posicion(snap, largo):
                     (abs(snap.lienzo_alto - snap.arriba - snap.alto), "inferior")]
         distancia_x, lado_x = min(horizontal)
         distancia_y, lado_y = min(vertical)
-        texto = (f"{lado_x.capitalize()} {_porcentaje(distancia_x / snap.lienzo_ancho * 100)}%, "
+        texto = (f"{lado_x} {_porcentaje(distancia_x / snap.lienzo_ancho * 100)}%, "
                  f"{lado_y} {_porcentaje(distancia_y / snap.lienzo_alto * 100)}%")
+        if not largo:
+            texto = texto.capitalize()
     return f"Posición: {texto}" if largo else texto
 
 
