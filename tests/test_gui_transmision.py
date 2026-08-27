@@ -36,16 +36,19 @@ class GestorFalso:
     def conectado(self): return True
     def escenas(self): return ("Principal", "Juego")
     def escena_al_aire(self): return "Principal"
+    def fuentes(self, escena):
+        return {"Principal": ("Cámara", "Chat YTChat", "Juego"),
+                "Juego": ("Captura",)}.get(escena, ())
     def asegurar_fuente(self, *args): pass
     def colocar(self, *args): self.llamadas.append(("colocar",) + args); self.snap = self.snap_nuevo
     def posicionar(self, *args): self.llamadas.append(("posicionar",) + args)
-    def transformacion(self, *args): return self.transformacion_inicial
+    def transformacion(self, *args, **kwargs): return self.transformacion_inicial
     def mover(self, *args): self.llamadas.append(("mover",) + args); self.snap = self.snap_nuevo
     def redimensionar(self, *args): self.llamadas.append(("redimensionar",) + args); self.snap = self.snap_nuevo
     def mostrar(self, *args): self.llamadas.append(("mostrar",) + args); self.snap = self.snap_nuevo
     def fijar(self, *args): self.llamadas.append(("fijar",) + args); self.snap = self.snap_nuevo
     def al_frente(self, *args): self.llamadas.append(("al_frente",) + args); self.snap = self.snap_nuevo
-    def instantanea(self, *args): return self.snap
+    def instantanea(self, *args, **kwargs): return self.snap
     def captura_de_escena(self, *args): self.llamadas.append(("captura_de_escena",) + args)
 
 
@@ -105,6 +108,16 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo.cho_posicion.SetSelection(8)
         self.dialogo._colocar(Evento())
         self.assertIn(("colocar", "Principal", "inferior-derecha"), self.gestor.llamadas)
+
+    def test_carga_las_fuentes_y_prefiere_el_panel_de_chat(self):
+        self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Cámara", "Chat YTChat", "Juego"])
+        self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Chat YTChat")
+
+    def test_cambiar_escena_rehace_las_fuentes(self):
+        self.dialogo.cho_escena.SetStringSelection("Juego")
+        self.dialogo._cambiar_escena(Evento())
+        self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Captura"])
+        self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Captura")
 
     def test_aplicar_tamano_usa_los_dos_numeros(self):
         self.dialogo.sp_ancho.SetValue(800)

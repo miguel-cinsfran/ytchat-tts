@@ -73,6 +73,9 @@ class TransmisionDialog(wx.Dialog):
         self.cho_escena = wx.Choice(panel, name="Escena")
         nombre_accesible(self.cho_escena, "Escena")
         caja.Add(self.cho_escena, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self.cho_fuente = wx.Choice(panel, name="Fuente")
+        nombre_accesible(self.cho_fuente, "Fuente")
+        caja.Add(self.cho_fuente, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.cho_posicion = wx.Choice(
             panel, choices=[nombre.replace("-", " ").capitalize()
                             for nombre in obs_disposicion.ANCLAJES],
@@ -105,12 +108,13 @@ class TransmisionDialog(wx.Dialog):
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         panel.SetSizer(caja)
-        self._acciones = (self.btn_actualizar, self.cho_escena, self.cho_posicion,
+        self._acciones = (self.btn_actualizar, self.cho_escena, self.cho_fuente, self.cho_posicion,
                           self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
                           self.btn_restaurar)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
+        self.cho_fuente.Bind(wx.EVT_CHOICE, self._cambiar_fuente)
         self.cho_posicion.Bind(wx.EVT_CHOICE, self._colocar)
         self.btn_tamano.Bind(wx.EVT_BUTTON, self._tamano)
         self.chk_mostrar.Bind(wx.EVT_CHECKBOX, self._mostrar)
@@ -185,14 +189,17 @@ class TransmisionDialog(wx.Dialog):
         escenas = self._gestor.escenas()
         al_aire = self._gestor.escena_al_aire()
         escena = al_aire if al_aire in escenas else (escenas[0] if escenas else "")
-        snap = self._gestor.instantanea(escena)
-        return escenas, escena, snap, self._gestor.transformacion(escena)
+        fuentes = self._gestor.fuentes(escena)
+        fuente = "Chat YTChat" if "Chat YTChat" in fuentes else (fuentes[0] if fuentes else "")
+        snap = self._gestor.instantanea(escena, fuente=fuente)
+        return escenas, escena, fuentes, fuente, snap, self._gestor.transformacion(escena, fuente=fuente)
 
     def _inicial_cargada(self, datos):
-        escenas, escena, snap, transformacion = datos
+        escenas, escena, fuentes, fuente, snap, transformacion = datos
         self.cho_escena.Set(list(escenas))
         if escena:
             self.cho_escena.SetStringSelection(escena)
+        self._cargar_fuentes(fuentes, fuente)
         self._escena_inicial = escena
         self._restablecer = {"transformacion": transformacion, "ancho": snap.ancho,
                               "alto": snap.alto, "visible": snap.visible,
@@ -210,11 +217,21 @@ class TransmisionDialog(wx.Dialog):
         self.chk_mostrar.SetValue(snap.visible)
         self.chk_fijar.SetValue(snap.bloqueada)
 
+    def _cargar_fuentes(self, fuentes, fuente=""):
+        self.cho_fuente.Set(list(fuentes))
+        if fuente:
+            self.cho_fuente.SetStringSelection(fuente)
+        if not fuentes:
+            self.txt_estado.SetValue("La escena no tiene fuentes.")
+
     def _escena(self):
         return self.cho_escena.GetStringSelection()
 
+    def _fuente(self):
+        return self.cho_fuente.GetStringSelection()
+
     def _leer(self, escena=None):
-        return self._gestor.instantanea(escena or self._escena())
+        return self._gestor.instantanea(escena or self._escena(), fuente=self._fuente())
 
     def _anunciar_snap(self, snap):
         anunciar(obs_disposicion.describir(snap, obs_disposicion.ACTIVOS_DEFECTO))
@@ -223,6 +240,23 @@ class TransmisionDialog(wx.Dialog):
         self._en_hilo(self._leer, self._anunciar_snap)
 
     def _cambiar_escena(self, event):
+        self._en_hilo(self._leer_escena, self._escena_cambiada)
+        event.Skip()
+
+    def _leer_escena(self):
+        escena = self._escena()
+        fuentes = self._gestor.fuentes(escena)
+        fuente = "Chat YTChat" if "Chat YTChat" in fuentes else (fuentes[0] if fuentes else "")
+        return fuentes, fuente, self._gestor.instantanea(escena, fuente=fuente)
+
+    def _escena_cambiada(self, datos):
+        fuentes, fuente, snap = datos
+        self._cargar_fuentes(fuentes, fuente)
+        if fuentes:
+            self._mostrar_snap(snap)
+            self._anunciar_snap(snap)
+
+    def _cambiar_fuente(self, event):
         self._en_hilo(self._leer, self._anunciar_snap)
         event.Skip()
 
