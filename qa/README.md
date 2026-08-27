@@ -65,6 +65,27 @@ a pisar.
 partir de ahí los aceleradores dejan de llegar. El banco declaró roto un Ctrl+S
 que funcionaba: la herramienta rompía lo que estaba midiendo.
 
+**Con el dueño lejos del equipo, el banco NO puede medir nada del teclado.**
+Medido el 27/08/2026 con una ventana wx mínima que se manda una tecla a sí
+misma: la ventana estaba activa según wx, el foco estaba en su cuadro de texto,
+y las teclas simuladas no llegaron. Este es el veredicto textual del
+experimento: «las teclas simuladas NO llegan a la ventana».
+
+Cuando pasa eso, TODA comprobación que use `teclas` falla a la vez: los siete
+atajos del reproductor, las flechas de los deslizadores, `F2`, `Ctrl+S`. Una
+corrida así dio 23 fallos donde la línea base tenía 2, y ninguno era una
+regresión.
+
+La señal para reconocerlo, y es la misma de siempre: **fallan todas las
+comprobaciones de una clase y ninguna de otra**. Lo que se dispara llamando a
+wx directamente sigue en verde; lo que pasa por el teclado del sistema falla
+entero. Antes de creerse una lista de fallos así, correr el experimento de la
+ventana mínima.
+
+Consecuencia práctica: el banco completo se corre con alguien delante del
+equipo. En sesión remota o con la pantalla bloqueada sirve para los escenarios
+que no dependen del teclado, y nada más.
+
 **El recorrido de Tab no auditaba nada, y lo dijo en verde durante meses.**
 Mandaba la tecla con `wx.UIActionSimulator`, que la entrega a la ventana con el
 foco DEL ESCRITORIO. Corriendo el banco sin traer la aplicación al frente, esa
