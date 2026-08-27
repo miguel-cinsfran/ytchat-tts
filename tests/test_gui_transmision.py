@@ -192,6 +192,26 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo.EndModal.assert_called_once_with(wx.ID_CANCEL)
         self.assertNotIn("Consultando OBS", self.anuncios)
 
+    def test_consulta_rapida_no_anuncia_la_espera(self):
+        temporizador = mock.Mock()
+        self.dialogo._temporizador_consulta = temporizador
+        self.dialogo._actualizar(Evento())
+        temporizador.StartOnce.assert_called_once_with(400)
+        temporizador.Stop.assert_called_once_with()
+        self.assertNotIn("Consultando OBS", self.anuncios)
+
+    def test_consulta_lenta_anuncia_la_espera(self):
+        self.dialogo._operacion_en_vuelo = True
+        self.dialogo._anunciar_consulta(Evento())
+        self.assertIn("Consultando OBS", self.anuncios)
+
+    def test_cerrar_detiene_el_aviso_pendiente(self):
+        temporizador = mock.Mock()
+        self.dialogo._temporizador_consulta = temporizador
+        self.dialogo.EndModal = mock.Mock()
+        self.dialogo._cerrar(Evento())
+        temporizador.Stop.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

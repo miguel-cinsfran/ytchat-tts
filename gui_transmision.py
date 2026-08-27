@@ -38,8 +38,12 @@ class TransmisionDialog(wx.Dialog):
         self._ajuste_transformacion = None
         self._movimiento_en_vuelo = False
         self._cerrando = False
+        self._operacion_en_vuelo = False
         self.SetBackgroundColour(_T.bg)
         self._crear_controles()
+        self._temporizador_consulta = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._anunciar_consulta, self._temporizador_consulta)
+        self.Bind(wx.EVT_WINDOW_DESTROY, self._al_destruir)
         self.Centre()
         self._en_hilo(self._cargar_inicial, self._inicial_cargada)
 
@@ -130,7 +134,8 @@ class TransmisionDialog(wx.Dialog):
 
     def _en_hilo(self, funcion, al_terminar=None):
         self._activar(False)
-        anunciar("Consultando OBS")
+        self._operacion_en_vuelo = True
+        self._temporizador_consulta.StartOnce(400)
         def ejecutar():
             try:
                 resultado = funcion()
@@ -145,6 +150,10 @@ class TransmisionDialog(wx.Dialog):
             control.Enable(activo)
 
     def _terminar(self, resultado, al_terminar):
+        self._temporizador_consulta.Stop()
+        self._operacion_en_vuelo = False
+        if self._cerrando:
+            return
         self._activar(True)
         if isinstance(resultado, obs_disposicion.SnapshotPanel):
             self._mostrar_snap(resultado)
@@ -152,12 +161,24 @@ class TransmisionDialog(wx.Dialog):
             al_terminar(resultado)
 
     def _fallo(self, mensaje):
+        self._temporizador_consulta.Stop()
+        self._operacion_en_vuelo = False
+        if self._cerrando:
+            return
         self._activar(False)
         self.txt_estado.SetValue(mensaje)
         sound_player.reproducir("error")
         anunciar(mensaje)
         self.btn_actualizar.Enable(True)
         self.btn_actualizar.SetFocus()
+
+    def _anunciar_consulta(self, event):
+        if self._operacion_en_vuelo and not self._cerrando:
+            anunciar("Consultando OBS")
+
+    def _al_destruir(self, event):
+        self._temporizador_consulta.Stop()
+        event.Skip()
 
     def _cargar_inicial(self):
         self._gestor.conectar()
@@ -353,6 +374,7 @@ class TransmisionDialog(wx.Dialog):
         if self._cerrando:
             return
         self._cerrando = True
+        self._temporizador_consulta.Stop()
         threading.Thread(target=self._cerrar_gestor, daemon=True,
                          name="CerrarTransmisionOBS").start()
         self.EndModal(wx.ID_CANCEL)
