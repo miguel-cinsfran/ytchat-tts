@@ -95,7 +95,14 @@ nadie compara con nada no es una medición.
 
 Ahora `recorrer_tab` usa la orden `navegar` de la sonda, que avanza por la
 cadena de foco de wx con `Navigate()`, sin pasar por el sistema. El diálogo de
-Transmisión pasó de 1 parada a 16. Lo que se gana es medir el orden real; lo
+Transmisión pasó de 1 parada a 16.
+
+`Navigate()` por sí solo tampoco baja dentro de un cuaderno de pestañas: salta
+al siguiente hermano y deja sin auditar todo lo que vive en la página. Por eso
+la sonda entra a mano en la página seleccionada cuando el foco queda en un
+`wx.Notebook`. Preferencias pasó así de 3 paradas a 9. Lo que sigue fuera son
+las pestañas NO seleccionadas, porque a esas se llega con Control+Tab, no con
+Tab. Lo que se gana es medir el orden real; lo
 que NO se cubre es el camino del teclado del sistema operativo hasta la
 ventana, y conviene no confundir una cosa con la otra.
 
