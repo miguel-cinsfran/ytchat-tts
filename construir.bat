@@ -53,6 +53,8 @@ call uv run python generar_docs.py || echo    AVISO: no se pudo regenerar; se us
 echo == Empaquetando con PyInstaller ==
 REM --noupx: NO comprimir con UPX. UPX dispara muchos falsos positivos de
 REM antivirus; sin el, el .exe levanta menos sospechas en el PC del amigo.
+REM El módulo da metadatos rápidos y el ejecutable mantiene flujos y descargas.
+REM yt-dlp carga extractores al vuelo, por eso se recopila completo.
 call uv run pyinstaller main.py ^
   --name YTChatTTS ^
   --onedir --windowed --noconfirm --clean --noupx ^
@@ -63,7 +65,7 @@ call uv run pyinstaller main.py ^
   --collect-submodules google_auth_oauthlib ^
   --collect-submodules pytchat ^
   --collect-all TikTokLive ^
-  --exclude-module yt_dlp ^
+  --collect-all yt_dlp ^
   --hidden-import vlc ^
   --add-data "!YTDOC!;googleapiclient/discovery_cache/documents"
 if errorlevel 1 ( echo ERROR en PyInstaller. & pause & exit /b 1 )
@@ -88,10 +90,10 @@ robocopy "sounds" "%OUT%\sounds" /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "docs"   "%OUT%\docs"   /E /NFL /NDL /NJH /NJS /NP >nul
 robocopy "web"    "%OUT%\web"    /E /NFL /NDL /NJH /NJS /NP >nul
 if defined VLCDIR (
-  echo == Empaquetando libVLC junto al exe (plugins de audio y video) ==
+  echo == Empaquetando libVLC junto al exe: plugins de audio y video ==
   robocopy "%VLCDIR%" "%OUT%\vlc" libvlc.dll libvlccore.dll /NFL /NDL /NJH /NJS /NP >nul
-  REM Plugins necesarios para el reproductor embebido: red (HTTP/TLS), demux
-  REM DASH/HLS, codecs y salida de audio Y video (la imagen va con set_hwnd).
+  REM Plugins necesarios para el reproductor embebido: red HTTP/TLS y demux.
+  REM DASH/HLS, codecs y salida de audio y video. La imagen va con set_hwnd.
   REM Se deja fuera lo que no usamos -GUI/skins, visualizaciones- para reducir
   REM tamano y acelerar el arranque. OJO: sin parentesis en estos REM, romperian
   REM el bloque IF.
@@ -152,6 +154,12 @@ copy /y "docs\README.html" "%OUT%\Leeme.html" >nul
 REM Por higiene: nada de log ni credenciales en el paquete que se envia.
 del /q "%OUT%\ytchat.log" 2>nul
 del /q "%OUT%\credenciales.json" 2>nul
+
+echo == Comprobando el módulo yt-dlp ==
+dir /b /s "%OUT%\_internal\yt_dlp\*" >nul 2>nul
+if errorlevel 1 (
+  echo    AVISO: yt_dlp no viaja en el paquete; al conectar saldra lento porque falta el módulo.
+)
 
 echo == Comprimiendo a "%OUT%.zip" ==
 REM Borra zips de cualquier version anterior (incluido el viejo sin version).
