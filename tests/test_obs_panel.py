@@ -16,10 +16,11 @@ def elemento(identificador, nombre, indice, x=32, y=882, ancho=460, alto=620,
 
 
 class DobleObs:
-    def __init__(self, elementos=None, entradas=(), escena="Escena"):
+    def __init__(self, elementos=None, entradas=(), escena="Escena", escenas=None):
         self.elementos = list(elementos or ())
         self.entradas = list(entradas)
         self.escena = escena
+        self.escenas = tuple(escenas if escenas is not None else (escena,))
         self.llamadas = []
         self.conectado = True
         self.siguiente_id = 20
@@ -35,6 +36,9 @@ class DobleObs:
         self.llamadas.append((tipo, datos, parada))
         if tipo == "GetSceneItemList":
             return {"responseData": {"sceneItems": list(self.elementos)}}
+        if tipo == "GetSceneList":
+            return {"responseData": {"scenes": [
+                {"sceneName": escena} for escena in self.escenas]}}
         if tipo == "GetInputList":
             return {"responseData": {"inputs": list(self.entradas)}}
         if tipo == "GetCurrentProgramScene":
@@ -117,6 +121,16 @@ class GestorPanelObsTest(unittest.TestCase):
         self.gestor(doble).al_frente("Escena")
         llamada = next(llamada for llamada in doble.llamadas if llamada[0] == "SetSceneItemIndex")
         self.assertEqual(llamada[1]["sceneItemIndex"], 4)
+
+    def test_fuentes_ordena_del_frente_hacia_atras(self):
+        doble = DobleObs([elemento(1, "Juego", 3), elemento(2, "Cámara", 8),
+                          elemento(3, obs_panel.NOMBRE_FUENTE, 5)])
+        self.assertEqual(self.gestor(doble).fuentes("Escena"),
+                         ("Cámara", "Chat YTChat", "Juego"))
+
+    def test_fuentes_devuelve_vacio_sin_fuentes_o_escena(self):
+        self.assertEqual(self.gestor(DobleObs([])).fuentes("Escena"), ())
+        self.assertEqual(self.gestor(DobleObs(escenas=())).fuentes("Ausente"), ())
 
     def test_instantanea_sin_solapes(self):
         snap = self.gestor(DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])).instantanea("Escena")
@@ -210,6 +224,38 @@ class GestorPanelObsTest(unittest.TestCase):
         doble.elementos[0]["sceneItemTransform"]["positionX"] = 300
         segunda = gestor.instantanea("Escena")
         self.assertNotEqual(primera.izquierda, segunda.izquierda)
+
+    def test_metodos_con_fuente_operan_sobre_el_elemento_nombrado(self):
+        operaciones = (
+            ("colocar", ("Escena", "superior-izquierda"), "SetSceneItemTransform"),
+            ("posicionar", ("Escena", 10, 20, 5), "SetSceneItemTransform"),
+            ("mover", ("Escena", 10, 20), "SetSceneItemTransform"),
+            ("mostrar", ("Escena", False), "SetSceneItemEnabled"),
+            ("fijar", ("Escena", True), "SetSceneItemLocked"),
+            ("al_frente", ("Escena",), "SetSceneItemIndex"),
+        )
+        for metodo, argumentos, solicitud in operaciones:
+            with self.subTest(metodo=metodo):
+                doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 1),
+                                  elemento(2, "Cámara", 0)])
+                getattr(self.gestor(doble), metodo)(*argumentos, fuente="Cámara")
+                llamada = next(llamada for llamada in doble.llamadas
+                               if llamada[0] == solicitud)
+                self.assertEqual(llamada[1]["sceneItemId"], 2)
+
+    def test_lecturas_con_fuente_leen_el_elemento_nombrado(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0, x=10),
+                          elemento(2, "Cámara", 1, x=300, ancho=640, alto=480)])
+        self.assertEqual(self.gestor(doble).transformacion("Escena", fuente="Cámara")["positionX"], 300)
+        self.assertEqual(self.gestor(doble).instantanea("Escena", fuente="Cámara").ancho, 640)
+
+    def test_sin_fuente_sigue_operando_sobre_el_panel(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0),
+                          elemento(2, "Cámara", 1)])
+        self.gestor(doble).mostrar("Escena", False)
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemEnabled")
+        self.assertEqual(llamada[1]["sceneItemId"], 1)
 
 
 if __name__ == "__main__":

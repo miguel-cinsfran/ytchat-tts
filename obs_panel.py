@@ -44,12 +44,12 @@ class GestorPanelObs:
         datos = self._pedir("GetSceneItemList", {"sceneName": escena}, parada)
         return list(datos.get("sceneItems", ()))
 
-    def _elemento_panel(self, escena, parada=None):
+    def _elemento(self, escena, fuente, parada=None):
         return next((elemento for elemento in self._elementos(escena, parada)
-                     if elemento.get("sourceName") == NOMBRE_FUENTE), None)
+                     if elemento.get("sourceName") == fuente), None)
 
     def asegurar_fuente(self, escena, url, ancho, alto, parada=None) -> int:
-        elemento = self._elemento_panel(escena, parada)
+        elemento = self._elemento(escena, NOMBRE_FUENTE, parada)
         if elemento is not None:
             identificador = elemento["sceneItemId"]
         else:
@@ -66,7 +66,7 @@ class GestorPanelObs:
                                     "inputName": NOMBRE_FUENTE,
                                     "inputKind": TIPO_FUENTE}, parada)
             identificador = datos.get("sceneItemId")
-            elemento = self._elemento_panel(escena, parada)
+            elemento = self._elemento(escena, NOMBRE_FUENTE, parada)
             if elemento is not None:
                 identificador = elemento["sceneItemId"]
 
@@ -79,25 +79,25 @@ class GestorPanelObs:
             "propertyName": "refreshnocache",
         }, parada)
         self.al_frente(escena, parada)
-        elemento = self._elemento_panel(escena, parada)
+        elemento = self._elemento(escena, NOMBRE_FUENTE, parada)
         return elemento["sceneItemId"] if elemento is not None else identificador
 
-    def colocar(self, escena, anclaje, parada=None) -> None:
+    def colocar(self, escena, anclaje, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
         lienzo = self._pedir("GetVideoSettings", parada=parada)
         x, y, alineacion = obs_disposicion.coordenadas(
             anclaje, lienzo["baseWidth"], lienzo["baseHeight"])
-        self.posicionar(escena, x, y, alineacion, parada)
+        self.posicionar(escena, x, y, alineacion, parada, fuente=fuente)
 
-    def transformacion(self, escena, parada=None) -> dict:
-        elemento = self._elemento_panel(escena, parada)
+    def transformacion(self, escena, parada=None, *, fuente=NOMBRE_FUENTE) -> dict:
+        elemento = self._elemento(escena, fuente, parada)
         if elemento is None:
             return {}
         transformacion = elemento["sceneItemTransform"]
         return {clave: transformacion[clave]
                 for clave in ("positionX", "positionY", "alignment")}
 
-    def posicionar(self, escena, x, y, alineacion, parada=None) -> None:
-        elemento = self._elemento_panel(escena, parada)
+    def posicionar(self, escena, x, y, alineacion, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
+        elemento = self._elemento(escena, fuente, parada)
         # OBS rechaza boundsWidth y boundsHeight en cero al recibir una transformación.
         transformacion = {"positionX": x, "positionY": y,
                           "alignment": alineacion}
@@ -106,8 +106,8 @@ class GestorPanelObs:
             "sceneItemTransform": transformacion,
         }, parada)
 
-    def mover(self, escena, dx, dy, parada=None) -> None:
-        elemento = self._elemento_panel(escena, parada)
+    def mover(self, escena, dx, dy, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
+        elemento = self._elemento(escena, fuente, parada)
         transformacion_actual = elemento["sceneItemTransform"]
         transformacion = {
             "positionX": transformacion_actual["positionX"] + dx,
@@ -117,10 +117,10 @@ class GestorPanelObs:
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemTransform": transformacion,
         }, parada)
-        self._elemento_panel(escena, parada)
+        self._elemento(escena, fuente, parada)
 
     def redimensionar(self, escena, ancho, alto, parada=None) -> None:
-        self._elemento_panel(escena, parada)
+        self._elemento(escena, NOMBRE_FUENTE, parada)
         ajustes = self._pedir("GetInputSettings", {
             "inputName": NOMBRE_FUENTE,
         }, parada).get("inputSettings", {})
@@ -129,44 +129,51 @@ class GestorPanelObs:
         self._pedir("SetInputSettings", {
             "inputName": NOMBRE_FUENTE, "inputSettings": ajustes,
         }, parada)
-        self._elemento_panel(escena, parada)
+        self._elemento(escena, NOMBRE_FUENTE, parada)
 
-    def mostrar(self, escena, visible, parada=None) -> None:
-        elemento = self._elemento_panel(escena, parada)
+    def mostrar(self, escena, visible, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
+        elemento = self._elemento(escena, fuente, parada)
         self._pedir("SetSceneItemEnabled", {
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemEnabled": visible,
         }, parada)
-        self._elemento_panel(escena, parada)
+        self._elemento(escena, fuente, parada)
 
-    def fijar(self, escena, fijada, parada=None) -> None:
-        elemento = self._elemento_panel(escena, parada)
+    def fijar(self, escena, fijada, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
+        elemento = self._elemento(escena, fuente, parada)
         self._pedir("SetSceneItemLocked", {
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemLocked": fijada,
         }, parada)
-        self._elemento_panel(escena, parada)
+        self._elemento(escena, fuente, parada)
 
-    def al_frente(self, escena, parada=None) -> None:
+    def al_frente(self, escena, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
         elementos = self._elementos(escena, parada)
-        panel = next((elemento for elemento in elementos
-                      if elemento.get("sourceName") == NOMBRE_FUENTE), None)
-        if panel is None:
+        elemento = next((elemento for elemento in elementos
+                         if elemento.get("sourceName") == fuente), None)
+        if elemento is None:
             return
         indice_mayor = max((elemento.get("sceneItemIndex", 0) for elemento in elementos),
                            default=0)
-        if panel.get("sceneItemIndex", 0) == indice_mayor:
+        if elemento.get("sceneItemIndex", 0) == indice_mayor:
             return
         self._pedir("SetSceneItemIndex", {
-            "sceneName": escena, "sceneItemId": panel["sceneItemId"],
+            "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemIndex": indice_mayor,
         }, parada)
         self._elementos(escena, parada)
 
-    def instantanea(self, escena, parada=None) -> obs_disposicion.SnapshotPanel:
+    def fuentes(self, escena, parada=None) -> tuple:
+        if escena not in self.escenas(parada):
+            return ()
+        elementos = self._elementos(escena, parada)
+        return tuple(elemento.get("sourceName", "") for elemento in sorted(
+            elementos, key=lambda elemento: elemento.get("sceneItemIndex", 0), reverse=True))
+
+    def instantanea(self, escena, parada=None, *, fuente=NOMBRE_FUENTE) -> obs_disposicion.SnapshotPanel:
         elementos = self._elementos(escena, parada)
         panel = next((elemento for elemento in elementos
-                      if elemento.get("sourceName") == NOMBRE_FUENTE), None)
+                      if elemento.get("sourceName") == fuente), None)
         al_aire = self.escena_al_aire(parada) == escena
         lienzo = self._pedir("GetVideoSettings", parada=parada)
         conectado = self.conectado
