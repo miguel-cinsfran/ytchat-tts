@@ -61,3 +61,28 @@ class AutenticacionTest(unittest.TestCase):
         resultado = obs_cliente.respuesta_auth("", "", "")
         self.assertIsInstance(resultado, str)
         self.assertEqual(len(resultado), 44)
+
+
+class MensajesDeFalloTest(unittest.TestCase):
+    def test_fallo_de_conexion(self):
+        self.assertIn("No se pudo conectar", obs_cliente.mensaje_de_fallo_obs("Connection refused"))
+
+    def test_fallo_de_autenticacion(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("error 4009 unauthorized"),
+                         "OBS rechazó la contraseña. Vuelve a leerla desde OBS.")
+
+    def test_fuente_duplicada(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("601"),
+                         "Ya existe una fuente con ese nombre en OBS.")
+
+    def test_escena_o_fuente_inexistente(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("No scene"),
+                         "OBS no encuentra la escena o la fuente indicada.")
+
+    def test_fallo_desconocido(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("fallo extraño"),
+                         "OBS no pudo completar la operación. Inténtalo de nuevo.")
+
+    def test_motivo_vacio(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs(None),
+                         "OBS no pudo completar la operación. Inténtalo de nuevo.")

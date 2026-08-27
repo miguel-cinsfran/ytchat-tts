@@ -45,3 +45,24 @@ def respuesta_auth(password, salt, challenge):
     return base64.b64encode(
         hashlib.sha256((secreto + challenge).encode("utf-8")).digest()
     ).decode("ascii")
+
+
+class ObsError(RuntimeError):
+    """Fallo entendible producido al comunicarse con OBS."""
+
+
+def mensaje_de_fallo_obs(motivo):
+    """Traduce un motivo técnico a un mensaje breve para el usuario."""
+    texto = str(motivo or "").lower()
+    if any(clave in texto for clave in
+           ("refused", "no connection", "10061", "unreachable", "timed out")):
+        return ("No se pudo conectar con OBS. Comprueba que OBS esté abierto y "
+                "que su servidor websocket esté activado.")
+    if any(clave in texto for clave in ("authentication", "4009", "unauthorized")):
+        return "OBS rechazó la contraseña. Vuelve a leerla desde OBS."
+    if any(clave in texto for clave in ("601", "already exists")):
+        return "Ya existe una fuente con ese nombre en OBS."
+    if any(clave in texto for clave in ("600", "not found", "no scene")):
+        return "OBS no encuentra la escena o la fuente indicada."
+    # Se comparte la forma de avisos_red, pero OBS necesita una taxonomía propia.
+    return "OBS no pudo completar la operación. Inténtalo de nuevo."
