@@ -113,12 +113,28 @@ def _texto_posicion(snap, largo):
         if not largo:
             texto = texto.capitalize()
     else:
-        horizontal = [(abs(snap.izquierda), "izquierda"),
-                      (abs(snap.lienzo_ancho - snap.izquierda - snap.ancho), "derecha")]
-        vertical = [(abs(snap.arriba), "superior"),
-                    (abs(snap.lienzo_alto - snap.arriba - snap.alto), "inferior")]
-        distancia_x, lado_x = min(horizontal)
-        distancia_y, lado_y = min(vertical)
+        derecha = snap.izquierda + snap.ancho
+        abajo = snap.arriba + snap.alto
+        if snap.izquierda < 0:
+            lado_x = "fuera por la izquierda"
+            distancia_x = derecha - snap.lienzo_ancho
+        elif derecha > snap.lienzo_ancho:
+            lado_x = "fuera por la derecha"
+            distancia_x = abs(snap.izquierda)
+        else:
+            horizontal = [(snap.izquierda, "izquierda"),
+                          (snap.lienzo_ancho - derecha, "derecha")]
+            distancia_x, lado_x = min(horizontal)
+        if snap.arriba < 0:
+            lado_y = "fuera por el superior"
+            distancia_y = abs(snap.arriba)
+        elif abajo > snap.lienzo_alto:
+            lado_y = "fuera por el inferior"
+            distancia_y = abajo - snap.lienzo_alto
+        else:
+            vertical = [(snap.arriba, "superior"),
+                        (snap.lienzo_alto - abajo, "inferior")]
+            distancia_y, lado_y = min(vertical)
         texto = (f"{lado_x} {_porcentaje(distancia_x / snap.lienzo_ancho * 100)}%, "
                  f"{lado_y} {_porcentaje(distancia_y / snap.lienzo_alto * 100)}%")
         if not largo:
@@ -127,6 +143,8 @@ def _texto_posicion(snap, largo):
 
 
 def _render(nombre: str, s: SnapshotPanel, largo: bool) -> str:
+    if not s.conectado and nombre != "conexion":
+        return ""
     if nombre == "conexion":
         return "OBS: conectado" if largo and s.conectado else ("Sin conexión con OBS" if not s.conectado else "")
     if nombre == "escena":
