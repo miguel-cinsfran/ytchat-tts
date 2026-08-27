@@ -509,6 +509,21 @@ class Sonda:
                         movido = bool(ctrl.Navigate(wx.NavigationKeyEvent.IsForward))
                     except Exception:
                         movido = False
+                # `Navigate` no baja dentro de la pagina de un cuaderno de
+                # pestanas: recorre el nivel de arriba y salta al siguiente
+                # hermano. Todo lo que vive en la pestana queda sin auditar, y
+                # ahi estan los veinte y pico de botones de atajos de
+                # Preferencias. Cuando el foco queda en un cuaderno, se entra a
+                # mano en su pagina seleccionada.
+                despues = wx.Window.FindFocus()
+                if despues is not None and isinstance(despues, wx.Notebook):
+                    pagina = despues.GetCurrentPage()
+                    if pagina is not None:
+                        for hijo in pagina.GetChildren():
+                            if hijo.IsShownOnScreen() and hijo.IsEnabled() and                                     hijo.AcceptsFocus():
+                                hijo.SetFocus()
+                                movido = True
+                                break
                 self.responder(id_orden, True, {"movido": movido})
 
             elif op == "quien_tiene_foco":
