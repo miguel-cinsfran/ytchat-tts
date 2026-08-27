@@ -3,7 +3,52 @@
 import unittest
 
 from estado_sesion import (SnapshotSesion, formatear_estado, COMPONENTES,
-                           ACTIVOS_DEFECTO)
+                           ACTIVOS_DEFECTO, _duracion)
+
+
+class TestDuracion(unittest.TestCase):
+
+    def test_cero(self):
+        self.assertEqual(_duracion(0), "menos de un minuto")
+
+    def test_cincuenta_y_nueve_segundos(self):
+        self.assertEqual(_duracion(59), "menos de un minuto")
+
+    def test_un_minuto(self):
+        self.assertEqual(_duracion(60), "1 min")
+
+    def test_veintitres_minutos(self):
+        self.assertEqual(_duracion(23 * 60), "23 min")
+
+    def test_una_hora(self):
+        self.assertEqual(_duracion(60 * 60), "1 h 0 min")
+
+    def test_una_hora_y_veintitres_minutos(self):
+        self.assertEqual(_duracion(83 * 60), "1 h 23 min")
+
+    def test_treinta_horas_y_cinco_minutos(self):
+        self.assertEqual(_duracion(30 * 60 * 60 + 5 * 60), "30 h 5 min")
+
+
+class TestTiempoDirecto(unittest.TestCase):
+
+    def test_corto(self):
+        self.assertEqual(formatear_estado(
+            SnapshotSesion(segundos_directo=83 * 60), {"tiempo_directo"}),
+            "Lleva 1 h 23 min.")
+
+    def test_largo(self):
+        self.assertEqual(formatear_estado(
+            SnapshotSesion(segundos_directo=83 * 60), {"tiempo_directo"}, "largo"),
+            "Tiempo del directo: 1 h 23 min")
+
+    def test_sin_dato(self):
+        self.assertEqual(formatear_estado(
+            SnapshotSesion(segundos_directo=None), {"tiempo_directo"}), "")
+
+    def test_negativo(self):
+        self.assertEqual(formatear_estado(
+            SnapshotSesion(segundos_directo=-1), {"tiempo_directo"}), "")
 
 
 class TestFormatoBasico(unittest.TestCase):

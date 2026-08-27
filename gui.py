@@ -14,6 +14,7 @@ import re
 import threading
 import time
 import webbrowser
+from datetime import datetime
 
 import wx
 
@@ -1219,6 +1220,8 @@ class YTChatFrame(wx.Frame):
             titulo=self._titulo_stream,
             canal=(meta.get("canal") or "").strip(),
             espectadores=espectadores,
+            segundos_directo=_seguro(lambda: int(time.time() - datetime.fromisoformat(
+                meta["comienzo_directo"].replace("Z", "+00:00")).timestamp()), None),
             mensajes_leidos=_seguro(lambda: self._stats.leidos, 0),
             aportes=_seguro(lambda: self._stats.superchats, 0),
             total_aportes=self._total_aportes_texto(),
@@ -1818,6 +1821,11 @@ class YTChatFrame(wx.Frame):
             return
         try:    self._metadatos["vistas"] = int(n)
         except Exception: pass
+
+    def set_inicio_directo(self, comienzo: str) -> None:
+        if not self._alive:
+            return
+        self._metadatos["comienzo_directo"] = comienzo or ""
 
     def set_tipo_video(self, tipo: str, video_id: str) -> None:
         if not self._alive:

@@ -35,6 +35,7 @@ class SnapshotSesion:
     titulo: str = ""
     canal: str = ""
     espectadores: int | None = None
+    segundos_directo: int | None = None
     mensajes_leidos: int = 0
     aportes: int = 0            # nº de Super Chats (YouTube) o regalos (TikTok)
     total_aportes: str = ""     # ya formateado (p. ej. "US$12.50"), "" si no hay
@@ -53,6 +54,7 @@ COMPONENTES: tuple[str, ...] = (
     "titulo",
     "canal",
     "espectadores",
+    "tiempo_directo",
     "mensajes_leidos",
     "aportes",
     "en_cola",
@@ -65,7 +67,7 @@ COMPONENTES: tuple[str, ...] = (
 # Activos por defecto: lo relevante para quien mira un directo. Lo técnico
 # (cola, voz) queda disponible pero apagado, porque el dueño lo ve irrelevante.
 ACTIVOS_DEFECTO: frozenset[str] = frozenset({
-    "estado", "titulo", "canal", "espectadores", "mensajes_leidos", "aportes",
+    "estado", "titulo", "canal", "espectadores", "tiempo_directo", "mensajes_leidos", "aportes",
     "lectura_silenciada",
     "overlay",
     "programados",
@@ -77,6 +79,7 @@ ETIQUETAS = {
     "titulo":             "Título del vídeo o directo",
     "canal":              "Canal o autor",
     "espectadores":       "Espectadores ahora",
+    "tiempo_directo":     "Tiempo que lleva el directo",
     "mensajes_leidos":    "Mensajes leídos",
     "aportes":            "Super Chats / regalos",
     "en_cola":            "Mensajes en cola de lectura",
@@ -91,6 +94,16 @@ def _fmt_num(n) -> str:
     """Miles con punto al estilo español: 30044 → «30.044»."""
     try:    return f"{int(n):,}".replace(",", ".")
     except (TypeError, ValueError): return str(n)
+
+
+def _duracion(segundos: int) -> str:
+    if segundos < 60:
+        return "menos de un minuto"
+    minutos = segundos // 60
+    horas, minutos = divmod(minutos, 60)
+    if horas:
+        return f"{horas} h {minutos} min"
+    return f"{minutos} min"
 
 
 def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
@@ -119,6 +132,13 @@ def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
         en_directo = s.tipo in ("live_youtube", "live_tiktok")
         palabra = "espectadores" if en_directo else "vistas"
         return f"{palabra.capitalize()}: {n}" if largo else f"{n} {palabra}"
+
+    if nombre == "tiempo_directo":
+        if s.segundos_directo is None or s.segundos_directo < 0:
+            return ""
+        texto = _duracion(s.segundos_directo)
+        return (f"Tiempo del directo: {texto}" if largo
+                else f"Lleva {texto}")
 
     if nombre == "mensajes_leidos":
         n = _fmt_num(s.mensajes_leidos)
