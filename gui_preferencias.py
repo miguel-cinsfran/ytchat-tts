@@ -868,6 +868,7 @@ _ETIQUETAS_ATAJO = {
     "abrir_preferencias": "Abrir Preferencias",
     "abrir_historial":    "Abrir el historial de directos",
     "marcar_incidencia":  "Marcar incidencia",
+    "abrir_transmision":  "Abrir Transmisión",
     # Conexión y chat
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",
