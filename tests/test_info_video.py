@@ -70,8 +70,7 @@ class TestObtenerInfoVideo(unittest.TestCase):
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
                 mock.patch.object(main.ytdlp_bin, "info_video") as ejecutable, \
                 mock.patch.object(main, "_descargar_watch", return_value="") as respaldo, \
-                mock.patch.object(main, "_clasificar_por_api",
-                                  return_value=main.deteccion.DESCONOCIDO):
+                mock.patch.object(main, "_clasificar_por_api", return_value=main.deteccion.DESCONOCIDO):
             titulo, tipo, _ = main.obtener_info_video("A" * 11)
 
         ejecutable.assert_not_called()
@@ -112,7 +111,8 @@ class TestObtenerInfoVideo(unittest.TestCase):
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
                 mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
-                mock.patch.object(main, "_descargar_watch", return_value=""):
+                mock.patch.object(main, "_descargar_watch", return_value=""), \
+                mock.patch.object(main, "_clasificar_por_api", return_value=main.deteccion.DESCONOCIDO):
             _, _, metadatos = main.obtener_info_video("A" * 11)
 
         self.assertEqual(
@@ -135,7 +135,8 @@ class TestObtenerInfoVideo(unittest.TestCase):
                         "Mensaje que corresponde a los dos fallos"
                         if "Sign in to confirm you're not a bot" in motivo
                         and "HTTP Error 429: Too Many Requests" in motivo
-                        else "Mensaje incompleto")):
+                        else "Mensaje incompleto")), \
+                mock.patch.object(main, "_clasificar_por_api", return_value=main.deteccion.DESCONOCIDO):
             _, _, metadatos = main.obtener_info_video("A" * 11)
 
         self.assertEqual(
@@ -149,7 +150,8 @@ class TestObtenerInfoVideo(unittest.TestCase):
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
                 mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
-                mock.patch.object(main, "_descargar_watch", return_value=html):
+                mock.patch.object(main, "_descargar_watch", return_value=html), \
+                mock.patch.object(main, "_clasificar_por_api", return_value=main.deteccion.DESCONOCIDO):
             titulo, _, metadatos = main.obtener_info_video("A" * 11)
 
         self.assertEqual(titulo, "Vídeo de respaldo")
@@ -165,7 +167,9 @@ class TestObtenerInfoVideo(unittest.TestCase):
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
                 mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
-                mock.patch.object(main, "_descargar_watch", side_effect=falla_watch):
+                mock.patch.object(main, "_descargar_watch", side_effect=falla_watch), \
+                mock.patch.object(main, "_clasificar_por_api",
+                                  return_value=main.deteccion.DESCONOCIDO):
             titulo, tipo, metadatos = main.obtener_info_video("A" * 11)
 
         self.assertEqual((titulo, tipo), ("", main.deteccion.DESCONOCIDO))
