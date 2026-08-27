@@ -4,7 +4,11 @@ import base64
 import hashlib
 import json
 import os
+import time
+import uuid
 from dataclasses import dataclass
+
+from websockets.sync.client import connect
 
 
 RUTA_CONFIG_OBS = os.path.join(
@@ -66,3 +70,106 @@ def mensaje_de_fallo_obs(motivo):
         return "OBS no encuentra la escena o la fuente indicada."
     # Se comparte la forma de avisos_red, pero OBS necesita una taxonomía propia.
     return "OBS no pudo completar la operación. Inténtalo de nuevo."
+
+
+class ClienteObs:
+    """Cliente del protocolo websocket de OBS Studio."""
+
+    _TIEMPO_LIMITE = 10.0
+    _TIEMPO_LECTURA = 0.5
+
+    def __init__(self, ajustes=None, conectar_fn=None):
+        self.ajustes = ajustes or AjustesObs()
+        self._conectar_fn = conectar_fn or connect
+        self._transporte = None
+
+    @property
+    def conectado(self):
+        return self._transporte is not None
+
+    def conectar(self, parada=None):
+        limite = time.monotonic() + self._TIEMPO_LIMITE
+        transporte = None
+        try:
+            transporte = self._conectar_fn(
+                f"ws://127.0.0.1:{self.ajustes.puerto}"
+            )
+            saludo = self._recibir(transporte, parada, limite)
+            if saludo.get("op") != 0:
+                raise ObsError(mensaje_de_fallo_obs("saludo inválido"))
+            identificacion = {"op": 1, "d": {"rpcVersion": saludo["d"]["rpcVersion"]}}
+            autenticacion = saludo.get("d", {}).get("authentication")
+            if autenticacion:
+                identificacion["d"]["authentication"] = respuesta_auth(
+                    self.ajustes.password,
+                    autenticacion["salt"],
+                    autenticacion["challenge"],
+                )
+            transporte.send(json.dumps(identificacion))
+            confirmacion = self._recibir(transporte, parada, limite)
+            if confirmacion.get("op") != 2:
+                raise ObsError(mensaje_de_fallo_obs("authentication"))
+            self._transporte = transporte
+        except ObsError:
+            if transporte is not None:
+                transporte.close()
+            raise
+        except Exception as error:
+            if transporte is not None:
+                transporte.close()
+            raise ObsError(mensaje_de_fallo_obs(error)) from error
+
+    def pedir(self, tipo, datos=None, parada=None):
+        if self._transporte is None:
+            raise ObsError(mensaje_de_fallo_obs("not connected"))
+        identificador = str(uuid.uuid4())
+        peticion = {
+            "op": 6,
+            "d": {
+                "requestType": tipo,
+                "requestId": identificador,
+                "requestData": datos or {},
+            },
+        }
+        limite = time.monotonic() + self._TIEMPO_LIMITE
+        try:
+            self._transporte.send(json.dumps(peticion))
+            while True:
+                mensaje = self._recibir(self._transporte, parada, limite)
+                if mensaje.get("op") != 7:
+                    continue
+                datos_respuesta = mensaje.get("d", {})
+                if datos_respuesta.get("requestId") != identificador:
+                    continue
+                estado = datos_respuesta.get("requestStatus", {})
+                if not estado.get("result", False):
+                    motivo = f"{estado.get('code', '')} {estado.get('comment', '')}"
+                    raise ObsError(mensaje_de_fallo_obs(motivo))
+                return datos_respuesta
+        except ObsError:
+            raise
+        except Exception as error:
+            raise ObsError(mensaje_de_fallo_obs(error)) from error
+
+    def cerrar(self):
+        if self._transporte is not None:
+            try:
+                self._transporte.close()
+            finally:
+                self._transporte = None
+
+    @classmethod
+    def _recibir(cls, transporte, parada, limite):
+        while True:
+            if parada is not None and parada.is_set():
+                raise ObsError("Operación cancelada.")
+            restante = limite - time.monotonic()
+            if restante <= 0:
+                raise ObsError(mensaje_de_fallo_obs("timed out"))
+            try:
+                mensaje = transporte.recv(timeout=min(cls._TIEMPO_LECTURA, restante))
+            except TimeoutError:
+                continue
+            if isinstance(mensaje, bytes):
+                mensaje = mensaje.decode("utf-8")
+            return json.loads(mensaje)
