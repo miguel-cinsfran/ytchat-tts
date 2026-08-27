@@ -220,49 +220,96 @@
 <p>Qué cambia en cada versión, en lenguaje llano. El detalle técnico
 está en el historial de git.</p>
 <h2 id="210--agosto-de-2026">2.1.0 — agosto de 2026</h2>
-<p>Esta versión añade la posibilidad de escribir en el chat desde la
-propia aplicación, simplifica la personalización de los atajos y corrige
-la carga del vídeo en los directos.</p>
+<p>Esta versión añade un panel de chat para mostrar en la emisión, la
+posibilidad de escribir en el chat desde la propia aplicación, y
+simplifica la personalización de los atajos.</p>
 <ul>
-<li><strong>Ya se puede escribir en el chat en vivo.</strong> Debajo de
-la lista de mensajes hay un cuadro de escritura con su botón
+<li><p><strong>Un panel de chat para que lo vean los
+espectadores.</strong> Los mensajes aparecen en una página con fondo
+transparente que puede añadirse a la emisión, de modo que quien mira el
+directo lee el chat sin salir del vídeo. El panel se enciende desde el
+menú Herramientas.</p></li>
+<li><p><strong>Componer la escena sin ver la pantalla.</strong> Menú
+Herramientas → <em>Transmisión</em>, o <code>Ctrl+Mayúsculas+T</code>.
+La ventana se comunica con OBS y permite elegir la escena, elegir
+<strong>cualquiera de sus fuentes</strong> (el panel de chat, la cámara,
+la captura del juego), llevarla a cualquiera de las nueve posiciones
+habituales (por ejemplo, inferior derecha), cambiarle el tamaño,
+mostrarla u ocultarla, fijarla para que no se mueva sin querer y ponerla
+por delante de lo demás.</p>
+<p>Así puede armarse una escena completa a ciegas: el juego en el
+centro, la cámara en un recuadro más pequeño arriba a la derecha y el
+chat en una esquina.</p>
+<p>Cada cambio se anuncia en voz alta con lo que hace falta saber: en
+qué posición quedó, qué tamaño tiene, qué parte de la pantalla ocupa, si
+se sale del borde y, sobre todo, <strong>si alguna otra fuente lo está
+tapando y cuánto</strong>. Esa es la pregunta que no puede responderse
+mirando.</p>
+<p>Hay además un modo de ajuste fino: se activa con un botón y a partir
+de ahí las flechas mueven el panel, en pasos normales, grandes con
+<code>Control</code> o de un píxel con <code>Mayúsculas</code>.
+<code>Intro</code> confirma y <code>Escape</code> deshace. Y un botón
+guarda una captura de la escena, para poder enseñársela a alguien que
+vea.</p>
+<p>También hay una explicación de qué es el lienzo, para quien no haya
+usado antes un programa de emisión.</p></li>
+<li><p><strong>Una forma más de que le lean el chat: primero el mensaje,
+después quién lo escribió.</strong> En Preferencias, <em>Lectura</em>,
+junto a las tres que ya había. Se oye «hola a todos, de Lucía». Sirve
+cuando llegan muchos mensajes seguidos: se oye el contenido antes que el
+nombre y puede decidirse si interesa sin esperar.</p></li>
+<li><p><strong>El panel deja de mostrar mensajes viejos si la aplicación
+se cierra.</strong> Antes se quedaba con lo último que había recibido, y
+esos mensajes seguían viéndose en la emisión como si el chat siguiera
+vivo.</p></li>
+<li><p><strong><code>F2</code> dice cuánta gente está viendo el directo
+y cuánto lleva emitiendo.</strong> El número de espectadores estaba mal:
+decía cero aunque hubiera gente. Ahora es correcto y se actualiza solo
+cada minuto.</p></li>
+<li><p><strong>Conectarse volvió a ser rápido.</strong> Se había vuelto
+lento, entre veinte y treinta segundos en algunos equipos, por la forma
+en que se pedían los datos del vídeo.</p></li>
+<li><p><strong>Ya se puede escribir en el chat en vivo.</strong> Debajo
+de la lista de mensajes hay un cuadro de escritura con su botón
 <em>Enviar</em>. <code>Intro</code> envía el mensaje y
 <code>Mayúsculas+Intro</code> inserta un salto de línea. Tras enviarlo,
 el cuadro se vacía y el foco permanece dentro, de modo que puede
 escribirse el siguiente sin tabular. Cuando falta la conexión o la
 sesión de Google, el cuadro y el botón siguen alcanzándose con el
 tabulador y el motivo forma parte del nombre del botón, para que el
-lector de pantalla lo anuncie.</li>
-<li><strong>Comentar y responder en los vídeos.</strong> En la pestaña
-<em>Comentarios</em>, los botones <em>Comentar en el vídeo</em> y
-<em>Responder</em> abren ese mismo cuadro en una ventana.</li>
-<li><strong>El vídeo de los directos vuelve a cargarse.</strong> YouTube
-dejó de ofrecer un único flujo con imagen y sonido juntos, y la
+lector de pantalla lo anuncie.</p></li>
+<li><p><strong>Comentar y responder en los vídeos.</strong> En la
+pestaña <em>Comentarios</em>, los botones <em>Comentar en el vídeo</em>
+y <em>Responder</em> abren ese mismo cuadro en una ventana.</p></li>
+<li><p><strong>El vídeo de los directos vuelve a cargarse.</strong>
+YouTube dejó de ofrecer un único flujo con imagen y sonido juntos, y la
 aplicación seguía esperándolo. Los directos mostraban «No se pudo cargar
-el vídeo» aunque el chat funcionara.</li>
-<li><strong><code>Intro</code> copia el mensaje seleccionado.</strong>
-En la lista del chat y en la de comentarios no hacía nada.</li>
-<li><strong>Los atajos se cambian en un solo paso.</strong> Antes se
+el vídeo» aunque el chat funcionara.</p></li>
+<li><p><strong><code>Intro</code> copia el mensaje
+seleccionado.</strong> En la lista del chat y en la de comentarios no
+hacía nada.</p></li>
+<li><p><strong>Los atajos se cambian en un solo paso.</strong> Antes se
 abría una ventana aparte y había que confirmar en un botón. Ahora se
 activa el botón de la acción, se pulsa la combinación y queda guardada
 de inmediato, sin salir de la lista. <code>Intro</code> a solas deja la
 acción sin atajo y <code>Escape</code> cancela. Si la combinación no es
 válida o ya está en uso, se indica el motivo por voz y en un aviso en
-pantalla, y el botón sigue esperando otra.</li>
-<li><strong>Restablecer los atajos.</strong> Un botón al final de la
+pantalla, y el botón sigue esperando otra.</p></li>
+<li><p><strong>Restablecer los atajos.</strong> Un botón al final de la
 lista devuelve todas las combinaciones personalizables a sus valores
-originales.</li>
-<li><strong>Tres atajos nuevos para abrir ventanas</strong>:
+originales.</p></li>
+<li><p><strong>Tres atajos nuevos para abrir ventanas</strong>:
 <code>Ctrl+Mayúsculas+P</code> abre Preferencias,
 <code>Ctrl+Mayúsculas+H</code> el historial de directos y
-<code>Ctrl+Mayúsculas+I</code> marca una incidencia en el registro.</li>
-<li><strong>El registro detallado viene desactivado.</strong> Es una
+<code>Ctrl+Mayúsculas+I</code> marca una incidencia en el
+registro.</p></li>
+<li><p><strong>El registro detallado viene desactivado.</strong> Es una
 opción de diagnóstico y estaba activa de fábrica, lo que hacía crecer el
-archivo de registro sin necesidad.</li>
-<li><strong>La guía de configuración de la API está reescrita.</strong>
-Cada paso indica la dirección exacta de la pantalla de Google Cloud
-correspondiente, y se explican los tres puntos en los que es fácil
-quedarse atascado con un lector de pantalla.</li>
+archivo de registro sin necesidad.</p></li>
+<li><p><strong>La guía de configuración de la API está
+reescrita.</strong> Cada paso indica la dirección exacta de la pantalla
+de Google Cloud correspondiente, y se explican los tres puntos en los
+que es fácil quedarse atascado con un lector de pantalla.</p></li>
 </ul>
 <h2 id="201--agosto-de-2026">2.0.1 — agosto de 2026</h2>
 <p>Versión de arreglos. No trae funciones nuevas grandes: trae que las
