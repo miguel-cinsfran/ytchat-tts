@@ -563,7 +563,8 @@ def nombres_segun_windows(rol: str) -> list[str]:
 
 def auditar_dialogo(app: Aplicacion, res: Resultado, etiqueta_menu: str,
                     titulo: str, vueltas_tab: int = 16,
-                    esperados: tuple[str, ...] = ()) -> bool:
+                    esperados: tuple[str, ...] = (),
+                    esperados_en_tab: tuple[str, ...] = ()) -> bool:
     """Abre un diálogo desde el menú, lo audita entero y lo cierra."""
     app.pedir("frente")
     try:
@@ -594,6 +595,16 @@ def auditar_dialogo(app: Aplicacion, res: Resultado, etiqueta_menu: str,
     orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab)
     res.nota(f"{titulo}, orden de Tab, {len(orden)} paradas: "
              + " > ".join(orden[:12]))
+
+    # `esperados` busca el texto en TODO el dialogo, asi que un rotulo o el
+    # cuadro de estado pueden hacerlo pasar aunque el control no exista. Lo que
+    # se pide aca tiene que estar en una parada de Tab, que es lo unico que
+    # demuestra que hay un control alcanzable y con nombre.
+    if esperados_en_tab:
+        paradas = " ".join(orden).replace("&", "").lower()
+        for e in esperados_en_tab:
+            if e.lower() not in paradas:
+                res.fallo(f"{titulo}: «{e}» no aparece en el orden de Tab")
 
     app.pedir("cerrar_ventana", ventana=titulo)
     if app.esperar_ventana(titulo, segundos=4) is not None:
@@ -1339,7 +1350,8 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
                    "Aplicar tamaño", "Mostrar el panel", "Fijar el panel",
                    "Poner al frente", "Ajuste fino", "captura", "lienzo",
                    "Restablecer",
-                   "Cerrar"))
+                   "Cerrar"),
+        esperados_en_tab=("Fuente", "Escena", "Posición del panel"))
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):
