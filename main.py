@@ -180,7 +180,11 @@ def _metadatos_desde_ytdlp(info: dict) -> dict:
     return {
         "titulo":      (info.get("title") or "").strip(),
         "canal":       (info.get("uploader") or info.get("channel") or "").strip(),
-        "vistas":      info.get("view_count"),
+        "vistas":      (
+            info.get("concurrent_view_count", info.get("view_count"))
+            if _tipo_desde_ytdlp(info) == deteccion.LIVE
+            else info.get("view_count")
+        ),
         "me_gusta":    info.get("like_count"),
         "comentarios": info.get("comment_count"),
         "fecha":       (info.get("upload_date") or "").strip(),   # YYYYMMDD

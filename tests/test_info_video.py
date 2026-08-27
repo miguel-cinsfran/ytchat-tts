@@ -24,6 +24,26 @@ class _YoutubeDL:
 
 class TestObtenerInfoVideo(unittest.TestCase):
 
+    def test_metadatos_directo_prefiere_espectadores_actuales(self):
+        meta = main._metadatos_desde_ytdlp({
+            "live_status": "is_live", "view_count": 3000,
+            "concurrent_view_count": 30,
+        })
+        self.assertEqual(meta["vistas"], 30)
+
+    def test_metadatos_video_normal_usa_vistas_acumuladas(self):
+        meta = main._metadatos_desde_ytdlp({
+            "live_status": "not_live", "view_count": 3000,
+            "concurrent_view_count": 30,
+        })
+        self.assertEqual(meta["vistas"], 3000)
+
+    def test_metadatos_directo_sin_contador_actual_recurre_a_vistas(self):
+        meta = main._metadatos_desde_ytdlp({
+            "live_status": "is_live", "view_count": 3000,
+        })
+        self.assertEqual(meta["vistas"], 3000)
+
     def test_obtener_info_video_con_programa_usa_titulo_y_tipo(self):
         info = {"title": "Vídeo del programa", "live_status": "is_live"}
         with mock.patch.object(main.ytdlp_bin, "info_video", return_value=info), \
