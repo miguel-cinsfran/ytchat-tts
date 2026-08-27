@@ -6,6 +6,7 @@ import threading
 
 import wx
 
+import ajuste_fino
 import obs_cliente
 import obs_disposicion
 from gui import _T, anunciar, nombre_accesible
@@ -33,6 +34,9 @@ class TransmisionDialog(wx.Dialog):
         self._escena_inicial = ""
         self._restablecer = {}
         self._ultimo_snap = None
+        self._ajuste_en_curso = False
+        self._ajuste_transformacion = None
+        self._movimiento_en_vuelo = False
         self.SetBackgroundColour(_T.bg)
         self._crear_controles()
         self.Centre()
@@ -85,17 +89,20 @@ class TransmisionDialog(wx.Dialog):
         caja.Add(self.chk_mostrar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         caja.Add(self.chk_fijar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.btn_frente = self._boton(panel, "Poner al &frente", "PonerAlFrente")
+        self._etiqueta_ajuste = "Ajuste &fino"
+        self.btn_ajuste = self._boton(panel, self._etiqueta_ajuste, "AjusteFino")
         self.btn_captura = self._boton(panel, "&Guardar una captura de la escena…", "GuardarCaptura")
         self.btn_lienzo = self._boton(panel, "&Qué es el lienzo", "QueEsElLienzo")
         self.btn_restaurar = self._boton(panel, "&Restablecer", "RestablecerTransmision")
-        for boton in (self.btn_frente, self.btn_captura, self.btn_lienzo, self.btn_restaurar):
+        for boton in (self.btn_frente, self.btn_ajuste, self.btn_captura,
+                      self.btn_lienzo, self.btn_restaurar):
             caja.Add(boton, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         panel.SetSizer(caja)
         self._acciones = (self.btn_actualizar, self.cho_escena, self.cho_posicion,
                           self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
-                          self.chk_fijar, self.btn_frente, self.btn_captura,
+                          self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
                           self.btn_restaurar)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
@@ -104,11 +111,14 @@ class TransmisionDialog(wx.Dialog):
         self.chk_mostrar.Bind(wx.EVT_CHECKBOX, self._mostrar)
         self.chk_fijar.Bind(wx.EVT_CHECKBOX, self._fijar)
         self.btn_frente.Bind(wx.EVT_BUTTON, self._frente)
+        self.btn_ajuste.Bind(wx.EVT_BUTTON, self._iniciar_ajuste)
+        self.btn_ajuste.Bind(wx.EVT_KILL_FOCUS, self._ajuste_perdio_foco)
         self.btn_captura.Bind(wx.EVT_BUTTON, self._captura)
         self.btn_lienzo.Bind(wx.EVT_BUTTON, self._lienzo)
         self.btn_restaurar.Bind(wx.EVT_BUTTON, self._restaurar)
         self.btn_cerrar.Bind(wx.EVT_BUTTON, self._cerrar)
         self.Bind(wx.EVT_CLOSE, self._cerrar)
+        self.Bind(wx.EVT_CHAR_HOOK, self._tecla_ajuste)
 
     @staticmethod
     def _boton(panel, etiqueta, nombre, identificador=wx.ID_ANY):
@@ -219,6 +229,91 @@ class TransmisionDialog(wx.Dialog):
 
     def _frente(self, event):
         self._en_hilo(lambda: self._cambiar_y_leer(self._gestor.al_frente), self._anunciar_snap)
+
+    def _iniciar_ajuste(self, event):
+        if self._ajuste_en_curso:
+            return
+        escena = self._escena()
+        self._en_hilo(lambda: self._preparar_ajuste(escena), self._ajuste_iniciado)
+
+    def _preparar_ajuste(self, escena):
+        return self._gestor.transformacion(escena), self._leer(escena)
+
+    def _ajuste_iniciado(self, datos):
+        self._ajuste_transformacion, snap = datos
+        self._ajuste_en_curso = True
+        self.btn_ajuste.SetLabel(ajuste_fino.etiqueta_boton(True, self._etiqueta_ajuste))
+        self._mostrar_snap(snap)
+        anunciar(ajuste_fino.texto_de_entrada())
+        self._anunciar_ajuste(snap)
+
+    def _tecla_ajuste(self, event):
+        if not self._ajuste_en_curso:
+            event.Skip()
+            return
+        accion, dx, dy = ajuste_fino.resolver(
+            event.GetKeyCode(), event.ControlDown(), event.ShiftDown())
+        if accion == "mover":
+            if not self._movimiento_en_vuelo:
+                self._mover_ajuste(dx, dy)
+            return
+        if accion == "cancelar":
+            self._salir_ajuste(False)
+            return
+        if accion in ("confirmar", "salir"):
+            self._salir_ajuste(True)
+            if accion == "salir":
+                event.Skip()
+            return
+
+    def _mover_ajuste(self, dx, dy):
+        self._movimiento_en_vuelo = True
+        escena = self._escena()
+        def mover():
+            try:
+                self._gestor.mover(escena, dx, dy)
+                snap = self._leer(escena)
+            except obs_cliente.ObsError as error:
+                wx.CallAfter(self._movimiento_fallo, str(error))
+            else:
+                wx.CallAfter(self._movimiento_terminado, snap)
+        threading.Thread(target=mover, daemon=True, name="AjusteFinoOBS").start()
+
+    def _movimiento_terminado(self, snap):
+        self._movimiento_en_vuelo = False
+        if not self._ajuste_en_curso:
+            return
+        self._mostrar_snap(snap)
+        self._anunciar_ajuste(snap)
+
+    def _movimiento_fallo(self, mensaje):
+        self._movimiento_en_vuelo = False
+        if self._ajuste_en_curso:
+            self._fallo(mensaje)
+
+    def _anunciar_ajuste(self, snap):
+        anunciar(obs_disposicion.describir(snap, ("posicion", "solape", "fuera")))
+
+    def _ajuste_perdio_foco(self, event):
+        if self._ajuste_en_curso:
+            self._salir_ajuste(True)
+        event.Skip()
+
+    def _salir_ajuste(self, confirmar):
+        if not self._ajuste_en_curso:
+            return
+        self._ajuste_en_curso = False
+        self.btn_ajuste.SetLabel(ajuste_fino.etiqueta_boton(False, self._etiqueta_ajuste))
+        if confirmar:
+            anunciar("Ajuste confirmado")
+            return
+        transformacion = self._ajuste_transformacion
+        escena = self._escena()
+        self._en_hilo(
+            lambda: self._gestor.posicionar(
+                escena, transformacion["positionX"],
+                transformacion["positionY"], transformacion["alignment"]),
+            lambda resultado: anunciar("Ajuste deshecho"))
 
     def _cambiar_y_leer(self, funcion, *argumentos):
         funcion(self._escena(), *argumentos)

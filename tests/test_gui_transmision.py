@@ -40,7 +40,7 @@ class GestorFalso:
     def colocar(self, *args): self.llamadas.append(("colocar",) + args); self.snap = self.snap_nuevo
     def posicionar(self, *args): self.llamadas.append(("posicionar",) + args)
     def transformacion(self, *args): return self.transformacion_inicial
-    def mover(self, *args): pass
+    def mover(self, *args): self.llamadas.append(("mover",) + args); self.snap = self.snap_nuevo
     def redimensionar(self, *args): self.llamadas.append(("redimensionar",) + args); self.snap = self.snap_nuevo
     def mostrar(self, *args): self.llamadas.append(("mostrar",) + args); self.snap = self.snap_nuevo
     def fijar(self, *args): self.llamadas.append(("fijar",) + args); self.snap = self.snap_nuevo
@@ -57,6 +57,19 @@ class HiloInmediato:
 
 class Evento:
     def Skip(self): pass
+
+
+class EventoTecla:
+    def __init__(self, codigo, ctrl=False, shift=False):
+        self.codigo = codigo
+        self.ctrl = ctrl
+        self.shift = shift
+        self.se_omitio = False
+
+    def GetKeyCode(self): return self.codigo
+    def ControlDown(self): return self.ctrl
+    def ShiftDown(self): return self.shift
+    def Skip(self): self.se_omitio = True
 
 
 @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
@@ -130,6 +143,46 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo._frente(Evento())
         self.assertIn("800 por 500", self.anuncios[-1])
         self.assertIn("Oculto", self.anuncios[-1])
+
+    def test_ajuste_fino_entra_y_anuncia_la_posicion(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        self.assertTrue(self.dialogo._ajuste_en_curso)
+        self.assertEqual(self.dialogo.btn_ajuste.GetLabel(), "Ajustando, flechas para mover")
+        self.assertIn("Ajuste fino.", self.anuncios[-2])
+        self.assertEqual(self.anuncios[-1], "Superior izquierda; Libre.")
+
+    def test_flecha_del_ajuste_mueve_y_anuncia_el_conjunto_corto(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        self.anuncios.clear()
+        self.dialogo._tecla_ajuste(EventoTecla(wx.WXK_RIGHT))
+        self.assertIn(("mover", "Principal", 10, 0), self.gestor.llamadas)
+        self.assertEqual(self.anuncios[-1], "Superior izquierda; Libre.")
+
+    def test_flecha_se_descarta_si_hay_movimiento_en_vuelo(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        self.dialogo._movimiento_en_vuelo = True
+        self.dialogo._tecla_ajuste(EventoTecla(wx.WXK_RIGHT))
+        self.assertNotIn(("mover", "Principal", 10, 0), self.gestor.llamadas)
+
+    def test_escape_restaura_la_colocacion(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        self.dialogo._tecla_ajuste(EventoTecla(wx.WXK_ESCAPE))
+        self.assertIn(("posicionar", "Principal", 32, 18, 5), self.gestor.llamadas)
+        self.assertIn("Ajuste deshecho", self.anuncios)
+
+    def test_tab_confirma_y_deja_navegar(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        evento = EventoTecla(wx.WXK_TAB)
+        self.dialogo._tecla_ajuste(evento)
+        self.assertFalse(self.dialogo._ajuste_en_curso)
+        self.assertTrue(evento.se_omitio)
+        self.assertIn("Ajuste confirmado", self.anuncios)
+
+    def test_perder_el_foco_confirma_el_ajuste(self):
+        self.dialogo._iniciar_ajuste(Evento())
+        self.dialogo._ajuste_perdio_foco(Evento())
+        self.assertFalse(self.dialogo._ajuste_en_curso)
+        self.assertIn("Ajuste confirmado", self.anuncios)
 
 
 if __name__ == "__main__":
