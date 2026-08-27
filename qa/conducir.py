@@ -1334,6 +1334,7 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
     auditar_dialogo(
         app, res, "Transmisión", "Transmisión", vueltas_tab=20,
         esperados=("Estado de la transmisión", "Actualizar estado", "Escena",
+                   "Fuente",
                    "Posición del panel", "Ancho del panel", "Alto del panel",
                    "Aplicar tamaño", "Mostrar el panel", "Fijar el panel",
                    "Poner al frente", "Ajuste fino", "captura", "lienzo",

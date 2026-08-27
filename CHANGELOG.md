@@ -5,10 +5,42 @@ historial de git.
 
 ## 2.1.0 — agosto de 2026
 
-Esta versión añade la posibilidad de escribir en el chat desde la propia
-aplicación, simplifica la personalización de los atajos y corrige la carga del
-vídeo en los directos.
+Esta versión añade un panel de chat para mostrar en la emisión, la posibilidad
+de escribir en el chat desde la propia aplicación, y simplifica la
+personalización de los atajos.
 
+- **Un panel de chat para que lo vean los espectadores.** Los mensajes aparecen
+  en una página con fondo transparente que puede añadirse a la emisión, de modo
+  que quien mira el directo lee el chat sin salir del vídeo. El panel se
+  enciende desde el menú Herramientas.
+- **Colocar el panel en la escena sin ver la pantalla.** Menú Herramientas →
+  *Transmisión*, o `Ctrl+Mayúsculas+T`. La ventana se comunica con OBS y permite
+  elegir la escena, llevar el panel a cualquiera de las nueve posiciones
+  habituales (por ejemplo, inferior derecha), cambiar su tamaño, mostrarlo u
+  ocultarlo, fijarlo para que no se mueva sin querer y ponerlo por delante de
+  lo demás.
+
+  Cada cambio se anuncia en voz alta con lo que hace falta saber: en qué
+  posición quedó, qué tamaño tiene, qué parte de la pantalla ocupa, si se sale
+  del borde y, sobre todo, **si alguna otra fuente lo está tapando y cuánto**.
+  Esa es la pregunta que no puede responderse mirando.
+
+  Hay además un modo de ajuste fino: se activa con un botón y a partir de ahí
+  las flechas mueven el panel, en pasos normales, grandes con `Control` o de un
+  píxel con `Mayúsculas`. `Intro` confirma y `Escape` deshace. Y un botón
+  guarda una captura de la escena, para poder enseñársela a alguien que vea.
+
+  También hay una explicación de qué es el lienzo, para quien no haya usado
+  antes un programa de emisión.
+- **El panel deja de mostrar mensajes viejos si la aplicación se cierra.** Antes
+  se quedaba con lo último que había recibido, y esos mensajes seguían viéndose
+  en la emisión como si el chat siguiera vivo.
+- **`F2` dice cuánta gente está viendo el directo y cuánto lleva emitiendo.** El
+  número de espectadores estaba mal: decía cero aunque hubiera gente. Ahora es
+  correcto y se actualiza solo cada minuto.
+- **Conectarse volvió a ser rápido.** Se había vuelto lento, entre veinte y
+  treinta segundos en algunos equipos, por la forma en que se pedían los datos
+  del vídeo.
 - **Ya se puede escribir en el chat en vivo.** Debajo de la lista de mensajes
   hay un cuadro de escritura con su botón *Enviar*. `Intro` envía el mensaje y
   `Mayúsculas+Intro` inserta un salto de línea. Tras enviarlo, el cuadro se
