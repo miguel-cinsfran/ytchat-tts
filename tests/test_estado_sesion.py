@@ -39,7 +39,21 @@ class TestDuracion(unittest.TestCase):
         self.assertEqual(_duracion(697 * 24 * 60 * 60), "697 días")
 
     def test_un_dia(self):
-        self.assertEqual(_duracion(24 * 60 * 60), "1 día")
+        self.assertEqual(_duracion(24 * 60 * 60), "24 h 0 min")
+
+    def test_el_escalon_nunca_retrocede(self):
+        anterior = -1
+        for minutos in range(0, 72 * 60 + 1, 10):
+            texto = _duracion(minutos * 60)
+            if "día" in texto:
+                escalon = 2
+            elif " h " in texto:
+                escalon = 1
+            else:
+                escalon = 0
+            self.assertGreaterEqual(escalon, anterior,
+                                    f"retroceso en {minutos} minutos: {texto}")
+            anterior = escalon
 
 
 class TestTiempoDirecto(unittest.TestCase):
