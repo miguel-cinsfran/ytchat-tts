@@ -13,12 +13,17 @@ personalización de los atajos.
   en una página con fondo transparente que puede añadirse a la emisión, de modo
   que quien mira el directo lee el chat sin salir del vídeo. El panel se
   enciende desde el menú Herramientas.
-- **Colocar el panel en la escena sin ver la pantalla.** Menú Herramientas →
+- **Componer la escena sin ver la pantalla.** Menú Herramientas →
   *Transmisión*, o `Ctrl+Mayúsculas+T`. La ventana se comunica con OBS y permite
-  elegir la escena, llevar el panel a cualquiera de las nueve posiciones
-  habituales (por ejemplo, inferior derecha), cambiar su tamaño, mostrarlo u
-  ocultarlo, fijarlo para que no se mueva sin querer y ponerlo por delante de
-  lo demás.
+  elegir la escena, elegir **cualquiera de sus fuentes** (el panel de chat, la
+  cámara, la captura del juego), llevarla a cualquiera de las nueve posiciones
+  habituales (por ejemplo, inferior derecha), cambiarle el tamaño, mostrarla u
+  ocultarla, fijarla para que no se mueva sin querer y ponerla por delante de lo
+  demás.
+
+  Así puede armarse una escena completa a ciegas: el juego en el centro, la
+  cámara en un recuadro más pequeño arriba a la derecha y el chat en una
+  esquina.
 
   Cada cambio se anuncia en voz alta con lo que hace falta saber: en qué
   posición quedó, qué tamaño tiene, qué parte de la pantalla ocupa, si se sale
