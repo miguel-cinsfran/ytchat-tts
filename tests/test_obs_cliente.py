@@ -117,6 +117,11 @@ class TransporteDoble:
         self.cerrado = True
 
 
+class TransporteSinRespuesta(TransporteDoble):
+    def send(self, mensaje):
+        self.enviados.append(json.loads(mensaje))
+
+
 class ClienteObsTest(unittest.TestCase):
     def cliente(self, transporte, password=""):
         return obs_cliente.ClienteObs(
@@ -169,3 +174,59 @@ class ClienteObsTest(unittest.TestCase):
         cliente.cerrar()
         self.assertFalse(cliente.conectado)
         self.assertTrue(transporte.cerrado)
+
+    def test_pedir_traduce_error_de_obs(self):
+        transporte = TransporteDoble([])
+        cliente = self.cliente(transporte)
+        cliente._transporte = transporte
+        transporte.recv = lambda timeout=None: json.dumps({
+            "op": 7,
+            "d": {"requestId": transporte.enviados[0]["d"]["requestId"],
+                  "requestStatus": {"result": False, "code": 601,
+                                     "comment": "A source already exists"}},
+        })
+        with self.assertRaisesRegex(obs_cliente.ObsError,
+                                    "Ya existe una fuente"):
+            cliente.pedir("CreateInput")
+
+    def test_pedir_sin_conexion_falla(self):
+        with self.assertRaisesRegex(obs_cliente.ObsError, "no pudo completar"):
+            self.cliente(TransporteDoble([])).pedir("GetVersion")
+
+
+class CancelacionYTiempoTest(unittest.TestCase):
+    def cliente_sin_respuesta(self):
+        transporte = TransporteSinRespuesta([])
+        cliente = obs_cliente.ClienteObs(
+            obs_cliente.AjustesObs(True, 4455, ""), lambda uri: transporte
+        )
+        cliente._transporte = transporte
+        return cliente
+
+    def test_pedir_se_cancela_mientras_recv_espera(self):
+        cliente = self.cliente_sin_respuesta()
+        parada = threading.Event()
+        resultado = []
+
+        def ejecutar():
+            try:
+                cliente.pedir("GetVersion", parada=parada)
+            except obs_cliente.ObsError as error:
+                resultado.append(str(error))
+
+        hilo = threading.Thread(target=ejecutar)
+        hilo.start()
+        parada.set()
+        hilo.join(1.5)
+        self.assertFalse(hilo.is_alive())
+        self.assertEqual(resultado, ["Operación cancelada."])
+
+    def test_pedir_respeta_el_tiempo_total(self):
+        cliente = self.cliente_sin_respuesta()
+        original = cliente._TIEMPO_LIMITE
+        cliente._TIEMPO_LIMITE = 0.02
+        try:
+            with self.assertRaisesRegex(obs_cliente.ObsError, "No se pudo conectar"):
+                cliente.pedir("GetVersion")
+        finally:
+            cliente._TIEMPO_LIMITE = original
