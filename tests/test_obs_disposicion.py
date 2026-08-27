@@ -180,8 +180,29 @@ class DescripcionTest(unittest.TestCase):
         self.assertEqual(obs.describir(s, ("solape",)), "Cámara 12%.")
         self.assertEqual(obs.describir(s, ("visible",)), "Oculto.")
         self.assertEqual(obs.describir(s, ("bloqueada",)), "Fijado.")
-        self.assertEqual(obs.describir(s, ("fuera",)), "12% fuera del lienzo.")
+        self.assertEqual(obs.describir(s, ("fuera",)), "12% recortado.")
         self.assertEqual(obs.describir(s, ("aspecto",)), "14 mensajes, letra 18.")
+
+    def test_fuera_corto_indica_recorte(self):
+        snap = obs.SnapshotPanel(conectado=True, fuera=22.4)
+        self.assertEqual(obs.describir(snap, ("fuera",)), "22% recortado.")
+
+    def test_fuera_largo_indica_recorte(self):
+        snap = obs.SnapshotPanel(conectado=True, fuera=22.4)
+        self.assertEqual(obs.describir(snap, ("fuera",), "largo"), "Recortado: 22%")
+
+    def test_fuera_cero_no_informa(self):
+        snap = obs.SnapshotPanel(conectado=True)
+        self.assertEqual(obs.describir(snap, ("fuera",)), "")
+        self.assertEqual(obs.describir(snap, ("fuera",), "largo"), "")
+
+    def test_posicion_y_recorte_no_colisionan_en_fuera(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=-300, arriba=262,
+                                 ancho=460, alto=620, lienzo_ancho=1600,
+                                 lienzo_alto=900, fuera=65.2)
+        frase = obs.describir(snap, ("posicion", "fuera"))
+        self.assertEqual(frase, "Fuera por la izquierda 19%, inferior 2%; 65% recortado.")
+        self.assertEqual(frase.lower().count("fuera"), 1)
 
     def test_largo_y_union(self):
         s = obs.SnapshotPanel(conectado=True, escena="Juego", al_aire=False,

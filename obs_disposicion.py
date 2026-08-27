@@ -183,7 +183,8 @@ def _render(nombre: str, s: SnapshotPanel, largo: bool) -> str:
     if nombre == "fuera":
         if not s.fuera:
             return ""
-        return f"Fuera del lienzo: {_porcentaje(s.fuera)}%" if largo else f"{_porcentaje(s.fuera)}% fuera del lienzo"
+        # Este porcentaje es un área recortada, no la distancia de la posición.
+        return f"Recortado: {_porcentaje(s.fuera)}%" if largo else f"{_porcentaje(s.fuera)}% recortado"
     if nombre == "aspecto":
         if not s.mensajes_visibles and not s.tamano_letra:
             return ""
