@@ -189,7 +189,7 @@ class TransmisionDialog(wx.Dialog):
         al_aire = self._gestor.escena_al_aire()
         escena = al_aire if al_aire in escenas else (escenas[0] if escenas else "")
         fuentes = self._gestor.fuentes(escena)
-        fuente = "Chat YTChat" if "Chat YTChat" in fuentes else (fuentes[0] if fuentes else "")
+        fuente = NOMBRE_FUENTE if NOMBRE_FUENTE in fuentes else (fuentes[0] if fuentes else "")
         snap = self._gestor.instantanea(escena, fuente=fuente)
         return escenas, escena, fuentes, fuente, snap, self._gestor.transformacion(escena, fuente=fuente)
 
@@ -253,7 +253,7 @@ class TransmisionDialog(wx.Dialog):
     def _leer_escena(self):
         escena = self._escena()
         fuentes = self._gestor.fuentes(escena)
-        fuente = "Chat YTChat" if "Chat YTChat" in fuentes else (fuentes[0] if fuentes else "")
+        fuente = NOMBRE_FUENTE if NOMBRE_FUENTE in fuentes else (fuentes[0] if fuentes else "")
         return fuentes, fuente, self._gestor.instantanea(escena, fuente=fuente)
 
     def _escena_cambiada(self, datos):
@@ -375,8 +375,9 @@ class TransmisionDialog(wx.Dialog):
             self._fallo(mensaje)
 
     def _anunciar_ajuste(self, snap):
-        anunciar(obs_disposicion.describir_fuente(
-            self._fuente(), snap, ("posicion", "solape", "fuera")))
+        # Aquí la fuente no cambia y ya se anunció al entrar; los otros anuncios pueden cambiar de fuente y llevan nombre.
+        anunciar(obs_disposicion.describir(
+            snap, ("posicion", "solape", "fuera")))
 
     def _ajuste_perdio_foco(self, event):
         if self._ajuste_en_curso:
