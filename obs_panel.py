@@ -12,7 +12,11 @@ TIPO_FUENTE = "browser_source"
 
 class GestorPanelObs:
     def __init__(self, cliente=None, ajustes=None):
-        self._cliente = cliente or obs_cliente.ClienteObs(ajustes)
+        if cliente is None:
+            if ajustes is None:
+                ajustes = obs_cliente.leer_ajustes()
+            cliente = obs_cliente.ClienteObs(ajustes)
+        self._cliente = cliente
 
     def conectar(self, parada=None) -> None:
         self._cliente.conectar(parada)

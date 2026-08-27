@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 
 import obs_panel
 
@@ -69,6 +70,23 @@ class DobleObs:
 class GestorPanelObsTest(unittest.TestCase):
     def gestor(self, doble):
         return obs_panel.GestorPanelObs(doble)
+
+    @mock.patch("obs_panel.obs_cliente.leer_ajustes")
+    def test_sin_argumentos_lee_los_ajustes_de_obs(self, leer_ajustes):
+        ajustes = object()
+        leer_ajustes.return_value = ajustes
+        with mock.patch("obs_panel.obs_cliente.ClienteObs") as cliente_obs:
+            gestor = obs_panel.GestorPanelObs()
+        leer_ajustes.assert_called_once_with()
+        cliente_obs.assert_called_once_with(ajustes)
+        self.assertIs(gestor._cliente, cliente_obs.return_value)
+
+    @mock.patch("obs_panel.obs_cliente.leer_ajustes")
+    def test_con_cliente_no_lee_los_ajustes_de_obs(self, leer_ajustes):
+        cliente = object()
+        gestor = obs_panel.GestorPanelObs(cliente=cliente)
+        leer_ajustes.assert_not_called()
+        self.assertIs(gestor._cliente, cliente)
 
     def test_asegura_adoptando_elemento_de_la_escena(self):
         doble = DobleObs([elemento(3, obs_panel.NOMBRE_FUENTE, 1)])
