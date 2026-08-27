@@ -158,6 +158,14 @@ class PruebasYtdlpBin(unittest.TestCase):
         self.assertIn('if %%~zf LSS %YTDLP_MIN_BYTES%', texto)
         self.assertIn('del /q "%OUT%\\yt-dlp.exe"', texto)
 
+    def test_construccion_no_contiene_bytes_fuera_de_ascii(self):
+        construir = Path(__file__).parents[1] / "construir.bat"
+        for numero, linea in enumerate(construir.read_bytes().splitlines(), 1):
+            if any(byte > 127 for byte in linea):
+                self.fail(
+                    f"{construir.name}: linea {numero} contiene bytes fuera de ASCII"
+                )
+
     def test_firma_sha256_lee_el_archivo_correcto(self):
         texto = (
             "a" * 64 + "  otro.zip\n"

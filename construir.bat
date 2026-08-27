@@ -53,7 +53,7 @@ call uv run python generar_docs.py || echo    AVISO: no se pudo regenerar; se us
 echo == Empaquetando con PyInstaller ==
 REM --noupx: NO comprimir con UPX. UPX dispara muchos falsos positivos de
 REM antivirus; sin el, el .exe levanta menos sospechas en el PC del amigo.
-REM El módulo da metadatos rápidos y el ejecutable mantiene flujos y descargas.
+REM El modulo da metadatos rapidos y el ejecutable mantiene flujos y descargas.
 REM yt-dlp carga extractores al vuelo, por eso se recopila completo.
 call uv run pyinstaller main.py ^
   --name YTChatTTS ^
@@ -155,10 +155,10 @@ REM Por higiene: nada de log ni credenciales en el paquete que se envia.
 del /q "%OUT%\ytchat.log" 2>nul
 del /q "%OUT%\credenciales.json" 2>nul
 
-echo == Comprobando el módulo yt-dlp ==
+echo == Comprobando el modulo yt-dlp ==
 dir /b /s "%OUT%\_internal\yt_dlp\*" >nul 2>nul
 if errorlevel 1 (
-  echo    AVISO: yt_dlp no viaja en el paquete; al conectar saldra lento porque falta el módulo.
+  echo    AVISO: yt_dlp no viaja en el paquete; al conectar saldra lento porque falta el modulo.
 )
 
 echo == Comprimiendo a "%OUT%.zip" ==
