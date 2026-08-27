@@ -259,6 +259,18 @@ class Aplicacion:
     def foco(self) -> dict | None:
         return self.pedir("quien_tiene_foco").get("datos", {}).get("control")
 
+    def navegar(self, ventana: str | None = None) -> bool:
+        """Avanza una parada en el orden de Tab, por la cadena de foco de wx.
+
+        No manda una tecla al sistema, a diferencia de `teclas`. Eso lo hace
+        inmune a que la ventana no esté al frente del escritorio, que es la
+        razón por la que el recorrido de Tab de este banco daba una sola parada
+        en todos los diálogos. Lo que no cubre es el camino del teclado del
+        sistema operativo hasta la ventana.
+        """
+        datos = self.pedir("navegar", ventana=ventana).get("datos", {})
+        return bool(datos.get("movido"))
+
     def al_frente(self, segundos: float = 5.0) -> bool:
         """Trae la ventana al frente y espera a que Windows lo confirme.
 
@@ -413,6 +425,12 @@ def revisar_nombres(controles: list[dict], res: Resultado, donde: str) -> None:
                  "todos con nombre o etiqueta")
 
 
+# Cuanto se le concede a un dialogo que consulta algo de fuera para volverse
+# navegable entero. Medido: el de Transmision con OBS abierto tarda menos de
+# dos segundos; el margen es para una maquina cargada.
+SEGUNDOS_TAB_COMPLETO = 12.0
+
+
 def recorrer_tab(app: Aplicacion, res: Resultado, donde: str,
                  vueltas: int = 20) -> list[str]:
     """Pulsa Tab y anota dónde cae el foco, preguntándoselo a wx."""
@@ -428,7 +446,7 @@ def recorrer_tab(app: Aplicacion, res: Resultado, donde: str,
             etiq = f"{ctrl['clase']}: {legible}"
             if etiq not in visto:
                 visto.append(etiq)
-        app.teclas("tab")
+        app.navegar(donde)
     for v in visto:
         if "(SIN NOMBRE)" in v:
             res.fallo(f"{donde}: el foco cae en algo sin nombre, {v}")
@@ -592,19 +610,29 @@ def auditar_dialogo(app: Aplicacion, res: Resultado, etiqueta_menu: str,
             if e.lower() not in juntos:
                 res.fallo(f"{titulo}: no aparece nada llamado «{e}»")
 
-    orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab)
-    res.nota(f"{titulo}, orden de Tab, {len(orden)} paradas: "
-             + " > ".join(orden[:12]))
-
     # `esperados` busca el texto en TODO el dialogo, asi que un rotulo o el
     # cuadro de estado pueden hacerlo pasar aunque el control no exista. Lo que
     # se pide aca tiene que estar en una parada de Tab, que es lo unico que
-    # demuestra que hay un control alcanzable y con nombre.
-    if esperados_en_tab:
-        paradas = " ".join(orden).replace("&", "").lower()
-        for e in esperados_en_tab:
-            if e.lower() not in paradas:
-                res.fallo(f"{titulo}: «{e}» no aparece en el orden de Tab")
+    # demuestra que hay un control alcanzable, con nombre y habilitado.
+    #
+    # Se reintenta con plazo porque un dialogo que consulta algo de fuera nace
+    # con sus controles deshabilitados a proposito, y deshabilitado no entra en
+    # el orden de Tab. Auditar en el primer instante mide la pantalla de espera,
+    # no el dialogo. Lo que se exige entonces es que se vuelva navegable ANTES
+    # del plazo, que es la propiedad que le importa a quien no ve.
+    limite = time.monotonic() + SEGUNDOS_TAB_COMPLETO
+    while True:
+        orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab)
+        faltan = [e for e in esperados_en_tab
+                  if e.lower() not in " ".join(orden).replace("&", "").lower()]
+        if not faltan or time.monotonic() >= limite:
+            break
+        time.sleep(0.5)
+    res.nota(f"{titulo}, orden de Tab, {len(orden)} paradas: "
+             + " > ".join(orden[:12]))
+    for e in faltan if esperados_en_tab else ():
+        res.fallo(f"{titulo}: «{e}» no aparece en el orden de Tab "
+                  f"en {SEGUNDOS_TAB_COMPLETO:.0f} segundos")
 
     app.pedir("cerrar_ventana", ventana=titulo)
     if app.esperar_ventana(titulo, segundos=4) is not None:

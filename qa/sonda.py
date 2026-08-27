@@ -472,6 +472,27 @@ class Sonda:
                 ctrl.SetFocus()
                 self.responder(id_orden, True, {"clase": ctrl.__class__.__name__})
 
+            elif op == "navegar":
+                # Recorre el orden de Tab por la cadena de foco de wx, sin
+                # mandar una tecla al sistema. `UIActionSimulator` entrega la
+                # pulsacion a la ventana que tenga el foco DEL ESCRITORIO, y
+                # cuando el banco corre sin traer la app al frente esa ventana
+                # es otra: el foco no se movia nunca y el recorrido daba
+                # siempre una sola parada, en todos los dialogos.
+                #
+                # `Navigate` es la misma travesia que hace wx al recibir Tab,
+                # asi que mide el orden real. Lo que NO cubre es el camino del
+                # teclado del sistema operativo hasta la ventana.
+                ctrl = wx.Window.FindFocus()
+                if ctrl is None:
+                    objetivo = self._ventana_por_titulo(
+                        orden.get("ventana"), frame)
+                    hijos = list(objetivo.GetChildren()) if objetivo else []
+                    ctrl = hijos[0] if hijos else None
+                movido = bool(ctrl.Navigate(
+                    wx.NavigationKeyEvent.IsForward)) if ctrl else False
+                self.responder(id_orden, True, {"movido": movido})
+
             elif op == "quien_tiene_foco":
                 ctrl = wx.Window.FindFocus()
                 self.responder(id_orden, True,
