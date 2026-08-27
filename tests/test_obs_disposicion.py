@@ -56,6 +56,20 @@ class GeometriaTest(unittest.TestCase):
 
         """
 
+    def test_posicion_fuera_por_arriba(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=32, arriba=-200,
+                                 ancho=460, alto=620, lienzo_ancho=1600,
+                                 lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "Izquierda 2%, fuera por arriba 22%.")
+
+    def test_posicion_fuera_por_abajo(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=32, arriba=500,
+                                 ancho=460, alto=620, lienzo_ancho=1600,
+                                 lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "Izquierda 2%, fuera por abajo 24%.")
+
     def test_coordenadas_con_margen_cero(self):
         self.assertEqual(obs.coordenadas("superior-derecha", 100, 50, 0), (100, 0, 6))
 
