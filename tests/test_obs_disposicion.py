@@ -145,6 +145,21 @@ class GeometriaTest(unittest.TestCase):
 
 
 class DescripcionTest(unittest.TestCase):
+
+    def test_describir_fuente_en_corto_y_largo(self):
+        snap = obs.SnapshotPanel(conectado=True, escena="Juego", ancho=400, alto=300,
+                                 lienzo_ancho=1600, lienzo_alto=900)
+        self.assertEqual(obs.describir_fuente("Cámara", snap, ("tamano", "escena")),
+                         "Cámara. Juego; 400 por 300, 25% del ancho.")
+        self.assertEqual(obs.describir_fuente("Cámara", snap, ("tamano", "escena"), "largo"),
+                         "Fuente: Cámara\nEscena: Juego\nTamaño: 400 por 300 píxeles, 25% del ancho de pantalla")
+
+    def test_describir_fuente_vacia_conserva_la_descripcion(self):
+        snap = obs.SnapshotPanel(conectado=True, ancho=400, alto=300, lienzo_ancho=1600)
+        self.assertEqual(obs.describir_fuente("", snap, ("tamano",)),
+                         obs.describir(snap, ("tamano",)))
+        self.assertEqual(obs.describir_fuente("", snap, ("tamano",), "largo"),
+                         obs.describir(snap, ("tamano",), "largo"))
     def test_constantes_y_inmutabilidad(self):
         with self.assertRaises(Exception):
             obs.SnapshotPanel().escena = "Juego"

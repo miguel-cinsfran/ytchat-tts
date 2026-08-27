@@ -208,8 +208,8 @@ class TransmisionDialog(wx.Dialog):
 
     def _mostrar_snap(self, snap):
         self._ultimo_snap = snap
-        self.txt_estado.SetValue(obs_disposicion.describir(
-            snap, obs_disposicion.COMPONENTES, "largo"))
+        self.txt_estado.SetValue(obs_disposicion.describir_fuente(
+            self._fuente(), snap, obs_disposicion.COMPONENTES, "largo"))
         if snap.ancho:
             self.sp_ancho.SetValue(snap.ancho)
         if snap.alto:
@@ -234,7 +234,8 @@ class TransmisionDialog(wx.Dialog):
         return self._gestor.instantanea(escena or self._escena(), fuente=self._fuente())
 
     def _anunciar_snap(self, snap):
-        anunciar(obs_disposicion.describir(snap, obs_disposicion.ACTIVOS_DEFECTO))
+        anunciar(obs_disposicion.describir_fuente(
+            self._fuente(), snap, obs_disposicion.ACTIVOS_DEFECTO))
 
     def _actualizar(self, event):
         self._en_hilo(self._leer, self._anunciar_snap)
@@ -348,7 +349,8 @@ class TransmisionDialog(wx.Dialog):
             self._fallo(mensaje)
 
     def _anunciar_ajuste(self, snap):
-        anunciar(obs_disposicion.describir(snap, ("posicion", "solape", "fuera")))
+        anunciar(obs_disposicion.describir_fuente(
+            self._fuente(), snap, ("posicion", "solape", "fuera")))
 
     def _ajuste_perdio_foco(self, event):
         if self._ajuste_en_curso:

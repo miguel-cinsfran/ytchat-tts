@@ -205,3 +205,12 @@ def describir(snap: SnapshotPanel, componentes, modo="corto") -> str:
     if not partes:
         return ""
     return "\n".join(partes) if modo == "largo" else "; ".join(partes) + "."
+
+
+def describir_fuente(nombre, snap, componentes, modo="corto") -> str:
+    texto = describir(snap, componentes, modo)
+    if not nombre:
+        return texto
+    if modo == "largo":
+        return f"Fuente: {nombre}" + (f"\n{texto}" if texto else "")
+    return f"{nombre}." + (f" {texto}" if texto else "")
