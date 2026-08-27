@@ -484,13 +484,31 @@ class Sonda:
                 # asi que mide el orden real. Lo que NO cubre es el camino del
                 # teclado del sistema operativo hasta la ventana.
                 ctrl = wx.Window.FindFocus()
-                if ctrl is None:
-                    objetivo = self._ventana_por_titulo(
-                        orden.get("ventana"), frame)
-                    hijos = list(objetivo.GetChildren()) if objetivo else []
-                    ctrl = hijos[0] if hijos else None
-                movido = bool(ctrl.Navigate(
-                    wx.NavigationKeyEvent.IsForward)) if ctrl else False
+                objetivo = self._ventana_por_titulo(
+                    orden.get("ventana"), frame)
+                # Sin nombre de ventana, el recorrido se queda dentro de la que
+                # ya tiene el foco. Salirse de ella es lo que hacia que el
+                # informe nombrara controles de otro dialogo.
+                if not orden.get("ventana") and ctrl is not None:
+                    objetivo = wx.GetTopLevelParent(ctrl)
+                # El foco puede estar en OTRA ventana: un dialogo que quedo
+                # abierto, o la principal mientras se audita un dialogo. Si se
+                # navega desde ahi se recorre el orden de Tab equivocado y el
+                # informe nombra controles que no son de esta ventana.
+                if objetivo is not None and (
+                        ctrl is None or wx.GetTopLevelParent(ctrl) is not objetivo):
+                    ctrl = None
+                    for hijo in objetivo.GetChildren():
+                        if hijo.IsShownOnScreen() and hijo.IsEnabled():
+                            hijo.SetFocus()
+                            ctrl = wx.Window.FindFocus() or hijo
+                            break
+                movido = False
+                if ctrl is not None:
+                    try:
+                        movido = bool(ctrl.Navigate(wx.NavigationKeyEvent.IsForward))
+                    except Exception:
+                        movido = False
                 self.responder(id_orden, True, {"movido": movido})
 
             elif op == "quien_tiene_foco":

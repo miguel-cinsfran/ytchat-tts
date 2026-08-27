@@ -432,7 +432,7 @@ SEGUNDOS_TAB_COMPLETO = 12.0
 
 
 def recorrer_tab(app: Aplicacion, res: Resultado, donde: str,
-                 vueltas: int = 20) -> list[str]:
+                 vueltas: int = 20, ventana: str | None = None) -> list[str]:
     """Pulsa Tab y anota dónde cae el foco, preguntándoselo a wx."""
     visto: list[str] = []
     for _ in range(vueltas):
@@ -446,7 +446,7 @@ def recorrer_tab(app: Aplicacion, res: Resultado, donde: str,
             etiq = f"{ctrl['clase']}: {legible}"
             if etiq not in visto:
                 visto.append(etiq)
-        app.navegar(donde)
+        app.navegar(ventana)
     for v in visto:
         if "(SIN NOMBRE)" in v:
             res.fallo(f"{donde}: el foco cae en algo sin nombre, {v}")
@@ -622,7 +622,8 @@ def auditar_dialogo(app: Aplicacion, res: Resultado, etiqueta_menu: str,
     # del plazo, que es la propiedad que le importa a quien no ve.
     limite = time.monotonic() + SEGUNDOS_TAB_COMPLETO
     while True:
-        orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab)
+        orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab,
+                             ventana=titulo)
         faltan = [e for e in esperados_en_tab
                   if e.lower() not in " ".join(orden).replace("&", "").lower()]
         if not faltan or time.monotonic() >= limite:
@@ -672,7 +673,8 @@ def abrir_y_auditar(app: Aplicacion, res: Resultado, etiqueta_menu: str,
     res.nota(f"«{etiqueta_menu}» abre «{titulo}»")
     controles = app.arbol(titulo)
     revisar_nombres(controles, res, titulo)
-    orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab)
+    orden = recorrer_tab(app, res, titulo, vueltas=vueltas_tab,
+                         ventana=titulo)
     res.nota(f"{titulo}, Tab: " + " > ".join(orden[:10]))
     app.pedir("cerrar_ventana", ventana=titulo)
     if app.esperar_ventana(titulo, segundos=4) is not None:
