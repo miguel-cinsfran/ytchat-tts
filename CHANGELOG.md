@@ -37,6 +37,11 @@ personalización de los atajos.
 
   También hay una explicación de qué es el lienzo, para quien no haya usado
   antes un programa de emisión.
+- **Una forma más de que le lean el chat: primero el mensaje, después quién lo
+  escribió.** En Preferencias, *Lectura*, junto a las tres que ya había. Se oye
+  «hola a todos, de Lucía». Sirve cuando llegan muchos mensajes seguidos: se
+  oye el contenido antes que el nombre y puede decidirse si interesa sin
+  esperar.
 - **El panel deja de mostrar mensajes viejos si la aplicación se cierra.** Antes
   se quedaba con lo último que había recibido, y esos mensajes seguían viéndose
   en la emisión como si el chat siguiera vivo.
