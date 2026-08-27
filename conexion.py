@@ -1,5 +1,7 @@
 """Conexión y desconexión de sesiones de captura."""
 
+import logging
+
 import diagnostico
 import sound_player as _snd
 import tiktok_captura
@@ -7,6 +9,9 @@ import overlay_servidor
 from overlay_datos import evento_de_mensaje
 
 from sesiones import RegistroSesiones
+
+
+logger = logging.getLogger(__name__)
 
 
 class Conexiones:
@@ -71,6 +76,34 @@ class Conexiones:
             from gui import anunciar
             wx.CallAfter(anunciar, texto)
 
+        def _refrescar_directo():
+            try:
+                import credenciales
+                import youtube_api
+                if not (youtube_api.google_disponible() and
+                        credenciales.hay_lectura()):
+                    return
+                cliente = youtube_api.ClienteYouTube(credenciales.cargar())
+                while not ps.wait(60):
+                    if not self._registro.vigente(gen):
+                        return
+                    try:
+                        detalles = cliente.detalles_directo(vid)
+                    except Exception as exc:
+                        logger.debug("actualizar detalles del directo: %s", exc)
+                        continue
+                    if not self._registro.vigente(gen):
+                        return
+                    frame_actual = _gm._gui_frame
+                    if frame_actual and frame_actual._alive:
+                        import wx
+                        wx.CallAfter(frame_actual.set_espectadores,
+                                     detalles["espectadores"])
+                        wx.CallAfter(frame_actual.set_inicio_directo,
+                                     detalles["comienzo"])
+            except Exception as exc:
+                logger.debug("actualizar detalles del directo: %s", exc)
+
         def _run():
             # Una sola descarga del watch para sacar título, tipo y metadatos.
             titulo, tipo, metadatos = main.obtener_info_video(vid)
@@ -99,6 +132,9 @@ class Conexiones:
                 # Resolver el id del chat en vivo en paralelo (red opcional).
                 self._crear_hilo(main._resolver_live_chat_id, "LiveChatId",
                                  args=(vid,)).start()
+                if tipo == main.deteccion.LIVE:
+                    self._crear_hilo(_refrescar_directo, "DetallesDirecto",
+                                     daemon=True).start()
                 main.captura_con_reconexion(
                     vid, self._cola, self._config, ps, self._stats,
                     on_message=_on_msg, on_estado=_on_estado,
