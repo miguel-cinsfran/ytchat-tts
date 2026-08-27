@@ -12,6 +12,12 @@ class GeometriaTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             obs.coordenadas("medio", 1600, 900)
 
+    def test_escala_para_y_fuente_sin_tamano(self):
+        self.assertEqual(obs.escala_para(640, 360, 1280, 720), (0.5, 0.5))
+        self.assertEqual(obs.escala_para(480, 360, 640, 480), (0.75, 0.75))
+        self.assertIsNone(obs.escala_para(640, 360, 0, 720))
+        self.assertIsNone(obs.escala_para(640, 360, 1280, -1))
+
     def test_rectangulo_para_las_nueve_mascaras(self):
         for nombre, mascara in obs.ANCLAJES.items():
             x, y, _ = obs.coordenadas(nombre, 1600, 900)

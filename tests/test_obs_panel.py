@@ -5,13 +5,16 @@ import obs_panel
 
 
 def elemento(identificador, nombre, indice, x=32, y=882, ancho=460, alto=620,
-             alineacion=9, visible=True, bloqueada=False):
+             alineacion=9, visible=True, bloqueada=False, ancho_fuente=460,
+             alto_fuente=620):
     return {"sceneItemId": identificador, "sourceName": nombre,
             "sceneItemIndex": indice, "sceneItemEnabled": visible,
             "sceneItemLocked": bloqueada,
             "sceneItemTransform": {"positionX": x, "positionY": y,
                                    "width": ancho, "height": alto,
                                    "alignment": alineacion,
+                                   "sourceWidth": ancho_fuente,
+                                   "sourceHeight": alto_fuente,
                                    "boundsWidth": 0.0, "boundsHeight": 0.0}}
 
 
@@ -256,6 +259,25 @@ class GestorPanelObsTest(unittest.TestCase):
         llamada = next(llamada for llamada in doble.llamadas
                        if llamada[0] == "SetSceneItemEnabled")
         self.assertEqual(llamada[1]["sceneItemId"], 1)
+
+    def test_escalar_manda_solo_las_escalas_de_la_fuente_nombrada(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0),
+                          elemento(2, "Cámara", 1, ancho_fuente=1280,
+                                   alto_fuente=720)])
+        self.assertTrue(self.gestor(doble).escalar("Escena", 640, 360,
+                                                   fuente="Cámara"))
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(llamada[1]["sceneItemId"], 2)
+        self.assertEqual(llamada[1]["sceneItemTransform"],
+                         {"scaleX": 0.5, "scaleY": 0.5})
+
+    def test_escalar_no_manda_nada_si_la_fuente_no_tiene_tamano(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0,
+                                  ancho_fuente=0)])
+        self.assertFalse(self.gestor(doble).escalar("Escena", 640, 360))
+        self.assertNotIn("SetSceneItemTransform",
+                         [llamada[0] for llamada in doble.llamadas])
 
 
 if __name__ == "__main__":

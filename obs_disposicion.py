@@ -33,6 +33,12 @@ def rectangulo(x, y, ancho, alto, alineacion):
     return izquierda, arriba, ancho, alto
 
 
+def escala_para(ancho_deseado, alto_deseado, ancho_fuente, alto_fuente):
+    if ancho_fuente <= 0 or alto_fuente <= 0:
+        return None
+    return ancho_deseado / ancho_fuente, alto_deseado / alto_fuente
+
+
 def _interseccion(a, b):
     izquierda = max(a[0], b[0])
     arriba = max(a[1], b[1])

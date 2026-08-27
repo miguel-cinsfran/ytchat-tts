@@ -131,6 +131,20 @@ class GestorPanelObs:
         }, parada)
         self._elemento(escena, NOMBRE_FUENTE, parada)
 
+    def escalar(self, escena, ancho, alto, parada=None, *, fuente=NOMBRE_FUENTE) -> bool:
+        elemento = self._elemento(escena, fuente, parada)
+        transformacion_actual = elemento["sceneItemTransform"]
+        escala = obs_disposicion.escala_para(
+            ancho, alto, transformacion_actual.get("sourceWidth", 0),
+            transformacion_actual.get("sourceHeight", 0))
+        if escala is None:
+            return False
+        self._pedir("SetSceneItemTransform", {
+            "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
+            "sceneItemTransform": {"scaleX": escala[0], "scaleY": escala[1]},
+        }, parada)
+        return True
+
     def mostrar(self, escena, visible, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
         elemento = self._elemento(escena, fuente, parada)
         self._pedir("SetSceneItemEnabled", {
