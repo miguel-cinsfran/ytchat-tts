@@ -166,6 +166,27 @@ class GestorPanelObsTest(unittest.TestCase):
         self.assertEqual(llamada[1]["sceneItemTransform"],
                          {"positionX": 32.0, "positionY": 18.0, "alignment": 5})
 
+    def test_transformacion_devuelve_solo_posicion_y_alineacion(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0, x=40, y=50)])
+        transformacion = self.gestor(doble).transformacion("Escena")
+        self.assertEqual(set(transformacion),
+                         {"positionX", "positionY", "alignment"})
+        self.assertEqual(transformacion,
+                         {"positionX": 40, "positionY": 50, "alignment": 9})
+
+    def test_transformacion_devuelve_vacio_si_no_hay_panel(self):
+        doble = DobleObs([])
+        self.assertEqual(self.gestor(doble).transformacion("Escena"), {})
+
+    def test_posicionar_manda_la_posicion_y_alineacion_recibidas(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
+        self.gestor(doble).posicionar("Escena", 123.5, 456.25, 7)
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(llamada[1]["sceneItemTransform"],
+                         {"positionX": 123.5, "positionY": 456.25,
+                          "alignment": 7})
+
     def test_mover_manda_solo_las_claves_de_posicion(self):
         doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
         self.gestor(doble).mover("Escena", 7, -3)

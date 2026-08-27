@@ -83,18 +83,28 @@ class GestorPanelObs:
         return elemento["sceneItemId"] if elemento is not None else identificador
 
     def colocar(self, escena, anclaje, parada=None) -> None:
-        elemento = self._elemento_panel(escena, parada)
         lienzo = self._pedir("GetVideoSettings", parada=parada)
         x, y, alineacion = obs_disposicion.coordenadas(
             anclaje, lienzo["baseWidth"], lienzo["baseHeight"])
-        # No se devuelve la transformación entera porque OBS rechaza sus bounds en cero.
+        self.posicionar(escena, x, y, alineacion, parada)
+
+    def transformacion(self, escena, parada=None) -> dict:
+        elemento = self._elemento_panel(escena, parada)
+        if elemento is None:
+            return {}
+        transformacion = elemento["sceneItemTransform"]
+        return {clave: transformacion[clave]
+                for clave in ("positionX", "positionY", "alignment")}
+
+    def posicionar(self, escena, x, y, alineacion, parada=None) -> None:
+        elemento = self._elemento_panel(escena, parada)
+        # OBS rechaza boundsWidth y boundsHeight en cero al recibir una transformación.
         transformacion = {"positionX": x, "positionY": y,
                           "alignment": alineacion}
         self._pedir("SetSceneItemTransform", {
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemTransform": transformacion,
         }, parada)
-        self._elemento_panel(escena, parada)
 
     def mover(self, escena, dx, dy, parada=None) -> None:
         elemento = self._elemento_panel(escena, parada)
