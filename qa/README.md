@@ -55,14 +55,31 @@ Los escenarios que terminan en `directo_` son los únicos que tocan la red. No
 entran en la corrida completa: gastan minutos y dependen de que haya alguien
 emitiendo en ese momento.
 
-## Tres trampas que costaron una tarde
+## Cuatro trampas que costaron una tarde
 
-Están escritas acá porque las tres hicieron que el banco diera por roto algo que
-funcionaba, y las tres son fáciles de volver a pisar.
+Están escritas acá porque hicieron que el banco diera por roto algo que
+funcionaba, o peor, por bueno algo que nunca miró. Todas son fáciles de volver
+a pisar.
 
 **Un ALT sintético para traer la ventana al frente abre la barra de menú**, y a
 partir de ahí los aceleradores dejan de llegar. El banco declaró roto un Ctrl+S
 que funcionaba: la herramienta rompía lo que estaba midiendo.
+
+**El recorrido de Tab no auditaba nada, y lo dijo en verde durante meses.**
+Mandaba la tecla con `wx.UIActionSimulator`, que la entrega a la ventana con el
+foco DEL ESCRITORIO. Corriendo el banco sin traer la aplicación al frente, esa
+ventana era otra: el foco no se movía y todos los diálogos daban «1 parada».
+Estaba a la vista en cada informe, pero era una nota sin umbral, y una nota que
+nadie compara con nada no es una medición.
+
+Ahora `recorrer_tab` usa la orden `navegar` de la sonda, que avanza por la
+cadena de foco de wx con `Navigate()`, sin pasar por el sistema. El diálogo de
+Transmisión pasó de 1 parada a 16. Lo que se gana es medir el orden real; lo
+que NO se cubre es el camino del teclado del sistema operativo hasta la
+ventana, y conviene no confundir una cosa con la otra.
+
+Si mañana una comprobación de Tab falla, antes de tocar el diálogo corré otro
+que ya sepas bueno. Si también falla, el roto es el instrumento.
 
 **`Desktop().windows()` de pywinauto no devuelve los diálogos modales.** Desde
 fuera parece que el diálogo no se abrió. Desde dentro, `wx.GetTopLevelWindows()`
