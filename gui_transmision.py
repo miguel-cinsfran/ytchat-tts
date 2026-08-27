@@ -37,6 +37,7 @@ class TransmisionDialog(wx.Dialog):
         self._ajuste_en_curso = False
         self._ajuste_transformacion = None
         self._movimiento_en_vuelo = False
+        self._cerrando = False
         self.SetBackgroundColour(_T.bg)
         self._crear_controles()
         self.Centre()
@@ -349,7 +350,18 @@ class TransmisionDialog(wx.Dialog):
         return self._leer(self._escena_inicial)
 
     def _cerrar(self, event):
-        self._en_hilo(self._gestor.cerrar, lambda resultado: self.EndModal(wx.ID_CANCEL))
+        if self._cerrando:
+            return
+        self._cerrando = True
+        threading.Thread(target=self._cerrar_gestor, daemon=True,
+                         name="CerrarTransmisionOBS").start()
+        self.EndModal(wx.ID_CANCEL)
+
+    def _cerrar_gestor(self):
+        try:
+            self._gestor.cerrar()
+        except Exception:
+            pass
 
 
 def abrir_transmision(parent) -> None:

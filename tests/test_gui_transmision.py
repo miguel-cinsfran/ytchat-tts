@@ -184,6 +184,14 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertFalse(self.dialogo._ajuste_en_curso)
         self.assertIn("Ajuste confirmado", self.anuncios)
 
+    def test_cerrar_no_anuncia_ni_depende_del_error_de_obs(self):
+        self.gestor.cerrar = mock.Mock(side_effect=obs_cliente.ObsError("sin red"))
+        self.dialogo.EndModal = mock.Mock()
+        self.dialogo._cerrar(Evento())
+        self.gestor.cerrar.assert_called_once_with()
+        self.dialogo.EndModal.assert_called_once_with(wx.ID_CANCEL)
+        self.assertNotIn("Consultando OBS", self.anuncios)
+
 
 if __name__ == "__main__":
     unittest.main()
