@@ -37,6 +37,15 @@ personalización de los atajos.
 
   También hay una explicación de qué es el lienzo, para quien no haya usado
   antes un programa de emisión.
+- **Alias para los nombres imposibles de escuchar.** Muchos nombres de YouTube
+  son cadenas de letras y números que la voz lee enteras en cada mensaje. Ahora
+  puede ponérseles un nombre corto: en la lista del chat, menú contextual sobre
+  un mensaje y *Poner alias*. Desde ese momento, ese usuario se lee y se ve con
+  el alias. Para quitarlo, se abre lo mismo y se deja el campo vacío.
+
+  El nombre real no se pierde: expulsar, banear, silenciar y responder siguen
+  actuando sobre la cuenta de verdad. Y el menú pasa a nombrar al usuario como
+  se lo ve en la lista, para que no digan cosas distintas.
 - **Una forma más de que le lean el chat: primero el mensaje, después quién lo
   escribió.** En Preferencias, *Lectura*, junto a las tres que ya había. Se oye
   «hola a todos, de Lucía». Sirve cuando llegan muchos mensajes seguidos: se
