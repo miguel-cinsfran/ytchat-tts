@@ -119,6 +119,33 @@ class TestFiltros(unittest.TestCase):
         self.assertEqual(autores_filtrados, [autor])
         self.assertEqual(on_message.call_args.args[0], autor)
 
+    def test_alias_se_lee_en_las_ramas_especiales_y_el_umbral(self):
+        autor = "xX_gamer_29384756_Xx"
+        alias.usar(alias.poner({}, autor, "Carlos"))
+        self.addCleanup(alias.usar, {})
+        casos = (
+            (main.TIPO_SUPERCHAT, "$2", 0, "Super Chat de Carlos: $2. hola"),
+            (main.TIPO_MIEMBRO, "", 0, "Nuevo miembro: Carlos"),
+            (main.TIPO_ENTRADA, "", 0, "Carlos entró"),
+            (main.TIPO_TEXTO, "", 1, "Carlos"),
+        )
+        for tipo, monto, umbral, esperado in casos:
+            with self.subTest(tipo=tipo, umbral=umbral):
+                cola = queue.Queue()
+                if umbral:
+                    cola.put({"texto_tts": "anterior"})
+                config = self._cfg(
+                    limpiar_emojis=True, eliminar_urls=False,
+                    max_longitud_mensaje=200, umbral_solo_nombre=umbral,
+                    formato_prefijo="nombre_mensaje", estrategia="todas",
+                    tamanio_maximo=10,
+                )
+                procesar_entrante(autor, "hola", tipo, monto, "canal", cola,
+                                  config, Stats())
+                if umbral:
+                    cola.get_nowait()
+                self.assertEqual(cola.get_nowait()["texto_tts"], esperado)
+
 
 if __name__ == "__main__":
     unittest.main()
