@@ -582,9 +582,11 @@ def auditar_dialogo(app: Aplicacion, res: Resultado, etiqueta_menu: str,
     revisar_nombres(controles, res, titulo)
 
     if esperados:
+        # Se quita la marca de mnemonico: una etiqueta como "Aplicar &tamano"
+        # no contiene "aplicar tamano", y eso daba fallos que no existian.
         juntos = " ".join(
             ((c.get("nombre") or "") + " " + (c.get("etiqueta") or ""))
-            for c in controles).lower()
+            for c in controles).replace("&", "").lower()
         for e in esperados:
             if e.lower() not in juntos:
                 res.fallo(f"{titulo}: no aparece nada llamado «{e}»")
@@ -1315,6 +1317,27 @@ def escenario_historial(app: Aplicacion, args, res: Resultado):
     """El historial de directos vistos."""
     auditar_dialogo(app, res, "Historial de directos", "Historial de directos",
                     vueltas_tab=12)
+
+
+def escenario_transmision(app: Aplicacion, args, res: Resultado):
+    """El diálogo que coloca el panel de chat dentro de una escena de OBS.
+
+    Vale con OBS abierto y sin OBS. Sin él, el diálogo tiene que abrirse
+    IGUAL, decir en su cuadro de estado por qué no puede hacer nada, y que sus
+    controles se sigan anunciando: uno que se rinde y no abre deja a quien no
+    ve sin saber qué pasó. Con OBS abierto se audita además con todos los
+    controles habilitados, que es cuando el orden de Tab es completo.
+
+    La fase 3 del smoke NO llega hasta acá: solo audita la pantalla
+    desconectada. Esta es la única auditoría automática de esta superficie.
+    """
+    auditar_dialogo(
+        app, res, "Transmisión", "Transmisión", vueltas_tab=20,
+        esperados=("Estado de la transmisión", "Actualizar estado", "Escena",
+                   "Posición del panel", "Ancho del panel", "Alto del panel",
+                   "Aplicar tamaño", "Mostrar el panel", "Fijar el panel",
+                   "Poner al frente", "captura", "lienzo", "Restablecer",
+                   "Cerrar"))
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):
@@ -2640,6 +2663,7 @@ SUPERFICIES = {
     "gui_comentarios.py": "comentarios",
     "gui_descargas.py": "descargas",
     "gui_historial.py": "historial",
+    "gui_transmision.py": "transmision",
     "gui_preferencias.py": "preferencias",
     "gui_redactar.py": "redactar",
     "reproductor.py": "reproductor",
@@ -2677,6 +2701,7 @@ ESCENARIOS = {
     "descargas": escenario_descargas,
     "preferencias": escenario_preferencias,
     "historial": escenario_historial,
+    "transmision": escenario_transmision,
     "ayuda": escenario_ayuda,
     "dialogos_ayuda": escenario_dialogos_ayuda,
     "chat": escenario_chat,
@@ -2758,7 +2783,7 @@ def main() -> int:
         # botón de reproducir pasa la comprobación por el motivo equivocado.
         pedidos = ["arranque_frio", "reproductor",
                    "menus", "principal", "descargas", "preferencias",
-                   "programados", "historial", "ayuda", "dialogos_ayuda",
+                   "programados", "historial", "transmision", "ayuda", "dialogos_ayuda",
                    # `redactar` va antes que `chat` y no es capricho: la
                    # mitad de lo que comprueba es como se comporta SIN
                    # conectar, y en cuanto `chat` simula una sesion ese estado
