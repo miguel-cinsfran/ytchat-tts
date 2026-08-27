@@ -1427,6 +1427,7 @@ class YTChatFrame(wx.Frame):
         id_sil_tts  = wx.NewIdRef()
         id_sil_full = wx.NewIdRef()
         id_rehab    = wx.NewIdRef()
+        id_alias    = wx.NewIdRef()
 
         menu.Append(id_copiar,  "Copiar mensaje")
         menu.Append(id_copiar2, "Copiar todo (autor: mensaje, hora)")
@@ -1437,11 +1438,16 @@ class YTChatFrame(wx.Frame):
 
         autor = self._autor_seleccionado() or ""
         if autor:
+            autor_mostrado = alias.visible(autor)
             if self._autor_esta_silenciado(autor):
-                menu.Append(id_rehab, f"Rehabilitar a {autor} (dejar de silenciar)")
+                menu.Append(id_rehab, f"Rehabilitar a {autor_mostrado} (dejar de silenciar)")
             else:
-                menu.Append(id_sil_tts,  f"Silenciar a {autor} (solo TTS)")
-                menu.Append(id_sil_full, f"Silenciar a {autor} (ocultar y TTS)")
+                menu.Append(id_sil_tts,  f"Silenciar a {autor_mostrado} (solo TTS)")
+                menu.Append(id_sil_full, f"Silenciar a {autor_mostrado} (ocultar y TTS)")
+            if alias.clave(autor) not in alias.vigente():
+                menu.Append(id_alias, f"Poner &alias a {autor_mostrado}…")
+            else:
+                menu.Append(id_alias, f"Cambiar el &alias de {autor_mostrado}…")
 
         id_ban     = wx.NewIdRef()
         id_timeout = wx.NewIdRef()
@@ -1450,8 +1456,8 @@ class YTChatFrame(wx.Frame):
                          and youtube_api.google_disponible() and credenciales.hay_sesion())
         if moderable:
             menu.AppendSeparator()
-            menu.Append(id_timeout, f"Expulsar 5 min a {autor} (timeout)")
-            menu.Append(id_ban,     f"Banear a {autor} del directo (permanente)")
+            menu.Append(id_timeout, f"Expulsar 5 min a {autor_mostrado} (timeout)")
+            menu.Append(id_ban,     f"Banear a {autor_mostrado} del directo (permanente)")
             menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, 300), id=id_timeout)
             menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, None), id=id_ban)
 
@@ -1464,9 +1470,31 @@ class YTChatFrame(wx.Frame):
         menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=False), id=id_sil_tts)
         menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=True),  id=id_sil_full)
         menu.Bind(wx.EVT_MENU, lambda e: self._rehabilitar_autor(autor),              id=id_rehab)
+        menu.Bind(wx.EVT_MENU, lambda e: self._editar_alias_autor(autor),             id=id_alias)
 
         self.lb_chat.PopupMenu(menu)
         menu.Destroy()
+
+    def _editar_alias_autor(self, autor: str) -> None:
+        mapa = alias.vigente()
+        actual = mapa.get(alias.clave(autor), "")
+        dialogo = wx.TextEntryDialog(
+            self, f"Alias para {autor}. Dejar vacío para quitarlo.",
+            "Alias del usuario", value=actual)
+        try:
+            if dialogo.ShowModal() != wx.ID_OK:
+                return
+            nuevo = dialogo.GetValue()
+        finally:
+            dialogo.Destroy()
+            self.lb_chat.SetFocus()
+
+        actualizado = alias.poner(mapa, autor, nuevo)
+        alias.guardar(app_dir() / "alias.json", actualizado)
+        alias.usar(actualizado)
+        self._rebuild_listbox()
+        anunciar(f"Alias guardado, {actualizado[alias.clave(autor)]}"
+                 if nuevo.strip() else "Alias quitado")
 
     def _copiar_mensaje(self):
         data = self._get_selected_data()

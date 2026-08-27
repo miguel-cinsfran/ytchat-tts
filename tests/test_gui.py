@@ -11,6 +11,7 @@ import gui
 import gui_comentarios
 import gui_preferencias
 import apagado
+import alias
 import programados
 import ytdlp_bin
 
@@ -177,6 +178,145 @@ class TestMenusPorConexion(unittest.TestCase):
         gui.YTChatFrame._actualizar_menus_por_conexion(frame)
 
         self.assertEqual(barra.llamadas, [])
+
+
+class TestAliasEnLaLista(unittest.TestCase):
+
+    def test_lista_muestra_el_alias_del_autor(self):
+        autor = "xX_gamer_29384756_Xx"
+        alias.usar({autor.lower(): "Carlos"})
+        self.addCleanup(alias.usar, {})
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._config = {"limpiar_emojis": True}
+
+        texto = frame._format_display(autor, "hola", "12:00", 0, "")
+
+        self.assertEqual(texto, "Carlos: hola, 12:00")
+
+
+class DialogoAliasFalso:
+
+    def __init__(self, aceptar, valor):
+        self.aceptar = aceptar
+        self.valor = valor
+        self.destruido = False
+
+    def ShowModal(self):
+        return gui.wx.ID_OK if self.aceptar else gui.wx.ID_CANCEL
+
+    def GetValue(self):
+        return self.valor
+
+    def Destroy(self):
+        self.destruido = True
+
+
+class MenuChatFalso:
+
+    def __init__(self):
+        self.etiquetas = {}
+        self.handlers = {}
+
+    def Append(self, identificador, etiqueta):
+        self.etiquetas[identificador] = etiqueta
+
+    def AppendSeparator(self):
+        pass
+
+    def Bind(self, _evento, handler, id):
+        self.handlers[id] = handler
+
+    def Destroy(self):
+        pass
+
+
+class TestAliasDesdeElChat(unittest.TestCase):
+
+    autor = "xX_gamer_29384756_Xx"
+
+    def _frame(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame.lb_chat = mock.Mock()
+        frame._rebuild_listbox = mock.Mock()
+        return frame
+
+    def test_aceptar_guarda_persiste_y_redibuja(self):
+        frame = self._frame()
+        dialogo = DialogoAliasFalso(True, "Carlos")
+        alias.usar({})
+        with mock.patch.object(gui.wx, "TextEntryDialog", return_value=dialogo), \
+                mock.patch.object(gui.alias, "guardar") as guardar, \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            frame._editar_alias_autor(self.autor)
+
+        self.assertEqual(alias.visible(self.autor), "Carlos")
+        guardar.assert_called_once_with(
+            gui.app_dir() / "alias.json", {self.autor.lower(): "Carlos"})
+        frame._rebuild_listbox.assert_called_once_with()
+        frame.lb_chat.SetFocus.assert_called_once_with()
+        self.assertTrue(dialogo.destruido)
+        anunciar.assert_called_once_with("Alias guardado, Carlos")
+        alias.usar({})
+
+    def test_aceptar_vacio_quita_el_alias(self):
+        frame = self._frame()
+        dialogo = DialogoAliasFalso(True, "")
+        alias.usar({self.autor.lower(): "Carlos"})
+        with mock.patch.object(gui.wx, "TextEntryDialog", return_value=dialogo), \
+                mock.patch.object(gui.alias, "guardar") as guardar, \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            frame._editar_alias_autor(self.autor)
+
+        self.assertEqual(alias.visible(self.autor), self.autor)
+        guardar.assert_called_once_with(gui.app_dir() / "alias.json", {})
+        frame._rebuild_listbox.assert_called_once_with()
+        anunciar.assert_called_once_with("Alias quitado")
+        alias.usar({})
+
+    def test_cancelar_no_guarda_ni_redibuja(self):
+        frame = self._frame()
+        dialogo = DialogoAliasFalso(False, "Carlos")
+        alias.usar({})
+        with mock.patch.object(gui.wx, "TextEntryDialog", return_value=dialogo), \
+                mock.patch.object(gui.alias, "guardar") as guardar, \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            frame._editar_alias_autor(self.autor)
+
+        guardar.assert_not_called()
+        frame._rebuild_listbox.assert_not_called()
+        anunciar.assert_not_called()
+        frame.lb_chat.SetFocus.assert_called_once_with()
+
+    def test_menu_muestra_alias_y_moderacion_recibe_autor_real(self):
+        frame = self._frame()
+        frame.lb_chat.GetSelection.return_value = 0
+        frame._autor_seleccionado = mock.Mock(return_value=self.autor)
+        frame._autor_esta_silenciado = mock.Mock(return_value=False)
+        frame._canal_por_autor = {self.autor.lower(): "canal-real"}
+        frame._live_chat_id = "chat"
+        frame._moderar = mock.Mock()
+        frame._silenciar_autor = mock.Mock()
+        menu = MenuChatFalso()
+        alias.usar({self.autor.lower(): "Carlos"})
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 11)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+
+        self.assertIn("Silenciar a Carlos (solo TTS)", menu.etiquetas.values())
+        self.assertIn("Expulsar 5 min a Carlos (timeout)", menu.etiquetas.values())
+        self.assertIn("Banear a Carlos del directo (permanente)", menu.etiquetas.values())
+        self.assertIn("Cambiar el &alias de Carlos…", menu.etiquetas.values())
+        identificador_ban = next(i for i, texto in menu.etiquetas.items()
+                                 if texto.startswith("Banear"))
+        identificador_silenciar = next(i for i, texto in menu.etiquetas.items()
+                                       if texto.startswith("Silenciar"))
+        menu.handlers[identificador_ban](None)
+        menu.handlers[identificador_silenciar](None)
+        frame._moderar.assert_called_once_with(self.autor, "canal-real", None)
+        frame._silenciar_autor.assert_called_once_with(self.autor, ocultar=False)
+        alias.usar({})
 
 
 class TestProgramadosEnPreferencias(unittest.TestCase):
