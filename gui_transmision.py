@@ -10,7 +10,7 @@ import ajuste_fino
 import obs_cliente
 import obs_disposicion
 from gui import _T, anunciar, nombre_accesible
-from obs_panel import GestorPanelObs
+from obs_panel import GestorPanelObs, NOMBRE_FUENTE
 import sound_player
 
 
@@ -31,7 +31,6 @@ class TransmisionDialog(wx.Dialog):
         super().__init__(parent, title="Transmisión", size=(620, 680),
                          name="DialogoTransmision")
         self._gestor = gestor or GestorPanelObs()
-        self._escena_inicial = ""
         self._restablecer = {}
         self._ultimo_snap = None
         self._ajuste_en_curso = False
@@ -200,10 +199,6 @@ class TransmisionDialog(wx.Dialog):
         if escena:
             self.cho_escena.SetStringSelection(escena)
         self._cargar_fuentes(fuentes, fuente)
-        self._escena_inicial = escena
-        self._restablecer = {"transformacion": transformacion, "ancho": snap.ancho,
-                              "alto": snap.alto, "visible": snap.visible,
-                              "bloqueada": snap.bloqueada}
         self._mostrar_snap(snap)
 
     def _mostrar_snap(self, snap):
@@ -232,6 +227,17 @@ class TransmisionDialog(wx.Dialog):
 
     def _leer(self, escena=None):
         return self._gestor.instantanea(escena or self._escena(), fuente=self._fuente())
+
+    def _guardar_restauracion(self, escena, fuente):
+        clave = escena, fuente
+        if not fuente or clave in self._restablecer:
+            return
+        snap = self._gestor.instantanea(escena, fuente=fuente)
+        self._restablecer[clave] = {
+            "transformacion": self._gestor.transformacion(escena, fuente=fuente),
+            "ancho": snap.ancho, "alto": snap.alto, "visible": snap.visible,
+            "bloqueada": snap.bloqueada,
+        }
 
     def _anunciar_snap(self, snap):
         anunciar(obs_disposicion.describir_fuente(
@@ -269,8 +275,25 @@ class TransmisionDialog(wx.Dialog):
 
     def _tamano(self, event):
         ancho, alto = self.sp_ancho.GetValue(), self.sp_alto.GetValue()
-        self._en_hilo(lambda: self._cambiar_y_leer(self._gestor.redimensionar, ancho, alto),
-                      self._anunciar_snap)
+        self._en_hilo(lambda: self._aplicar_tamano(ancho, alto), self._tamano_aplicado)
+
+    def _aplicar_tamano(self, ancho, alto):
+        escena, fuente = self._escena(), self._fuente()
+        self._guardar_restauracion(escena, fuente)
+        if fuente == NOMBRE_FUENTE:
+            self._gestor.redimensionar(escena, ancho, alto)
+            return self._leer(), True
+        if not self._gestor.escalar(escena, ancho, alto, fuente=fuente):
+            return self._leer(), False
+        return self._leer(), True
+
+    def _tamano_aplicado(self, datos):
+        snap, aplicado = datos
+        self._mostrar_snap(snap)
+        if aplicado:
+            self._anunciar_snap(snap)
+        else:
+            anunciar(f"{self._fuente()} todavía no informa su tamaño.")
 
     def _mostrar(self, event):
         visible = self.chk_mostrar.GetValue()
@@ -294,7 +317,9 @@ class TransmisionDialog(wx.Dialog):
         self._en_hilo(lambda: self._preparar_ajuste(escena), self._ajuste_iniciado)
 
     def _preparar_ajuste(self, escena):
-        return self._gestor.transformacion(escena), self._leer(escena)
+        fuente = self._fuente()
+        self._guardar_restauracion(escena, fuente)
+        return self._gestor.transformacion(escena, fuente=fuente), self._leer(escena)
 
     def _ajuste_iniciado(self, datos):
         self._ajuste_transformacion, snap = datos
@@ -326,9 +351,10 @@ class TransmisionDialog(wx.Dialog):
     def _mover_ajuste(self, dx, dy):
         self._movimiento_en_vuelo = True
         escena = self._escena()
+        fuente = self._fuente()
         def mover():
             try:
-                self._gestor.mover(escena, dx, dy)
+                self._gestor.mover(escena, dx, dy, fuente=fuente)
                 snap = self._leer(escena)
             except obs_cliente.ObsError as error:
                 wx.CallAfter(self._movimiento_fallo, str(error))
@@ -370,11 +396,13 @@ class TransmisionDialog(wx.Dialog):
         self._en_hilo(
             lambda: self._gestor.posicionar(
                 escena, transformacion["positionX"],
-                transformacion["positionY"], transformacion["alignment"]),
+                transformacion["positionY"], transformacion["alignment"], fuente=self._fuente()),
             lambda resultado: anunciar("Ajuste deshecho"))
 
     def _cambiar_y_leer(self, funcion, *argumentos):
-        funcion(self._escena(), *argumentos)
+        escena, fuente = self._escena(), self._fuente()
+        self._guardar_restauracion(escena, fuente)
+        funcion(escena, *argumentos, fuente=fuente)
         return self._leer()
 
     def _captura(self, event):
@@ -396,15 +424,19 @@ class TransmisionDialog(wx.Dialog):
         self._en_hilo(self._aplicar_restauracion, lambda snap: anunciar("Restablecido"))
 
     def _aplicar_restauracion(self):
-        datos = self._restablecer
-        transformacion = datos.get("transformacion", {})
-        if transformacion:
-            self._gestor.posicionar(self._escena_inicial, transformacion["positionX"],
-                                    transformacion["positionY"], transformacion["alignment"])
-        self._gestor.redimensionar(self._escena_inicial, datos["ancho"], datos["alto"])
-        self._gestor.mostrar(self._escena_inicial, datos["visible"])
-        self._gestor.fijar(self._escena_inicial, datos["bloqueada"])
-        return self._leer(self._escena_inicial)
+        for (escena, fuente), datos in self._restablecer.items():
+            transformacion = datos["transformacion"]
+            if transformacion:
+                self._gestor.posicionar(escena, transformacion["positionX"],
+                                        transformacion["positionY"], transformacion["alignment"],
+                                        fuente=fuente)
+            if fuente == NOMBRE_FUENTE:
+                self._gestor.redimensionar(escena, datos["ancho"], datos["alto"])
+            else:
+                self._gestor.escalar(escena, datos["ancho"], datos["alto"], fuente=fuente)
+            self._gestor.mostrar(escena, datos["visible"], fuente=fuente)
+            self._gestor.fijar(escena, datos["bloqueada"], fuente=fuente)
+        return self._leer()
 
     def _cerrar(self, event):
         if self._cerrando:

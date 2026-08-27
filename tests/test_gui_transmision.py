@@ -18,7 +18,9 @@ class GestorFalso:
 
     def __init__(self, fallo=False):
         self.fallo = fallo
+        self.escalable = True
         self.llamadas = []
+        self.fuentes_enviadas = []
         self.snap = obs_disposicion.SnapshotPanel(
             conectado=True, escena="Principal", ancho=460, alto=620,
             lienzo_ancho=1600, lienzo_alto=900, izquierda=32, arriba=18,
@@ -40,14 +42,22 @@ class GestorFalso:
         return {"Principal": ("Cámara", "Chat YTChat", "Juego"),
                 "Juego": ("Captura",)}.get(escena, ())
     def asegurar_fuente(self, *args): pass
-    def colocar(self, *args): self.llamadas.append(("colocar",) + args); self.snap = self.snap_nuevo
-    def posicionar(self, *args): self.llamadas.append(("posicionar",) + args)
+    def _llamar(self, nombre, args, kwargs):
+        self.llamadas.append((nombre,) + args)
+        self.fuentes_enviadas.append((nombre, kwargs.get("fuente")))
+        self.snap = self.snap_nuevo
+
+    def colocar(self, *args, **kwargs): self._llamar("colocar", args, kwargs)
+    def posicionar(self, *args, **kwargs): self._llamar("posicionar", args, kwargs)
     def transformacion(self, *args, **kwargs): return self.transformacion_inicial
-    def mover(self, *args): self.llamadas.append(("mover",) + args); self.snap = self.snap_nuevo
-    def redimensionar(self, *args): self.llamadas.append(("redimensionar",) + args); self.snap = self.snap_nuevo
-    def mostrar(self, *args): self.llamadas.append(("mostrar",) + args); self.snap = self.snap_nuevo
-    def fijar(self, *args): self.llamadas.append(("fijar",) + args); self.snap = self.snap_nuevo
-    def al_frente(self, *args): self.llamadas.append(("al_frente",) + args); self.snap = self.snap_nuevo
+    def mover(self, *args, **kwargs): self._llamar("mover", args, kwargs)
+    def redimensionar(self, *args, **kwargs): self._llamar("redimensionar", args, kwargs)
+    def escalar(self, *args, **kwargs):
+        self._llamar("escalar", args, kwargs)
+        return self.escalable
+    def mostrar(self, *args, **kwargs): self._llamar("mostrar", args, kwargs)
+    def fijar(self, *args, **kwargs): self._llamar("fijar", args, kwargs)
+    def al_frente(self, *args, **kwargs): self._llamar("al_frente", args, kwargs)
     def instantanea(self, *args, **kwargs): return self.snap
     def captura_de_escena(self, *args): self.llamadas.append(("captura_de_escena",) + args)
 
@@ -125,6 +135,34 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo._tamano(Evento())
         self.assertIn(("redimensionar", "Principal", 800, 500), self.gestor.llamadas)
 
+    def test_acciones_operan_sobre_la_fuente_elegida(self):
+        self.dialogo.cho_fuente.SetStringSelection("Cámara")
+        self.dialogo.cho_posicion.SetSelection(0)
+        self.dialogo._colocar(Evento())
+        self.dialogo._mostrar(Evento())
+        self.dialogo._fijar(Evento())
+        self.dialogo._frente(Evento())
+        self.assertEqual(self.gestor.fuentes_enviadas[-4:], [
+            ("colocar", "Cámara"), ("mostrar", "Cámara"),
+            ("fijar", "Cámara"), ("al_frente", "Cámara"),
+        ])
+
+    def test_aplicar_tamano_redimensiona_el_panel_y_escala_otra_fuente(self):
+        self.dialogo._tamano(Evento())
+        self.dialogo.cho_fuente.SetStringSelection("Cámara")
+        self.dialogo._tamano(Evento())
+        self.assertIn(("redimensionar", "Principal", 460, 620), self.gestor.llamadas)
+        self.assertIn(("escalar", "Principal", 460, 620), self.gestor.llamadas)
+        self.assertIn(("redimensionar", None), self.gestor.fuentes_enviadas)
+        self.assertIn(("escalar", "Cámara"), self.gestor.fuentes_enviadas)
+
+    def test_tamano_sin_imagen_no_anuncia_exito(self):
+        self.dialogo.cho_fuente.SetStringSelection("Cámara")
+        self.gestor.escalable = False
+        self.dialogo._tamano(Evento())
+        self.assertEqual(self.anuncios[-1], "Cámara todavía no informa su tamaño.")
+        self.assertNotIn("Cámara. 460 por 620", self.anuncios)
+
     def test_mostrar_usa_el_valor_de_la_casilla(self):
         self.dialogo.chk_mostrar.SetValue(False)
         self.dialogo._mostrar(Evento())
@@ -139,13 +177,28 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo._frente(Evento())
         self.assertIn(("al_frente", "Principal"), self.gestor.llamadas)
 
-    def test_restablecer_devuelve_los_cuatro_valores_iniciales(self):
+    def test_restablecer_devuelve_los_valores_de_las_dos_fuentes_tocadas(self):
+        self.dialogo._tamano(Evento())
+        self.dialogo.cho_fuente.SetStringSelection("Cámara")
+        self.dialogo._tamano(Evento())
         self.dialogo._restaurar(Evento())
-        self.assertEqual(self.gestor.llamadas[-4:], [
+        self.assertEqual(self.gestor.llamadas[-8:-4], [
             ("posicionar", "Principal", 32, 18, 5),
             ("redimensionar", "Principal", 460, 620),
             ("mostrar", "Principal", True),
             ("fijar", "Principal", False),
+        ])
+        self.assertEqual(self.gestor.llamadas[-4:], [
+            ("posicionar", "Principal", 32, 18, 5),
+            ("escalar", "Principal", 460, 620),
+            ("mostrar", "Principal", True),
+            ("fijar", "Principal", False),
+        ])
+        self.assertEqual(self.gestor.fuentes_enviadas[-8:], [
+            ("posicionar", "Chat YTChat"), ("redimensionar", None),
+            ("mostrar", "Chat YTChat"), ("fijar", "Chat YTChat"),
+            ("posicionar", "Cámara"), ("escalar", "Cámara"),
+            ("mostrar", "Cámara"), ("fijar", "Cámara"),
         ])
 
     def test_anuncia_la_instantanea_nueva_despues_del_cambio(self):
