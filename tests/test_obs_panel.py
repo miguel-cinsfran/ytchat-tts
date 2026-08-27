@@ -11,7 +11,8 @@ def elemento(identificador, nombre, indice, x=32, y=882, ancho=460, alto=620,
             "sceneItemLocked": bloqueada,
             "sceneItemTransform": {"positionX": x, "positionY": y,
                                    "width": ancho, "height": alto,
-                                   "alignment": alineacion}}
+                                   "alignment": alineacion,
+                                   "boundsWidth": 0.0, "boundsHeight": 0.0}}
 
 
 class DobleObs:
@@ -157,6 +158,14 @@ class GestorPanelObsTest(unittest.TestCase):
         self.assertEqual(set(llamada[1]["sceneItemTransform"]),
                          {"positionX", "positionY", "alignment"})
 
+    def test_colocar_manda_la_posicion_calculada(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
+        self.gestor(doble).colocar("Escena", "superior-izquierda")
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(llamada[1]["sceneItemTransform"],
+                         {"positionX": 32.0, "positionY": 18.0, "alignment": 5})
+
     def test_mover_manda_solo_las_claves_de_posicion(self):
         doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
         self.gestor(doble).mover("Escena", 7, -3)
@@ -164,6 +173,14 @@ class GestorPanelObsTest(unittest.TestCase):
                        if llamada[0] == "SetSceneItemTransform")
         self.assertEqual(set(llamada[1]["sceneItemTransform"]),
                          {"positionX", "positionY"})
+
+    def test_mover_manda_la_posicion_desplazada(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
+        self.gestor(doble).mover("Escena", 7, -3)
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(llamada[1]["sceneItemTransform"],
+                         {"positionX": 39, "positionY": 879})
 
     def test_instantanea_no_guarda_estado(self):
         doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])

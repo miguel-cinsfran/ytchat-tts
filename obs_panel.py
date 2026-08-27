@@ -87,8 +87,7 @@ class GestorPanelObs:
         lienzo = self._pedir("GetVideoSettings", parada=parada)
         x, y, alineacion = obs_disposicion.coordenadas(
             anclaje, lienzo["baseWidth"], lienzo["baseHeight"])
-        # OBS devuelve boundsWidth y boundsHeight en cero con OBS_BOUNDS_NONE,
-        # pero rechaza esos valores al recibir de nuevo la transformación.
+        # No se devuelve la transformación entera porque OBS rechaza sus bounds en cero.
         transformacion = {"positionX": x, "positionY": y,
                           "alignment": alineacion}
         self._pedir("SetSceneItemTransform", {
