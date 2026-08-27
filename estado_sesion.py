@@ -100,6 +100,12 @@ def _duracion(segundos: int) -> str:
     if segundos < 60:
         return "menos de un minuto"
     minutos = segundos // 60
+    if minutos == 24 * 60:
+        return "1 día"
+    # El corte en 48 horas conserva legibles los maratones de hasta dos días.
+    if minutos >= 48 * 60:
+        dias = minutos // (24 * 60)
+        return f"{dias} día" if dias == 1 else f"{dias} días"
     horas, minutos = divmod(minutos, 60)
     if horas:
         return f"{horas} h {minutos} min"

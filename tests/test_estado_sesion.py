@@ -29,6 +29,18 @@ class TestDuracion(unittest.TestCase):
     def test_treinta_horas_y_cinco_minutos(self):
         self.assertEqual(_duracion(30 * 60 * 60 + 5 * 60), "30 h 5 min")
 
+    def test_cuarenta_y_siete_horas_y_cincuenta_y_nueve_minutos(self):
+        self.assertEqual(_duracion(47 * 60 * 60 + 59 * 60), "47 h 59 min")
+
+    def test_cuarenta_y_ocho_horas(self):
+        self.assertEqual(_duracion(48 * 60 * 60), "2 días")
+
+    def test_seiscientos_noventa_y_siete_dias(self):
+        self.assertEqual(_duracion(697 * 24 * 60 * 60), "697 días")
+
+    def test_un_dia(self):
+        self.assertEqual(_duracion(24 * 60 * 60), "1 día")
+
 
 class TestTiempoDirecto(unittest.TestCase):
 
