@@ -21,6 +21,7 @@ class GestorFalso:
         self.escalable = True
         self.llamadas = []
         self.fuentes_enviadas = []
+        self.instantaneas = []
         self.snap = obs_disposicion.SnapshotPanel(
             conectado=True, escena="Principal", ancho=460, alto=620,
             lienzo_ancho=1600, lienzo_alto=900, izquierda=32, arriba=18,
@@ -58,7 +59,9 @@ class GestorFalso:
     def mostrar(self, *args, **kwargs): self._llamar("mostrar", args, kwargs)
     def fijar(self, *args, **kwargs): self._llamar("fijar", args, kwargs)
     def al_frente(self, *args, **kwargs): self._llamar("al_frente", args, kwargs)
-    def instantanea(self, *args, **kwargs): return self.snap
+    def instantanea(self, *args, **kwargs):
+        self.instantaneas.append((args, kwargs.get("fuente")))
+        return self.snap
     def captura_de_escena(self, *args): self.llamadas.append(("captura_de_escena",) + args)
 
 
@@ -128,6 +131,17 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo._cambiar_escena(Evento())
         self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Captura"])
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Captura")
+
+    def test_leer_y_ajuste_fino_piden_la_instantanea_de_la_fuente_elegida(self):
+        self.dialogo.cho_fuente.SetSelection(0)
+        self.gestor.instantaneas.clear()
+
+        self.dialogo._cambiar_fuente(Evento())
+        self.assertEqual(self.gestor.instantaneas[-1], (("Principal",), "Cámara"))
+
+        self.dialogo._ajuste_en_curso = True
+        self.dialogo._mover_ajuste(10, 0)
+        self.assertEqual(self.gestor.instantaneas[-1], (("Principal",), "Cámara"))
 
     def test_aplicar_tamano_usa_los_dos_numeros(self):
         self.dialogo.sp_ancho.SetValue(800)
