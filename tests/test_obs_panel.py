@@ -76,6 +76,7 @@ class GestorPanelObsTest(unittest.TestCase):
         self.assertEqual(identificador, 3)
         self.assertNotIn("CreateInput", [llamada[0] for llamada in doble.llamadas])
 
+
     def test_asegura_agregando_fuente_existente(self):
         doble = DobleObs(entradas=[{"inputName": obs_panel.NOMBRE_FUENTE}])
         self.assertEqual(self.gestor(doble).asegurar_fuente("Escena", "u", 1, 2), 21)
@@ -129,6 +130,22 @@ class GestorPanelObsTest(unittest.TestCase):
         self.gestor(doble).mover("Escena", 7, -3)
         transformacion = doble.elementos[0]["sceneItemTransform"]
         self.assertEqual((transformacion["positionX"], transformacion["positionY"]), (47, 47))
+
+    def test_colocar_manda_solo_las_claves_de_posicion_y_alineacion(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
+        self.gestor(doble).colocar("Escena", "superior-izquierda")
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(set(llamada[1]["sceneItemTransform"]),
+                         {"positionX", "positionY", "alignment"})
+
+    def test_mover_manda_solo_las_claves_de_posicion(self):
+        doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
+        self.gestor(doble).mover("Escena", 7, -3)
+        llamada = next(llamada for llamada in doble.llamadas
+                       if llamada[0] == "SetSceneItemTransform")
+        self.assertEqual(set(llamada[1]["sceneItemTransform"]),
+                         {"positionX", "positionY"})
 
     def test_instantanea_no_guarda_estado(self):
         doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])

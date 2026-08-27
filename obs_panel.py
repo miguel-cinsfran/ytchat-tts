@@ -81,10 +81,12 @@ class GestorPanelObs:
     def colocar(self, escena, anclaje, parada=None) -> None:
         elemento = self._elemento_panel(escena, parada)
         lienzo = self._pedir("GetVideoSettings", parada=parada)
-        transformacion = dict(elemento["sceneItemTransform"])
         x, y, alineacion = obs_disposicion.coordenadas(
             anclaje, lienzo["baseWidth"], lienzo["baseHeight"])
-        transformacion.update(positionX=x, positionY=y, alignment=alineacion)
+        # OBS devuelve boundsWidth y boundsHeight en cero con OBS_BOUNDS_NONE,
+        # pero rechaza esos valores al recibir de nuevo la transformación.
+        transformacion = {"positionX": x, "positionY": y,
+                          "alignment": alineacion}
         self._pedir("SetSceneItemTransform", {
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemTransform": transformacion,
@@ -93,9 +95,11 @@ class GestorPanelObs:
 
     def mover(self, escena, dx, dy, parada=None) -> None:
         elemento = self._elemento_panel(escena, parada)
-        transformacion = dict(elemento["sceneItemTransform"])
-        transformacion["positionX"] += dx
-        transformacion["positionY"] += dy
+        transformacion_actual = elemento["sceneItemTransform"]
+        transformacion = {
+            "positionX": transformacion_actual["positionX"] + dx,
+            "positionY": transformacion_actual["positionY"] + dy,
+        }
         self._pedir("SetSceneItemTransform", {
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemTransform": transformacion,
