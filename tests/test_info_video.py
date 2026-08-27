@@ -65,12 +65,51 @@ class TestObtenerInfoVideo(unittest.TestCase):
         self.assertEqual((titulo, tipo), ("Vídeo de prueba", main.deteccion.VOD))
         respaldo.assert_not_called()
 
+    def test_modulo_utilizable_no_llama_al_ejecutable(self):
+        modulo = types.SimpleNamespace(YoutubeDL=_YoutubeDL)
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video") as ejecutable, \
+                mock.patch.object(main, "_descargar_watch") as respaldo:
+            titulo, tipo, _ = main.obtener_info_video("A" * 11)
+
+        self.assertEqual((titulo, tipo), ("Vídeo de prueba", main.deteccion.VOD))
+        ejecutable.assert_not_called()
+        respaldo.assert_not_called()
+
+    def test_modulo_con_excepcion_usa_el_ejecutable(self):
+        info = {"title": "Vídeo del ejecutable", "live_status": "is_live"}
+        modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(
+            side_effect=RuntimeError("fallo del módulo")))
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=info), \
+                mock.patch.object(main, "_descargar_watch") as respaldo:
+            titulo, tipo, _ = main.obtener_info_video("A" * 11)
+
+        self.assertEqual((titulo, tipo),
+                         ("Vídeo del ejecutable", main.deteccion.LIVE))
+        respaldo.assert_not_called()
+
+    def test_modulo_y_ejecutable_fallan_y_usa_scraping_y_api(self):
+        modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(
+            side_effect=RuntimeError("fallo del módulo")))
+        html = '<title>Vídeo de respaldo - YouTube</title>'
+        with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
+                mock.patch.object(main, "_descargar_watch", return_value=html), \
+                mock.patch.object(main, "_clasificar_por_api",
+                                  return_value=main.deteccion.VOD) as api:
+            titulo, tipo, _ = main.obtener_info_video("A" * 11)
+
+        self.assertEqual((titulo, tipo), ("Vídeo de respaldo", main.deteccion.VOD))
+        api.assert_called_once_with("A" * 11)
+
     def test_fallo_de_yt_dlp_llega_al_mensaje(self):
         motivo = "Sign in to confirm you're not a bot"
         modulo = types.SimpleNamespace(YoutubeDL=mock.Mock(
             side_effect=RuntimeError(motivo)))
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
                 mock.patch.object(main, "_descargar_watch", return_value=""):
             _, _, metadatos = main.obtener_info_video("A" * 11)
 
@@ -84,6 +123,7 @@ class TestObtenerInfoVideo(unittest.TestCase):
             "Sign in to confirm you're not a bot")))
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
                 mock.patch.object(
                     main.urllib.request, "urlopen",
                     side_effect=RuntimeError("HTTP Error 429: Too Many Requests")), \
@@ -106,6 +146,7 @@ class TestObtenerInfoVideo(unittest.TestCase):
         html = '<title>Vídeo de respaldo - YouTube</title>'
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
                 mock.patch.object(main, "_descargar_watch", return_value=html):
             titulo, _, metadatos = main.obtener_info_video("A" * 11)
 
@@ -121,6 +162,7 @@ class TestObtenerInfoVideo(unittest.TestCase):
             return ""
 
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
+                mock.patch.object(main.ytdlp_bin, "info_video", return_value=None), \
                 mock.patch.object(main, "_descargar_watch", side_effect=falla_watch):
             titulo, tipo, metadatos = main.obtener_info_video("A" * 11)
 

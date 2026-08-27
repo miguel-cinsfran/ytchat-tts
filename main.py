@@ -194,33 +194,47 @@ def _metadatos_desde_ytdlp(info: dict) -> dict:
     }
 
 
+def _info_video_con_modulo(video_id: str) -> dict:
+    import yt_dlp
+    opts = {"quiet": True, "no_warnings": True, "skip_download": True,
+            "noplaylist": True, "socket_timeout": 20}
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        return ydl.extract_info(
+            f"https://www.youtube.com/watch?v={video_id}",
+            download=False, process=False)
+
+
 def obtener_info_video(video_id: str) -> tuple[str, str, dict]:
     """Devuelve (titulo, tipo, metadatos). tipo: live/upcoming/vod/desconocido.
 
-    Se usa yt-dlp (process=False, ~1 s): es robusto ante la página de
-    consentimiento que YouTube sirve al scraping directo, y ya trae `title`,
+    El módulo yt-dlp tarda 2,19 s y 1,69 s, frente a 5,28 s y 7,05 s del
+    ejecutable medidos con el mismo vídeo. Ambos son robustos ante la página de
+    consentimiento que YouTube sirve al scraping directo, y traen `title`,
     `live_status` y la metadata del panel de información (canal, vistas,
-    descripción…). Si no está yt-dlp, se cae al scraping (que puede no funcionar
+    descripción…). Si fallan los dos, se cae al scraping (que puede no funcionar
     y deja la metadata vacía, con solo el título si se pudo sacar)."""
     fallos = []
     try:
-        info = ytdlp_bin.info_video(video_id)
-        if info is None:
-            import yt_dlp
-            # socket_timeout: que una red lenta no cuelgue indefinidamente la
-            # detección live/VOD al conectar (sin él yt-dlp puede esperar mucho).
-            opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-                    "noplaylist": True, "socket_timeout": 20}
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(
-                    f"https://www.youtube.com/watch?v={video_id}",
-                    download=False, process=False)
-        titulo = (info.get("title") or "").strip()
-        tipo = _tipo_desde_ytdlp(info)
-        if titulo or tipo != deteccion.DESCONOCIDO:
-            return titulo, tipo, _metadatos_desde_ytdlp(info)
+        info = _info_video_con_modulo(video_id)
+        if isinstance(info, dict):
+            titulo = (info.get("title") or "").strip()
+            tipo = _tipo_desde_ytdlp(info)
+            if titulo or tipo != deteccion.DESCONOCIDO:
+                return titulo, tipo, _metadatos_desde_ytdlp(info)
     except Exception as exc:
-        logger.debug("obtener_info_video (yt-dlp): %s", exc)
+        logger.debug("obtener_info_video (yt-dlp módulo): %s", exc)
+        fallos.append(exc)
+
+    # El módulo evita arrancar y desempaquetar el ejecutable en cada conexión.
+    try:
+        info = ytdlp_bin.info_video(video_id)
+        if isinstance(info, dict):
+            titulo = (info.get("title") or "").strip()
+            tipo = _tipo_desde_ytdlp(info)
+            if titulo or tipo != deteccion.DESCONOCIDO:
+                return titulo, tipo, _metadatos_desde_ytdlp(info)
+    except Exception as exc:
+        logger.debug("obtener_info_video (yt-dlp ejecutable): %s", exc)
         fallos.append(exc)
 
     html = _descargar_watch(video_id, al_fallar=fallos.append)
