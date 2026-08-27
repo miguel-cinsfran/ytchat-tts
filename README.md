@@ -147,6 +147,32 @@ propio por persona y una etiqueta que indica la plataforma. Las donaciones se
 distinguen en dorado y muestran el importe. Los mensajes entran por abajo y los
 más antiguos se desvanecen.
 
+### Dónde se coloca el panel, y qué significa quedarse fuera
+
+El programa de emisión compone lo que ven los espectadores sobre un rectángulo
+de tamaño fijo, llamado lienzo. No es la pantalla del equipo ni la ventana del
+juego: es una página en blanco sobre la que se pegan las fuentes. Su tamaño
+habitual es de 1600 por 900 o de 1920 por 1080 píxeles.
+
+Cada fuente es un rectángulo pegado sobre esa página: el juego, la cámara y
+también este panel. Lo que queda dentro de la página se emite. Lo que sobresale
+del borde no se emite. Sigue estando en la escena, pero los espectadores no lo
+ven.
+
+Una fuente puede quedar medio fuera. En ese caso se emite la parte que está
+dentro y se recorta la que sobresale, sin ningún aviso. Es el error más fácil de
+cometer y el más difícil de notar sin ver la pantalla.
+
+Que dos fuentes se superpongan, en cambio, no es necesariamente un problema. El
+fondo de este panel es transparente: solo se ven las tarjetas de los mensajes, y
+solo tapan lo que hay justo debajo de ellas. El resto del rectángulo deja pasar
+la imagen.
+
+El panel se coloca desde el programa de emisión. En OBS Studio, las propiedades
+de la fuente permiten escribir la anchura y la altura, y el diálogo de
+transformación, que se abre con `Ctrl+E`, permite escribir la posición en
+píxeles en lugar de arrastrar con el ratón.
+
 Como no es posible comprobar visualmente si el panel se está mostrando, esa
 información se consulta por voz: `F2` indica si el panel está activo, en qué
 puerto, y si algún programa lo está mostrando en ese momento o no. Esa distinción
