@@ -80,6 +80,8 @@ class _Manejador(http.server.BaseHTTPRequestHandler):
         finally:
             with propietario._bloqueo:
                 propietario._clientes.discard(canal)
+            # El navegador necesita EOF para detectar que el panel se apagó.
+            self.close_connection = True
 
     def _enviar(self, evento):
         datos = json.dumps(evento, ensure_ascii=False, separators=(",", ":"))

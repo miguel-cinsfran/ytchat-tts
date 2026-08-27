@@ -96,6 +96,31 @@ class OverlayServidorTests(unittest.TestCase):
         finally:
             siguiente.detener()
 
+    def test_parada_cierra_la_conexion_sse(self):
+        conexion = socket.create_connection(("127.0.0.1", self.servidor.puerto),
+                                             timeout=3)
+        try:
+            conexion.sendall(
+                b"GET /eventos HTTP/1.1\r\n"
+                b"Host: 127.0.0.1\r\n"
+                b"Accept: text/event-stream\r\n"
+                b"\r\n")
+            cabeceras = bytearray()
+            while b"\r\n\r\n" not in cabeceras:
+                parte = conexion.recv(4096)
+                self.assertTrue(parte, "el servidor no envió las cabeceras SSE")
+                cabeceras.extend(parte)
+            self.assertIn(b"Content-Type: text/event-stream", cabeceras)
+            esperar_clientes(self.servidor)
+
+            self.servidor.detener()
+
+            conexion.settimeout(5)
+            while conexion.recv(4096):
+                pass
+        finally:
+            conexion.close()
+
     def test_puerto_ocupado_falla_sin_cambiarlo(self):
         puerto = puerto_libre()
         ocupado = socket.socket()
