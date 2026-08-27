@@ -50,6 +50,14 @@ class ItemDescarga:
 INTERVALO_PROGRESO_S = 0.5
 
 
+def _vigilar_cancelacion(proceso, cancel_event, intervalo=0.2) -> bool:
+    while proceso.poll() is None:
+        if cancel_event.wait(intervalo):
+            proceso.kill()
+            return True
+    return False
+
+
 def debe_emitir_progreso(ultimo_ts, ahora, pct):
     """Decide si toca avisar del progreso, para no inundar la interfaz."""
     return (ultimo_ts is None or pct >= 100.0 or
@@ -196,6 +204,12 @@ def descargar(url: str, opciones: dict,
             proceso.wait()
             estado_cb("cancelado", "Descarga cancelada")
             return
+        threading.Thread(
+            target=_vigilar_cancelacion,
+            args=(proceso, cancel_event),
+            daemon=True,
+            name="Vigilante-cancelacion",
+        ).start()
         for linea in iter(proceso.stdout.readline, ""):
             if cancel_event.is_set():
                 proceso.kill()

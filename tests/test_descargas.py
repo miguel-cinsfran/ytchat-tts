@@ -17,6 +17,7 @@ from descargas import (
     descargar,
     formato_a_ydl,
     tiene_ffmpeg,
+    _vigilar_cancelacion,
 )
 
 
@@ -120,6 +121,7 @@ class TestDescargar(unittest.TestCase):
     def proceso(self, lineas):
         proceso = mock.MagicMock()
         proceso.returncode = 0
+        proceso.poll.return_value = 0
         proceso.stdout.readline.side_effect = [*lineas, ""]
         return proceso
 
@@ -178,6 +180,63 @@ class TestDescargar(unittest.TestCase):
                       lambda *a: estados.append(a), evento)
         self.assertEqual(estados[-1], ("cancelado", "Descarga cancelada"))
         proceso.kill.assert_called_once()
+
+    def test_cancelar_sin_nuevas_lineas_mata_e_informa(self):
+        class ProcesoBloqueado:
+            def __init__(self):
+                self.inicio_lectura = threading.Event()
+                self.terminado = threading.Event()
+                self.codigo = None
+                self.kill_count = 0
+                self.stdout = self
+
+            def poll(self):
+                return self.codigo
+
+            def kill(self):
+                self.kill_count += 1
+                self.codigo = -9
+                self.terminado.set()
+
+            def wait(self):
+                self.terminado.wait(0.5)
+                return self.codigo
+
+            def readline(self):
+                self.inicio_lectura.set()
+                self.terminado.wait(0.5)
+                return ""
+
+        proceso = ProcesoBloqueado()
+        evento = threading.Event(); estados = []
+        with self.preparar(proceso)[0], self.preparar(proceso)[1], \
+                self.preparar(proceso)[2]:
+            hilo = threading.Thread(
+                target=descargar,
+                args=("url", {"formato": "mp4"}, lambda *a: None,
+                      lambda *a: estados.append(a), evento),
+            )
+            hilo.start()
+            self.assertTrue(proceso.inicio_lectura.wait(1))
+            evento.set()
+            hilo.join(1)
+        self.assertFalse(hilo.is_alive())
+        self.assertEqual(estados[-1], ("cancelado", "Descarga cancelada"))
+        self.assertEqual(proceso.kill_count, 1)
+
+    def test_vigilante_mata_al_cancelar(self):
+        proceso = mock.Mock()
+        proceso.poll.return_value = None
+        evento = threading.Event()
+        evento.set()
+        self.assertTrue(_vigilar_cancelacion(proceso, evento, 0.01))
+        proceso.kill.assert_called_once()
+
+    def test_vigilante_no_mata_si_termina(self):
+        proceso = mock.Mock()
+        proceso.poll.return_value = 0
+        self.assertFalse(_vigilar_cancelacion(proceso, threading.Event(), 0.01))
+        proceso.kill.assert_not_called()
 
     def test_cancelar_despues_de_terminar_marca_estado(self):
         proceso = self.proceso([]); evento = threading.Event(); estados = []
