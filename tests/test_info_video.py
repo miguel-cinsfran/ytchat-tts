@@ -69,12 +69,14 @@ class TestObtenerInfoVideo(unittest.TestCase):
         modulo = types.SimpleNamespace(YoutubeDL=_YoutubeDL)
         with mock.patch.dict(sys.modules, {"yt_dlp": modulo}), \
                 mock.patch.object(main.ytdlp_bin, "info_video") as ejecutable, \
-                mock.patch.object(main, "_descargar_watch") as respaldo:
+                mock.patch.object(main, "_descargar_watch", return_value="") as respaldo, \
+                mock.patch.object(main, "_clasificar_por_api",
+                                  return_value=main.deteccion.DESCONOCIDO):
             titulo, tipo, _ = main.obtener_info_video("A" * 11)
 
-        self.assertEqual((titulo, tipo), ("Vídeo de prueba", main.deteccion.VOD))
         ejecutable.assert_not_called()
         respaldo.assert_not_called()
+        self.assertEqual((titulo, tipo), ("Vídeo de prueba", main.deteccion.VOD))
 
     def test_modulo_con_excepcion_usa_el_ejecutable(self):
         info = {"title": "Vídeo del ejecutable", "live_status": "is_live"}

@@ -197,7 +197,9 @@ def _metadatos_desde_ytdlp(info: dict) -> dict:
 def _info_video_con_modulo(video_id: str) -> dict:
     import yt_dlp
     opts = {"quiet": True, "no_warnings": True, "skip_download": True,
-            "noplaylist": True, "socket_timeout": 20}
+            "noplaylist": True,
+            # Evita que una red lenta cuelgue indefinidamente la detección live/VOD.
+            "socket_timeout": 20}
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(
             f"https://www.youtube.com/watch?v={video_id}",
