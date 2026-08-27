@@ -97,7 +97,8 @@ class PruebasCableadoConexiones(unittest.TestCase):
         import main
         callbacks = {}
         def hilo(objetivo, nombre, **kwargs):
-            return HiloInerte() if nombre == "LiveChatId" else HiloEjecuta(objetivo)
+            # Se filtra por nombre para que los hilos auxiliares no bloqueen la prueba.
+            return HiloEjecuta(objetivo) if nombre == "Chat" else HiloInerte()
         def captura(*args, **kwargs):
             callbacks.update(kwargs)
         with mock.patch.object(main, "obtener_info_video",
@@ -116,7 +117,8 @@ class PruebasCableadoConexiones(unittest.TestCase):
         import main
         callbacks = {}
         def hilo(objetivo, nombre, **kwargs):
-            return HiloEjecuta(objetivo)
+            # Se filtra por nombre para ejecutar solo el hilo que usa esta prueba.
+            return HiloEjecuta(objetivo) if nombre == "TikTok" else HiloInerte()
         def captura(*args, **kwargs):
             callbacks.update(kwargs)
         self.conexiones._crear_hilo = hilo
@@ -138,8 +140,9 @@ class PruebasCableadoConexiones(unittest.TestCase):
                 mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
                 mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
                 mock.patch("overlay_servidor.difundir") as difundir:
+            # Se filtra por nombre para que los hilos auxiliares no bloqueen la prueba.
             self.conexiones._crear_hilo = lambda objetivo, nombre, **kwargs: (
-                HiloInerte() if nombre == "LiveChatId" else HiloEjecuta(objetivo))
+                HiloEjecuta(objetivo) if nombre == "Chat" else HiloInerte())
             self.conexiones.conectar("dQw4w9WgXcQ")
             self.registro.abrir()
             callbacks["on_message"]("Ana", "viejo", "12:00")
