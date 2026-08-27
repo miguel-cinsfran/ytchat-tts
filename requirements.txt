@@ -38,6 +38,11 @@ betterproto==2.0.0b7
 httpx>=0.25,<1
 TikTokLive>=6.6,<7
 
+# ── Cliente websocket de OBS (OPCIONAL) ─────────────────────────────────────
+# Ya llega como dependencia indirecta de TikTokLive, pero se declara para no
+# depender de que TikTokLive la siga arrastrando.
+websockets>=13
+
 # ── Reproductor de audio (OPCIONAL) ───────────────────────────────────────────
 # Para el reproductor: yt-dlp extrae la URL del flujo de audio y libVLC
 # (python-vlc) lo reproduce. python-vlc necesita VLC instalado en el equipo
