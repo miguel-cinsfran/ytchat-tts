@@ -116,6 +116,7 @@ ATAJOS_DEFAULTS = {
     "abrir_preferencias": "ctrl+shift+p",
     "abrir_historial":    "ctrl+shift+h",
     "marcar_incidencia":  "ctrl+shift+i",
+    "abrir_transmision":  "ctrl+shift+t",
     # Conexión y chat (Alt)
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
@@ -155,7 +156,8 @@ ATAJOS_GRUPOS = [
     ("Conexión y chat (Alt)",
      ["conectar", "desconectar", "enviar_chat", "ir_lista"]),
     ("Ventanas y paneles (Ctrl+Shift)",
-     ["abrir_preferencias", "abrir_historial", "marcar_incidencia"]),
+     ["abrir_preferencias", "abrir_historial", "marcar_incidencia",
+      "abrir_transmision"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",

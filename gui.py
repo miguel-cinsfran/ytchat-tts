@@ -549,6 +549,8 @@ class YTChatFrame(wx.Frame):
         self.mi_actualizar_ytdlp = m.Append(wx.ID_ANY, "&Actualizar yt-dlp")
         self.mi_overlay = m.AppendCheckItem(wx.ID_ANY, "&Panel de chat para transmitir")
         self.mi_overlay.Check(bool(self._config.get("overlay_activo", False)))
+        self.mi_transmision = m.Append(
+            wx.ID_ANY, "&Transmisión…" + self._accel("abrir_transmision"))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
@@ -556,6 +558,7 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self._on_actualizar_ytdlp,
                   self.mi_actualizar_ytdlp)
         self.Bind(wx.EVT_MENU, self._on_overlay, self.mi_overlay)
+        self.Bind(wx.EVT_MENU, self._on_transmision, self.mi_transmision)
 
         # Ayuda
         m = wx.Menu()
@@ -1028,6 +1031,10 @@ class YTChatFrame(wx.Frame):
                           "Error", wx.OK | wx.ICON_ERROR, self)
         # La pestaña API puede haber cambiado la sesión: refrescar.
         self._actualizar_estado_online()
+
+    def _on_transmision(self, event):
+        from gui_transmision import abrir_transmision
+        abrir_transmision(self)
 
     # ── Gestor de descargas (gui_descargas) ──────────────────────────────────
     # Abre el diálogo siempre (no requiere conexión). Si le llega una URL, la
