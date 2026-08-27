@@ -150,6 +150,22 @@ function pintar(ev) {
 // EventSource reintenta la conexión solo. Eso es lo que hace que el overlay se
 // recupere si la aplicación se reinicia, sin que nadie toque OBS.
 var fuente = new EventSource("/eventos");
+var temporizadorCaida;
+fuente.onopen = function () {
+  if (temporizadorCaida !== undefined) {
+    clearTimeout(temporizadorCaida);
+    temporizadorCaida = undefined;
+  }
+};
+fuente.onerror = function () {
+  if (temporizadorCaida !== undefined) { return; }
+  // Diez segundos descartan un corte breve; no se reinicia en cada reintento.
+  temporizadorCaida = setTimeout(function () {
+    var lista = document.getElementById("chat");
+    while (lista.firstChild) { lista.removeChild(lista.firstChild); }
+    temporizadorCaida = undefined;
+  }, 10000);
+};
 fuente.onmessage = function (e) {
   try { pintar(JSON.parse(e.data)); } catch (err) { /* un evento roto no tumba el resto */ }
 };
