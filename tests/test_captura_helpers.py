@@ -2,10 +2,13 @@
 
 import queue
 import unittest
+from unittest import mock
 
+import alias
+import main
 from main import (
     _mensaje_error_amigable, _es_error_permanente,
-    encolar, permitido, debe_leer_tts, Stats,
+    encolar, permitido, debe_leer_tts, procesar_entrante, Stats,
 )
 
 
@@ -89,6 +92,32 @@ class TestFiltros(unittest.TestCase):
 
     def test_debe_leer_tts_normal(self):
         self.assertTrue(debe_leer_tts("Ana", self._cfg()))
+
+    def test_alias_se_lee_y_el_autor_real_llega_a_los_filtros_y_a_la_gui(self):
+        autor = "xX_gamer_29384756_Xx"
+        alias.usar(alias.poner({}, autor, "Carlos"))
+        self.addCleanup(alias.usar, {})
+        autores_filtrados = []
+        permitido_real = main.permitido
+
+        def permitido_registrado(autor_recibido, mensaje, config):
+            autores_filtrados.append(autor_recibido)
+            return permitido_real(autor_recibido, mensaje, config)
+
+        cola = queue.Queue()
+        on_message = mock.Mock()
+        config = self._cfg(
+            limpiar_emojis=True, eliminar_urls=False, max_longitud_mensaje=200,
+            umbral_solo_nombre=0, formato_prefijo="nombre_mensaje",
+            estrategia="todas", tamanio_maximo=10,
+        )
+        with mock.patch.object(main, "permitido", side_effect=permitido_registrado):
+            procesar_entrante(autor, "hola", 0, "", "canal", cola, config,
+                              Stats(), on_message=on_message)
+
+        self.assertEqual(cola.get_nowait()["texto_tts"], "Carlos: hola")
+        self.assertEqual(autores_filtrados, [autor])
+        self.assertEqual(on_message.call_args.args[0], autor)
 
 
 if __name__ == "__main__":

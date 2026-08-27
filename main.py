@@ -36,6 +36,7 @@ import diagnostico
 import avisos_red
 import ytdlp_bin
 import conexion
+import alias
 
 
 # Traducción pytchat → tipos internos.
@@ -352,6 +353,7 @@ def procesar_entrante(autor, mensaje, tipo, monto, canal_id, cola, config, stats
     if not permitido(autor, mensaje, config):
         stats.inc("filtrados"); return
 
+    autor_visible = alias.visible(autor)
     ml = sanitizar(mensaje, config["limpiar_emojis"],
                    config["eliminar_urls"], config["max_longitud_mensaje"])
     if tipo == TIPO_TEXTO and not ml.strip():
@@ -359,16 +361,16 @@ def procesar_entrante(autor, mensaje, tipo, monto, canal_id, cola, config, stats
 
     umbral = config.get("umbral_solo_nombre", 0)
     if tipo == TIPO_SUPERCHAT and monto:
-        tts_text = (f"{etiqueta_monto} de {autor}: {monto}. {ml}" if ml
-                    else f"{etiqueta_monto} de {autor}: {monto}")
+        tts_text = (f"{etiqueta_monto} de {autor_visible}: {monto}. {ml}" if ml
+                    else f"{etiqueta_monto} de {autor_visible}: {monto}")
     elif tipo == TIPO_MIEMBRO:
-        tts_text = f"Nuevo miembro: {autor}"
+        tts_text = f"Nuevo miembro: {autor_visible}"
     elif tipo == TIPO_ENTRADA:
-        tts_text = f"{autor} entró"
+        tts_text = f"{autor_visible} entró"
     elif umbral > 0 and cola.qsize() >= umbral:
-        tts_text = sanitizar(autor, config["limpiar_emojis"], False, 50) or "Usuario"
+        tts_text = sanitizar(autor_visible, config["limpiar_emojis"], False, 50) or "Usuario"
     else:
-        tts_text = construir_tts(autor, ml or mensaje, config)
+        tts_text = construir_tts(autor_visible, ml or mensaje, config)
 
     hora = datetime.now().strftime('%H:%M:%S')
     if on_message:
@@ -623,6 +625,7 @@ def main():
         sys.exit(0)
 
     config = cargar_configuracion()
+    alias.usar(alias.cargar(app_dir() / "alias.json"))
 
     config.setdefault("silenciados_runtime", set())
     config.setdefault("silenciados_ocultar", set())

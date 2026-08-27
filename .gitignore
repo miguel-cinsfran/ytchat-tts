@@ -28,6 +28,7 @@ ytchat-fallos.log
 
 # Secretos de la API de YouTube (los gestiona la app desde Configuración)
 credenciales.json
+alias.json
 
 # Historial de sesión (opción guardar_historial en config.ini)
 historial.csv

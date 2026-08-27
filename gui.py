@@ -40,6 +40,7 @@ import apagado
 import overlay_servidor
 import programados
 import redaccion
+import alias
 from gui_redactar import PanelRedactar
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
@@ -1967,6 +1968,7 @@ class YTChatFrame(wx.Frame):
     # ── Formato y helpers ────────────────────────────────────────────────────
 
     def _format_display(self, autor, msg, hora, tipo, monto):
+        autor = alias.visible(autor)
         # Si "quitar emojis" está activo, también se ocultan en la lista (incluye
         # los shortcodes :nombre: de YouTube). Los marcadores 💲🎨⭐ se conservan.
         if self._config.get("limpiar_emojis", True):
