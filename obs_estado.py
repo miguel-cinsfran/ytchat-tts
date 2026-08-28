@@ -22,6 +22,11 @@ def frase_grabacion(activa, en_pausa, codigo_tiempo) -> str:
             else f"Grabando, {tiempo}")
 
 
+def frase_escena_al_aire(escena) -> str:
+    """Describe la escena que OBS está mostrando al público."""
+    return f"Al aire: {escena}" if escena else "No se pudo saber que escena está al aire"
+
+
 def frase_resultado(accion) -> str:
     """Traduce una acción de OBS a su confirmación audible."""
     return {
@@ -31,4 +36,5 @@ def frase_resultado(accion) -> str:
         "grabacion_detenida": "Grabación detenida",
         "grabacion_en_pausa": "Grabación en pausa",
         "grabacion_reanudada": "Grabación reanudada",
+        "escena_cambiada": "Escena puesta al aire",
     }[accion]
