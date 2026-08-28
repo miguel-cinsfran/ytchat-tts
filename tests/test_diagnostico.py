@@ -12,6 +12,10 @@ import diagnostico
 
 
 class DiagnosticoTest(unittest.TestCase):
+    def test_obtener_logger_cuelga_del_arbol_de_la_aplicacion(self):
+        logger = diagnostico.obtener_logger("descargas")
+        self.assertTrue(logger.name.startswith("ytchat."))
+
     def test_compone_marcas_de_inicio_y_cierre_con_zona_horaria(self):
         momento = datetime(2026, 8, 25, 21, 52, 9,
                            tzinfo=timezone(timedelta(hours=-4)))
@@ -33,6 +37,20 @@ class DiagnosticoTest(unittest.TestCase):
                 self.assertIn("%(name)s", manejador.formatter._fmt)
             finally:
                 manejador.close()
+
+    def test_manejador_detallado_acepta_registro_propio(self):
+        with patch.object(diagnostico, "RotatingFileHandler", return_value=logging.Handler()):
+            manejador = diagnostico.crear_manejador_detallado("x.log")
+        registro = logging.LogRecord(
+            "ytchat.loquesea", logging.DEBUG, "", 0, "prueba", (), None)
+        self.assertTrue(manejador.filter(registro))
+
+    def test_manejador_detallado_rechaza_registro_de_websockets(self):
+        with patch.object(diagnostico, "RotatingFileHandler", return_value=logging.Handler()):
+            manejador = diagnostico.crear_manejador_detallado("x.log")
+        registro = logging.LogRecord(
+            "websockets.client", logging.DEBUG, "", 0, "prueba", (), None)
+        self.assertFalse(manejador.filter(registro))
 
     def test_volcado_incluye_datos_y_faltantes(self):
         texto = diagnostico.componer_volcado_entorno(
@@ -171,8 +189,7 @@ class DiagnosticoTest(unittest.TestCase):
                     with patch.object(sys, "excepthook"), \
                          patch.object(threading, "excepthook"), \
                          patch("faulthandler.enable") as activar, \
-                         patch.object(diagnostico.logging.getLogger("diagnostico"),
-                                      "critical") as registrar:
+                         patch.object(diagnostico.logger, "critical") as registrar:
                         diagnostico.instalar_capturadores(Path(tmp) / "fallos.log")
                         error = RuntimeError("prueba")
                         hilo = MagicMock()

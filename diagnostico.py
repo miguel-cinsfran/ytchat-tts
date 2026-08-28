@@ -23,8 +23,16 @@ FORMATO_DETALLADO = (
 FECHA_DETALLADA = "%Y-%m-%d %H:%M:%S"
 INTERVALO_CENSO_HILOS_S = 30
 UMBRAL_BLOQUEO_INTERFAZ_MS = 500
+RAIZ_LOGGER = "ytchat"
 _ARCHIVO_FALLOS = None
-logger = logging.getLogger(__name__)
+
+
+def obtener_logger(nombre: str) -> logging.Logger:
+    """Devuelve el logger del modulo, colgado del arbol de la aplicacion."""
+    return logging.getLogger(f"{RAIZ_LOGGER}.{nombre}")
+
+
+logger = obtener_logger(__name__)
 
 
 def componer_cabecera_fallos(version: str, momento: datetime) -> str:
@@ -46,6 +54,8 @@ def crear_manejador_detallado(ruta: str | Path) -> RotatingFileHandler:
     )
     manejador.setLevel(logging.DEBUG)
     manejador.setFormatter(logging.Formatter(FORMATO_DETALLADO, FECHA_DETALLADA))
+    # Solo entra lo propio, sin mantener una lista de librerias de terceros.
+    manejador.addFilter(logging.Filter(RAIZ_LOGGER))
     return manejador
 
 
@@ -97,7 +107,7 @@ def vigilar_hilo_interfaz(obtener_marca, parada: threading.Event) -> None:
 
 def crear_hilo(target, nombre: str, *, args=(), daemon=True) -> threading.Thread:
     """Crea un hilo que deja constancia de su vida completa."""
-    logger = logging.getLogger(__name__)
+    logger = obtener_logger(__name__)
 
     def ejecutar():
         logger.info("HILO inicia nombre=%s", nombre)
@@ -195,7 +205,7 @@ def _version_paquete(nombre: str) -> tuple[str | None, str | None]:
 def instalar_capturadores(ruta_fallos: str | Path, version: str = "desconocida") -> None:
     """Conserva excepciones no capturadas y fallos nativos en archivos."""
     global _ARCHIVO_FALLOS
-    logger = logging.getLogger(__name__)
+    logger = obtener_logger(__name__)
     anterior_sys = sys.excepthook
     anterior_hilos = threading.excepthook
 
@@ -251,7 +261,7 @@ def registrar_entorno(version: str) -> None:
     if motivo_ytdlp:
         texto = texto.replace("Versión de yt-dlp: no se pudo obtener",
                               f"Versión de yt-dlp: no se pudo obtener ({motivo_ytdlp})")
-    logging.getLogger(__name__).info("%s", texto)
+    obtener_logger(__name__).info("%s", texto)
 
 
 def componer_volcado_entorno(version: str, *, vlc_version=None,
