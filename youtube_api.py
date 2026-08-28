@@ -124,6 +124,12 @@ def mensaje_error_api(exc) -> str:
     return f"Error de la API de YouTube: {texto}"
 
 
+def comentarios_desactivados(exc) -> bool:
+    """Indica si la API rechazó la operación porque el vídeo cerró comentarios."""
+    texto = str(exc).lower()
+    return "commentsdisabled" in texto or "disabled comments" in texto
+
+
 # ── OAuth2 (flujo de aplicación de escritorio) ───────────────────────────────
 
 def iniciar_sesion(client_id: str, client_secret: str) -> str:
@@ -227,14 +233,19 @@ class ClienteYouTube:
         return parsear_pagina_comentarios(resp)
 
     # -- resolución del chat en vivo (API key) --
-    def resolver_live_chat_id(self, video_id: str) -> str:
+    def datos_chat_directo(self, video_id: str) -> dict:
+        """Devuelve los datos de disponibilidad del chat de un directo."""
         resp = self._lectura().videos().list(
             part="liveStreamingDetails", id=video_id).execute()
         items = resp.get("items", []) or []
         if not items:
-            return ""
-        det = items[0].get("liveStreamingDetails", {}) or {}
-        return det.get("activeLiveChatId", "") or ""
+            return {"hay_video": False, "hay_directo": False, "live_chat_id": ""}
+        det = items[0].get("liveStreamingDetails")
+        return {"hay_video": True, "hay_directo": det is not None,
+                "live_chat_id": (det or {}).get("activeLiveChatId", "") or ""}
+
+    def resolver_live_chat_id(self, video_id: str) -> str:
+        return self.datos_chat_directo(video_id)["live_chat_id"]
 
     def detalles_directo(self, video_id: str) -> dict:
         try:

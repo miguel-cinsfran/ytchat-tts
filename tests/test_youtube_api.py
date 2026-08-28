@@ -5,7 +5,7 @@ from unittest import mock
 
 from youtube_api import (
     ClienteYouTube, normalizar_comentario, parsear_pagina_comentarios,
-    mensaje_error_api,
+    comentarios_desactivados, mensaje_error_api,
 )
 
 
@@ -50,6 +50,31 @@ class TestDetallesDirecto(unittest.TestCase):
         cliente = self.cliente({"items": []})
         self.assertEqual(cliente.detalles_directo("abc"), {
             "espectadores": None, "comienzo": ""})
+
+
+class TestDatosChatDirecto(unittest.TestCase):
+
+    def cliente(self, respuesta):
+        cliente = ClienteYouTube({"api_key": "clave"})
+        cliente._svc_lectura = ServicioFalso(respuesta)
+        return cliente
+
+    def test_sin_video(self):
+        self.assertEqual(self.cliente({"items": []}).datos_chat_directo("abc"), {
+            "hay_video": False, "hay_directo": False, "live_chat_id": ""})
+
+    def test_video_que_no_es_directo(self):
+        self.assertEqual(self.cliente({"items": [{}]}).datos_chat_directo("abc"), {
+            "hay_video": True, "hay_directo": False, "live_chat_id": ""})
+
+    def test_directo_con_chat(self):
+        self.assertEqual(self.cliente({"items": [{"liveStreamingDetails": {
+            "activeLiveChatId": "chat"}}]}).datos_chat_directo("abc"), {
+            "hay_video": True, "hay_directo": True, "live_chat_id": "chat"})
+
+    def test_resolvedor_conserva_el_id(self):
+        self.assertEqual(self.cliente({"items": [{"liveStreamingDetails": {
+            "activeLiveChatId": "chat"}}]}).resolver_live_chat_id("abc"), "chat")
 
 
 class TestNormalizarComentario(unittest.TestCase):
@@ -143,6 +168,11 @@ class TestMensajeError(unittest.TestCase):
 
     def test_comentarios_desactivados(self):
         self.assertIn("desactivados", mensaje_error_api("commentsDisabled"))
+
+    def test_reconoce_comentarios_desactivados(self):
+        self.assertTrue(comentarios_desactivados("commentsDisabled"))
+        self.assertTrue(comentarios_desactivados("Disabled comments"))
+        self.assertFalse(comentarios_desactivados("videoNotFound"))
 
     def test_video_no_encontrado(self):
         self.assertIn("vídeo", mensaje_error_api("videoNotFound"))
