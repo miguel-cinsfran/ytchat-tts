@@ -65,6 +65,16 @@ class TestInicioGui(unittest.TestCase):
 
         ventana._on_close.assert_called_once_with(evento)
 
+    def test_contador_accesible_selecciona_todo_al_recibir_el_foco(self):
+        contador = mock.Mock()
+        contador.GetTextValue.return_value = "123"
+        evento = mock.Mock()
+
+        gui.ContadorAccesible._on_focus(contador, evento)
+
+        contador.SetSelection.assert_called_once_with(0, 3)
+        evento.Skip.assert_called_once_with()
+
 
 class EventoTecladoFalso:
     def __init__(self, codigo):

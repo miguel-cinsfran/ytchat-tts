@@ -316,6 +316,17 @@ def _tc(w, bg=None, fg=None):
     w.SetForegroundColour(fg or _T.text)
 
 
+class ContadorAccesible(wx.SpinCtrl):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Bind(wx.EVT_SET_FOCUS, self._on_focus)
+
+    def _on_focus(self, event):
+        # Selecciona el valor para reemplazarlo sin borrarlo antes.
+        self.SetSelection(0, len(self.GetTextValue()))
+        event.Skip()
+
+
 def _titulo(w, color=None):
     """Etiqueta de sección: color de acento y seminegrita, para jerarquía."""
     w.SetForegroundColour(color or _T.accent)
