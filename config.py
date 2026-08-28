@@ -13,6 +13,13 @@ from pathlib import Path
 import diagnostico
 
 
+LIBRERIAS_SILENCIADAS = (
+    "httpx", "httpcore", "hpack", "h2", "websockets", "googleapiclient",
+    "google_auth_httplib2", "google.auth", "urllib3", "asyncio", "comtypes",
+    "libloader", "PIL", "charset_normalizer",
+)
+
+
 # ── Identidad ─────────────────────────────────────────────────────────────────
 
 APP_NAME    = "YTChat TTS"
@@ -46,6 +53,10 @@ def app_dir() -> Path:
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+
+def librerias_silenciadas() -> tuple[str, ...]:
+    return LIBRERIAS_SILENCIADAS
+
 
 def configurar_logging(nivel_consola: int = logging.INFO) -> None:
     root = logging.getLogger()
@@ -85,8 +96,8 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
             logging.getLogger(__name__).warning(
                 "No se pudo crear ytchat-debug.log: %s", exc)
 
-    # httpx (dep de pytchat) ensucia la consola con cada petición HTTP.
-    for _lib in ("httpx", "httpcore", "httpcore.http11", "httpcore.connection", "hpack", "h2"):
+    # Las librerías de terceros no deben ocultar los diagnósticos propios.
+    for _lib in librerias_silenciadas():
         logging.getLogger(_lib).setLevel(logging.WARNING)
 
 

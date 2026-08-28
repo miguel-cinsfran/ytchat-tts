@@ -6,6 +6,7 @@ real del proyecto.
 
 import tempfile
 import unittest
+import logging
 from pathlib import Path
 from unittest import mock
 
@@ -23,6 +24,29 @@ class TestCargarConfiguracion(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
+        self._root = logging.getLogger()
+        self._handlers = self._root.handlers[:]
+        self._nivel_raiz = self._root.level
+        self._logger_websockets = logging.getLogger("websockets.client")
+        self._nivel_websockets = self._logger_websockets.level
+        self.addCleanup(self._restaurar_logging)
+
+    def _restaurar_logging(self):
+        self._root.handlers[:] = self._handlers
+        self._root.setLevel(self._nivel_raiz)
+        self._logger_websockets.setLevel(self._nivel_websockets)
+
+    def test_librerias_silenciadas_incluye_dependencias_nuevas(self):
+        silenciadas = config.librerias_silenciadas()
+        self.assertIn("websockets", silenciadas)
+        self.assertIn("googleapiclient", silenciadas)
+
+    def test_configurar_logging_bloquea_debug_de_websockets(self):
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+             mock.patch.object(config, "RotatingFileHandler"):
+            config.configurar_logging()
+        self.assertFalse(
+            logging.getLogger("websockets.client").isEnabledFor(logging.DEBUG))
 
     def test_regenera_si_falta(self):
         tmp = Path(self._tmp.name)
