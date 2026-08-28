@@ -19,7 +19,8 @@ def elemento(identificador, nombre, indice, x=32, y=882, ancho=460, alto=620,
 
 
 class DobleObs:
-    def __init__(self, elementos=None, entradas=(), escena="Escena", escenas=None):
+    def __init__(self, elementos=None, entradas=(), escena="Escena", escenas=None,
+                 silencios=None):
         self.elementos = list(elementos or ())
         self.entradas = list(entradas)
         self.escena = escena
@@ -27,6 +28,7 @@ class DobleObs:
         self.llamadas = []
         self.conectado = True
         self.siguiente_id = 20
+        self.silencios = dict(silencios or {})
 
     def conectar(self, parada=None):
         self.conectado = True
@@ -44,6 +46,17 @@ class DobleObs:
                 {"sceneName": escena} for escena in self.escenas]}}
         if tipo == "GetInputList":
             return {"responseData": {"inputs": list(self.entradas)}}
+        if tipo == "GetInputMute":
+            nombre = datos["inputName"]
+            if nombre not in self.silencios:
+                raise RuntimeError("No es una fuente de audio")
+            return {"responseData": {"inputMuted": self.silencios[nombre]}}
+        if tipo == "ToggleInputMute":
+            nombre = datos["inputName"]
+            if nombre not in self.silencios:
+                raise RuntimeError("No es una fuente de audio")
+            self.silencios[nombre] = not self.silencios[nombre]
+            return {"responseData": {"inputMuted": self.silencios[nombre]}}
         if tipo == "GetCurrentProgramScene":
             return {"responseData": {"currentProgramSceneName": self.escena}}
         if tipo == "GetVideoSettings":
@@ -134,6 +147,21 @@ class GestorPanelObsTest(unittest.TestCase):
     def test_fuentes_devuelve_vacio_sin_fuentes_o_escena(self):
         self.assertEqual(self.gestor(DobleObs([])).fuentes("Escena"), ())
         self.assertEqual(self.gestor(DobleObs(escenas=())).fuentes("Ausente"), ())
+
+    def test_fuentes_audio_descarta_las_que_obs_no_puede_silenciar(self):
+        doble = DobleObs(
+            entradas=({"inputName": "Mic/Aux"}, {"inputName": "Cámara"}),
+            silencios={"Mic/Aux": False})
+        self.assertEqual(self.gestor(doble).fuentes_audio(), ("Mic/Aux",))
+
+    def test_consulta_el_silencio_de_una_fuente_de_audio(self):
+        gestor = self.gestor(DobleObs(silencios={"Mic/Aux": True}))
+        self.assertTrue(gestor.silenciada("Mic/Aux"))
+
+    def test_alterna_el_silencio_y_devuelve_el_estado_resultante(self):
+        doble = DobleObs(silencios={"Mic/Aux": False})
+        self.assertTrue(self.gestor(doble).alternar_silencio("Mic/Aux"))
+        self.assertTrue(doble.silencios["Mic/Aux"])
 
     def test_instantanea_sin_solapes(self):
         snap = self.gestor(DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])).instantanea("Escena")

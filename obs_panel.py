@@ -40,6 +40,28 @@ class GestorPanelObs:
         datos = self._pedir("GetCurrentProgramScene", parada=parada)
         return datos.get("currentProgramSceneName", "")
 
+    def fuentes_audio(self, parada=None) -> tuple:
+        entradas = self._pedir("GetInputList", parada=parada).get("inputs", ())
+        fuentes = []
+        for entrada in entradas:
+            nombre = entrada.get("inputName", "")
+            if not nombre:
+                continue
+            try:
+                self.silenciada(nombre, parada)
+            except Exception:
+                continue
+            fuentes.append(nombre)
+        return tuple(fuentes)
+
+    def silenciada(self, fuente, parada=None) -> bool:
+        datos = self._pedir("GetInputMute", {"inputName": fuente}, parada)
+        return bool(datos.get("inputMuted", False))
+
+    def alternar_silencio(self, fuente, parada=None) -> bool:
+        datos = self._pedir("ToggleInputMute", {"inputName": fuente}, parada)
+        return bool(datos.get("inputMuted", False))
+
     def _elementos(self, escena, parada=None):
         datos = self._pedir("GetSceneItemList", {"sceneName": escena}, parada)
         return list(datos.get("sceneItems", ()))
