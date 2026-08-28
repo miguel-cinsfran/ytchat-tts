@@ -23,7 +23,9 @@ Para la fase 3 hace falta:  pip install pywinauto
 
 from __future__ import annotations
 
+import csv
 import os
+import subprocess
 import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +40,25 @@ _MODULOS_PUROS = ["config", "tts_worker", "montos", "sound_player",
                   "descargas"]
 _MODULOS_GUI = ["gui", "iconos", "gui_comentarios", "gui_preferencias",
                 "gui_historial", "reproductor", "gui_descargas"]
+
+_PREFIJO_TITULO = "YTChat TTS"
+_PROCESOS_APLICACION = {"python.exe", "pythonw.exe", "ytchattts.exe"}
+
+
+def ventana_es_de_la_aplicacion(titulo: str, nombre_proceso: str) -> bool:
+    """Indica si título y proceso identifican la ventana de la aplicación."""
+    return (titulo.startswith(_PREFIJO_TITULO)
+            and nombre_proceso.lower() in _PROCESOS_APLICACION)
+
+
+def _nombre_proceso(pid: int) -> str:
+    """Devuelve el nombre de imagen del proceso indicado en Windows."""
+    resultado = subprocess.run(
+        ["tasklist", "/fi", f"PID eq {pid}", "/fo", "csv", "/nh"],
+        capture_output=True, text=True, encoding="mbcs", errors="replace",
+        check=False)
+    filas = list(csv.reader(resultado.stdout.splitlines()))
+    return filas[0][0] if filas and filas[0] else ""
 
 
 def _titulo(texto):
@@ -124,6 +145,8 @@ def fase3_accesibilidad() -> bool:
                                            wait_for_idle=False)
     win_pid = None
     try:
+        procesos_descartados = []
+
         def _buscar_ventana():
             # Iteramos los top-level del escritorio y casamos por título. Es más
             # fiable con backend UIA que window(title_re=...).exists(), y nos da
@@ -131,8 +154,14 @@ def fase3_accesibilidad() -> bool:
             try:
                 for w in Desktop(backend="uia").windows():
                     try:
-                        if (w.window_text() or "").startswith("YTChat TTS"):
+                        titulo = w.window_text() or ""
+                        if not titulo.startswith(_PREFIJO_TITULO):
+                            continue
+                        nombre_proceso = _nombre_proceso(w.element_info.process_id)
+                        # El título no basta: una carpeta abierta puede llamarse igual.
+                        if ventana_es_de_la_aplicacion(titulo, nombre_proceso):
                             return w
+                        procesos_descartados.append(nombre_proceso or "desconocido")
                     except Exception:
                         continue
             except Exception:
@@ -148,7 +177,11 @@ def fase3_accesibilidad() -> bool:
                 break
             time.sleep(0.5)
         if win is None:
-            raise TimeoutError("la ventana 'YTChat TTS' no apareció en 25 s")
+            mensaje = "la ventana 'YTChat TTS' no apareció en 25 s"
+            if procesos_descartados:
+                mensaje += ("; se descartó una ventana con ese título del proceso "
+                            f"{procesos_descartados[-1]}")
+            raise TimeoutError(mensaje)
         win_pid = win.element_info.process_id
         print("  Ventana visible. Recorriendo controles...\n")
 
