@@ -146,6 +146,34 @@ class GeometriaTest(unittest.TestCase):
 
 class DescripcionTest(unittest.TestCase):
 
+    def test_describir_preparacion_sin_obs(self):
+        self.assertEqual(
+            obs.describir_preparacion(False, False, None, False),
+            "OBS no responde. En OBS, menú Herramientas, Configuración del "
+            "servidor WebSocket, activa el servidor.")
+
+    def test_describir_preparacion_falta_panel_y_fuente(self):
+        self.assertEqual(
+            obs.describir_preparacion(True, False, 8730, False),
+            "Falta preparar el panel. El panel de chat está apagado. "
+            "La fuente no está en esta escena.")
+
+    def test_describir_preparacion_falta_solo_el_panel(self):
+        self.assertEqual(
+            obs.describir_preparacion(True, False, 8730, True),
+            "Falta preparar el panel. El panel de chat está apagado.")
+
+    def test_describir_preparacion_falta_solo_la_fuente(self):
+        self.assertEqual(
+            obs.describir_preparacion(True, True, 8730, False),
+            "Falta preparar el panel. La fuente no está en esta escena.")
+
+    def test_describir_preparacion_lista(self):
+        self.assertEqual(
+            obs.describir_preparacion(True, True, 8730, True),
+            "Panel de chat encendido en el puerto 8730. "
+            "La fuente está en esta escena.")
+
     def test_describir_fuente_en_corto_y_largo(self):
         snap = obs.SnapshotPanel(conectado=True, escena="Juego", ancho=400, alto=300,
                                  lienzo_ancho=1600, lienzo_alto=900)

@@ -215,3 +215,18 @@ def describir_fuente(nombre, snap, componentes, modo="corto") -> str:
     if modo == "largo":
         return f"Fuente: {nombre}" + (f"\n{texto}" if texto else "")
     return f"{nombre}." + (f" {texto}" if texto else "")
+
+
+def describir_preparacion(obs_responde, panel_encendido, puerto, fuente_en_escena):
+    if not obs_responde:
+        return ("OBS no responde. En OBS, menú Herramientas, Configuración del "
+                "servidor WebSocket, activa el servidor.")
+    if panel_encendido and fuente_en_escena:
+        return (f"Panel de chat encendido en el puerto {puerto}. "
+                "La fuente está en esta escena.")
+    partes = []
+    if not panel_encendido:
+        partes.append("El panel de chat está apagado.")
+    if not fuente_en_escena:
+        partes.append("La fuente no está en esta escena.")
+    return "Falta preparar el panel. " + " ".join(partes)
