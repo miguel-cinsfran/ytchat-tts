@@ -79,6 +79,8 @@ class TransmisionDialog(wx.Dialog):
         self.cho_escena = wx.Choice(panel, name="Escena")
         nombre_accesible(self.cho_escena, "Escena")
         caja.Add(self.cho_escena, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self.btn_poner_al_aire = self._boton(panel, "Poner al &aire", "Poner al aire")
+        caja.Add(self.btn_poner_al_aire, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.cho_fuente = wx.Choice(panel, name="Fuente")
         nombre_accesible(self.cho_fuente, "Fuente")
         caja.Add(self.cho_fuente, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
@@ -119,7 +121,8 @@ class TransmisionDialog(wx.Dialog):
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         panel.SetSizer(caja)
-        self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena, self.cho_fuente, self.cho_posicion,
+        self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena,
+                          self.btn_poner_al_aire, self.cho_fuente, self.cho_posicion,
                           self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
                           self.btn_restaurar, self.btn_transmitir, self.btn_grabar,
@@ -127,6 +130,7 @@ class TransmisionDialog(wx.Dialog):
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.btn_preparar.Bind(wx.EVT_BUTTON, self._preparar)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
+        self.btn_poner_al_aire.Bind(wx.EVT_BUTTON, self._poner_al_aire)
         self.cho_fuente.Bind(wx.EVT_CHOICE, self._cambiar_fuente)
         self.cho_posicion.Bind(wx.EVT_CHOICE, self._colocar)
         self.btn_tamano.Bind(wx.EVT_BUTTON, self._tamano)
@@ -208,12 +212,12 @@ class TransmisionDialog(wx.Dialog):
         fuentes = self._gestor.fuentes(escena)
         fuente = NOMBRE_FUENTE if NOMBRE_FUENTE in fuentes else (fuentes[0] if fuentes else "")
         snap = self._gestor.instantanea(escena, fuente=fuente)
-        return (escenas, escena, fuentes, fuente, snap,
+        return (escenas, escena, al_aire, fuentes, fuente, snap,
                 self._gestor.transformacion(escena, fuente=fuente),
                 self._gestor.estado_transmision(), self._gestor.estado_grabacion())
 
     def _inicial_cargada(self, datos):
-        escenas, escena, fuentes, fuente, snap, transformacion, transmision, grabacion = datos
+        escenas, escena, al_aire, fuentes, fuente, snap, transformacion, transmision, grabacion = datos
         self.cho_escena.Set(list(escenas))
         if escena:
             self.cho_escena.SetStringSelection(escena)
@@ -222,8 +226,8 @@ class TransmisionDialog(wx.Dialog):
         anunciar(obs_disposicion.describir_preparacion(
             snap.conectado, overlay_servidor.esta_encendido(),
             overlay_servidor.puerto_actual(), NOMBRE_FUENTE in fuentes))
-        self._mostrar_estados(transmision, grabacion)
-        self._anunciar_estados(transmision, grabacion)
+        self._mostrar_estados(transmision, grabacion, al_aire)
+        self._anunciar_estados(transmision, grabacion, al_aire)
 
     def _mostrar_snap(self, snap):
         self._ultimo_snap = snap
@@ -271,7 +275,7 @@ class TransmisionDialog(wx.Dialog):
         boton.SetLabel(etiqueta)
         boton.SetName(nombre)
 
-    def _mostrar_estados(self, transmision, grabacion):
+    def _mostrar_estados(self, transmision, grabacion, al_aire):
         activa = bool(transmision.get("outputActive", False))
         self._actualizar_boton(
             self.btn_transmitir,
@@ -283,6 +287,7 @@ class TransmisionDialog(wx.Dialog):
             "&Detener la grabacion" if grabando else "&Grabar",
             "Detener la grabacion" if grabando else "Grabar")
         self.btn_pausar_grabacion.Enable(grabando)
+        self.txt_estado.AppendText(f"\n{self._frase_escena_al_aire(al_aire)}")
 
     @staticmethod
     def _frase_transmision(estado):
@@ -296,23 +301,35 @@ class TransmisionDialog(wx.Dialog):
             estado.get("outputActive", False), estado.get("outputPaused", False),
             estado.get("outputTimecode", ""))
 
-    def _anunciar_estados(self, transmision, grabacion):
+    @staticmethod
+    def _frase_escena_al_aire(escena):
+        return obs_estado.frase_escena_al_aire(escena)
+
+    def _anunciar_estados(self, transmision, grabacion, al_aire):
         anunciar(self._frase_transmision(transmision))
         anunciar(self._frase_grabacion(grabacion))
+        anunciar(self._frase_escena_al_aire(al_aire))
 
     def _actualizar(self, event):
         self._en_hilo(self._leer_estados, self._estados_leidos)
 
     def _leer_estados(self):
-        return (self._leer(), self._gestor.estado_transmision(),
+        return (self._leer(), self._gestor.escena_al_aire(), self._gestor.estado_transmision(),
                 self._gestor.estado_grabacion())
 
     def _estados_leidos(self, datos):
-        snap, transmision, grabacion = datos
+        snap, al_aire, transmision, grabacion = datos
         self._mostrar_snap(snap)
-        self._mostrar_estados(transmision, grabacion)
+        self._mostrar_estados(transmision, grabacion, al_aire)
         self._anunciar_snap(snap)
-        self._anunciar_estados(transmision, grabacion)
+        self._anunciar_estados(transmision, grabacion, al_aire)
+
+    def _poner_al_aire(self, event):
+        self._en_hilo(lambda: self._gestor.poner_escena_al_aire(self._escena()),
+                      self._escena_puesta_al_aire)
+
+    def _escena_puesta_al_aire(self, escena):
+        anunciar(self._frase_escena_al_aire(escena))
 
     def _transmitir(self, event):
         self._en_hilo(self._gestor.alternar_transmision, self._transmision_alternada)

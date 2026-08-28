@@ -32,6 +32,7 @@ class GestorFalso:
         self.transmitiendo = False
         self.grabando = False
         self.grabacion_en_pausa = False
+        self.escena_resultante = "Principal"
 
     def conectar(self):
         if self.fallo:
@@ -42,7 +43,10 @@ class GestorFalso:
     @property
     def conectado(self): return True
     def escenas(self): return ("Principal", "Juego")
-    def escena_al_aire(self): return "Principal"
+    def escena_al_aire(self): return self.escena_resultante
+    def poner_escena_al_aire(self, escena):
+        self.llamadas.append(("poner_escena_al_aire", escena))
+        return self.escena_resultante
     def fuentes(self, escena):
         return {"Principal": tuple(fuente for fuente in ("Cámara", "Chat YTChat", "Juego")
                                     if fuente != "Chat YTChat" or self.tiene_panel),
@@ -166,6 +170,7 @@ class TestTransmisionDialog(unittest.TestCase):
             dialogo = gui_transmision.TransmisionDialog(None, gestor)
         self.addCleanup(dialogo.Destroy)
         self.assertIn("Falta preparar el panel. El panel de chat está apagado.", self.anuncios)
+        self.assertIn("Al aire: Principal", self.anuncios)
         encender.assert_not_called()
 
     def test_preparar_panel_enciende_y_crea_solo_lo_necesario(self):
@@ -205,6 +210,19 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo._cambiar_escena(Evento())
         self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Captura"])
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Captura")
+        self.assertNotIn(("poner_escena_al_aire", "Juego"), self.gestor.llamadas)
+
+    def test_poner_al_aire_usa_la_escena_elegida_y_anuncia_la_devuelta(self):
+        self.dialogo.cho_escena.SetStringSelection("Juego")
+        self.gestor.escena_resultante = "Principal"
+        self.dialogo._poner_al_aire(Evento())
+        self.assertIn(("poner_escena_al_aire", "Juego"), self.gestor.llamadas)
+        self.assertEqual(self.anuncios[-1], "Al aire: Principal")
+
+    def test_boton_poner_al_aire_sigue_a_escena_en_las_acciones(self):
+        indice = self.dialogo._acciones.index(self.dialogo.cho_escena)
+        self.assertIs(self.dialogo._acciones[indice + 1], self.dialogo.btn_poner_al_aire)
+        self.assertEqual(self.dialogo.btn_poner_al_aire.GetName(), "Poner al aire")
 
     def test_leer_y_ajuste_fino_piden_la_instantanea_de_la_fuente_elegida(self):
         self.dialogo.cho_fuente.SetSelection(0)
