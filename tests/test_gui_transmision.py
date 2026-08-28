@@ -29,6 +29,9 @@ class GestorFalso:
         self.snap_nuevo = self.snap
         self.transformacion_inicial = {"positionX": 32, "positionY": 18, "alignment": 5}
         self.tiene_panel = True
+        self.transmitiendo = False
+        self.grabando = False
+        self.grabacion_en_pausa = False
 
     def conectar(self):
         if self.fallo:
@@ -67,6 +70,24 @@ class GestorFalso:
         self.instantaneas.append((args, kwargs.get("fuente")))
         return self.snap
     def captura_de_escena(self, *args): self.llamadas.append(("captura_de_escena",) + args)
+    def estado_transmision(self):
+        return {"outputActive": self.transmitiendo, "outputDuration": 61,
+                "outputSkippedFrames": 0, "outputTotalFrames": 100}
+    def estado_grabacion(self):
+        return {"outputActive": self.grabando, "outputPaused": self.grabacion_en_pausa,
+                "outputTimecode": "00:01:02.000"}
+    def alternar_transmision(self):
+        self.transmitiendo = not self.transmitiendo
+        self.llamadas.append(("alternar_transmision",))
+        return self.transmitiendo
+    def alternar_grabacion(self):
+        self.grabando = not self.grabando
+        self.llamadas.append(("alternar_grabacion",))
+        return self.grabando
+    def alternar_pausa_grabacion(self):
+        self.grabacion_en_pausa = not self.grabacion_en_pausa
+        self.llamadas.append(("alternar_pausa_grabacion",))
+        return self.grabacion_en_pausa
 
 
 class HiloInmediato:
@@ -144,7 +165,7 @@ class TestTransmisionDialog(unittest.TestCase):
              mock.patch.object(gui_transmision.overlay_servidor, "encender", encender):
             dialogo = gui_transmision.TransmisionDialog(None, gestor)
         self.addCleanup(dialogo.Destroy)
-        self.assertEqual(self.anuncios[-1], "Falta preparar el panel. El panel de chat está apagado.")
+        self.assertIn("Falta preparar el panel. El panel de chat está apagado.", self.anuncios)
         encender.assert_not_called()
 
     def test_preparar_panel_enciende_y_crea_solo_lo_necesario(self):
@@ -348,6 +369,31 @@ class TestTransmisionDialog(unittest.TestCase):
     def test_ajuste_fino_declara_su_categoria(self):
         self.dialogo._anunciar_ajuste(self.gestor.snap)
         self.assertEqual(self.categorias[-1], "ajuste")
+
+    def test_botones_de_transmision_y_grabacion_llaman_al_gestor_y_anuncian(self):
+        self.dialogo._transmitir(Evento())
+        self.dialogo._grabar(Evento())
+        self.dialogo._pausar_grabacion(Evento())
+        self.assertEqual(self.gestor.llamadas[-3:], [
+            ("alternar_transmision",), ("alternar_grabacion",),
+            ("alternar_pausa_grabacion",)])
+        self.assertEqual(self.anuncios[-3:], ["Transmisión iniciada", "Grabación iniciada",
+                                               "Grabación en pausa"])
+
+    def test_actualizar_estado_cambia_etiquetas_nombres_y_pausa(self):
+        self.gestor.transmitiendo = True
+        self.gestor.grabando = True
+        self.dialogo._actualizar(Evento())
+        self.assertEqual(self.dialogo.btn_transmitir.GetLabel(), "&Detener la transmision")
+        self.assertEqual(self.dialogo.btn_transmitir.GetName(), "Detener la transmision")
+        self.assertEqual(self.dialogo.btn_grabar.GetLabel(), "&Detener la grabacion")
+        self.assertEqual(self.dialogo.btn_grabar.GetName(), "Detener la grabacion")
+        self.assertTrue(self.dialogo.btn_pausar_grabacion.IsEnabled())
+        self.assertIn("Transmitiendo desde hace 1 min", self.anuncios)
+        self.assertIn("Grabando, 00:01:02", self.anuncios)
+
+    def test_pausa_esta_deshabilitada_si_no_se_esta_grabando(self):
+        self.assertFalse(self.dialogo.btn_pausar_grabacion.IsEnabled())
 
 
 if __name__ == "__main__":

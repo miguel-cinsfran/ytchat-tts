@@ -9,6 +9,7 @@ import wx
 import ajuste_fino
 import obs_cliente
 import obs_disposicion
+import obs_estado
 import overlay_servidor
 from gui import _T, anunciar, nombre_accesible
 from obs_panel import GestorPanelObs, NOMBRE_FUENTE
@@ -107,8 +108,13 @@ class TransmisionDialog(wx.Dialog):
         self.btn_captura = self._boton(panel, "&Guardar una captura de la escena…", "GuardarCaptura")
         self.btn_lienzo = self._boton(panel, "&Qué es el lienzo", "QueEsElLienzo")
         self.btn_restaurar = self._boton(panel, "&Restablecer", "RestablecerTransmision")
+        self.btn_transmitir = self._boton(panel, "&Transmitir", "Transmitir")
+        self.btn_grabar = self._boton(panel, "&Grabar", "Grabar")
+        self.btn_pausar_grabacion = self._boton(
+            panel, "Pausar la gra&bacion", "Pausar la grabacion")
         for boton in (self.btn_frente, self.btn_ajuste, self.btn_captura,
-                      self.btn_lienzo, self.btn_restaurar):
+                      self.btn_lienzo, self.btn_restaurar, self.btn_transmitir,
+                      self.btn_grabar, self.btn_pausar_grabacion):
             caja.Add(boton, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
@@ -116,7 +122,8 @@ class TransmisionDialog(wx.Dialog):
         self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena, self.cho_fuente, self.cho_posicion,
                           self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
-                          self.btn_restaurar)
+                          self.btn_restaurar, self.btn_transmitir, self.btn_grabar,
+                          self.btn_pausar_grabacion)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.btn_preparar.Bind(wx.EVT_BUTTON, self._preparar)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
@@ -131,6 +138,9 @@ class TransmisionDialog(wx.Dialog):
         self.btn_captura.Bind(wx.EVT_BUTTON, self._captura)
         self.btn_lienzo.Bind(wx.EVT_BUTTON, self._lienzo)
         self.btn_restaurar.Bind(wx.EVT_BUTTON, self._restaurar)
+        self.btn_transmitir.Bind(wx.EVT_BUTTON, self._transmitir)
+        self.btn_grabar.Bind(wx.EVT_BUTTON, self._grabar)
+        self.btn_pausar_grabacion.Bind(wx.EVT_BUTTON, self._pausar_grabacion)
         self.btn_cerrar.Bind(wx.EVT_BUTTON, self._cerrar)
         self.Bind(wx.EVT_CLOSE, self._cerrar)
         self.Bind(wx.EVT_CHAR_HOOK, self._tecla_ajuste)
@@ -198,10 +208,12 @@ class TransmisionDialog(wx.Dialog):
         fuentes = self._gestor.fuentes(escena)
         fuente = NOMBRE_FUENTE if NOMBRE_FUENTE in fuentes else (fuentes[0] if fuentes else "")
         snap = self._gestor.instantanea(escena, fuente=fuente)
-        return escenas, escena, fuentes, fuente, snap, self._gestor.transformacion(escena, fuente=fuente)
+        return (escenas, escena, fuentes, fuente, snap,
+                self._gestor.transformacion(escena, fuente=fuente),
+                self._gestor.estado_transmision(), self._gestor.estado_grabacion())
 
     def _inicial_cargada(self, datos):
-        escenas, escena, fuentes, fuente, snap, transformacion = datos
+        escenas, escena, fuentes, fuente, snap, transformacion, transmision, grabacion = datos
         self.cho_escena.Set(list(escenas))
         if escena:
             self.cho_escena.SetStringSelection(escena)
@@ -210,6 +222,8 @@ class TransmisionDialog(wx.Dialog):
         anunciar(obs_disposicion.describir_preparacion(
             snap.conectado, overlay_servidor.esta_encendido(),
             overlay_servidor.puerto_actual(), NOMBRE_FUENTE in fuentes))
+        self._mostrar_estados(transmision, grabacion)
+        self._anunciar_estados(transmision, grabacion)
 
     def _mostrar_snap(self, snap):
         self._ultimo_snap = snap
@@ -253,8 +267,83 @@ class TransmisionDialog(wx.Dialog):
         anunciar(obs_disposicion.describir_fuente(
             self._fuente(), snap, obs_disposicion.ACTIVOS_DEFECTO))
 
+    def _actualizar_boton(self, boton, etiqueta, nombre):
+        boton.SetLabel(etiqueta)
+        boton.SetName(nombre)
+
+    def _mostrar_estados(self, transmision, grabacion):
+        activa = bool(transmision.get("outputActive", False))
+        self._actualizar_boton(
+            self.btn_transmitir,
+            "&Detener la transmision" if activa else "&Transmitir",
+            "Detener la transmision" if activa else "Transmitir")
+        grabando = bool(grabacion.get("outputActive", False))
+        self._actualizar_boton(
+            self.btn_grabar,
+            "&Detener la grabacion" if grabando else "&Grabar",
+            "Detener la grabacion" if grabando else "Grabar")
+        self.btn_pausar_grabacion.Enable(grabando)
+
+    @staticmethod
+    def _frase_transmision(estado):
+        return obs_estado.frase_transmision(
+            estado.get("outputActive", False), estado.get("outputDuration", 0),
+            estado.get("outputSkippedFrames", 0), estado.get("outputTotalFrames", 0))
+
+    @staticmethod
+    def _frase_grabacion(estado):
+        return obs_estado.frase_grabacion(
+            estado.get("outputActive", False), estado.get("outputPaused", False),
+            estado.get("outputTimecode", ""))
+
+    def _anunciar_estados(self, transmision, grabacion):
+        anunciar(self._frase_transmision(transmision))
+        anunciar(self._frase_grabacion(grabacion))
+
     def _actualizar(self, event):
-        self._en_hilo(self._leer, self._anunciar_snap)
+        self._en_hilo(self._leer_estados, self._estados_leidos)
+
+    def _leer_estados(self):
+        return (self._leer(), self._gestor.estado_transmision(),
+                self._gestor.estado_grabacion())
+
+    def _estados_leidos(self, datos):
+        snap, transmision, grabacion = datos
+        self._mostrar_snap(snap)
+        self._mostrar_estados(transmision, grabacion)
+        self._anunciar_snap(snap)
+        self._anunciar_estados(transmision, grabacion)
+
+    def _transmitir(self, event):
+        self._en_hilo(self._gestor.alternar_transmision, self._transmision_alternada)
+
+    def _transmision_alternada(self, activa):
+        self._actualizar_boton(
+            self.btn_transmitir,
+            "&Detener la transmision" if activa else "&Transmitir",
+            "Detener la transmision" if activa else "Transmitir")
+        accion = "transmision_iniciada" if activa else "transmision_detenida"
+        anunciar(obs_estado.frase_resultado(accion))
+
+    def _grabar(self, event):
+        self._en_hilo(self._gestor.alternar_grabacion, self._grabacion_alternada)
+
+    def _grabacion_alternada(self, activa):
+        self._actualizar_boton(
+            self.btn_grabar,
+            "&Detener la grabacion" if activa else "&Grabar",
+            "Detener la grabacion" if activa else "Grabar")
+        self.btn_pausar_grabacion.Enable(activa)
+        accion = "grabacion_iniciada" if activa else "grabacion_detenida"
+        anunciar(obs_estado.frase_resultado(accion))
+
+    def _pausar_grabacion(self, event):
+        self._en_hilo(self._gestor.alternar_pausa_grabacion,
+                      self._pausa_grabacion_alternada)
+
+    def _pausa_grabacion_alternada(self, en_pausa):
+        accion = "grabacion_en_pausa" if en_pausa else "grabacion_reanudada"
+        anunciar(obs_estado.frase_resultado(accion))
 
     def _preparar(self, event):
         self._en_hilo(self._preparar_panel, self._panel_preparado)
