@@ -406,6 +406,7 @@ class YTChatFrame(wx.Frame):
         self._sc_totales: dict[str, float] = {}
         self._canal_por_autor: dict[str, str] = {}
         self._live_chat_id = ""
+        self._causa_sin_chat = ""
         self._mensajes_programados = programados.cargar(
             app_dir() / "mensajes_programados.json")
         self._programados_reloj_iniciado = False
@@ -475,16 +476,7 @@ class YTChatFrame(wx.Frame):
         mi_com  = m.Append(wx.ID_ANY, "Ir a Co&mentarios")
         mi_rep  = m.Append(wx.ID_ANY, "Ir al &Reproductor")
         m.AppendSeparator()
-        # Submenú de filtro (radio).
-        sub_f = wx.Menu()
-        self.fi_items = []
-        for i, (nombre, _) in enumerate(FILTROS):
-            it = sub_f.AppendRadioItem(wx.ID_ANY, nombre)
-            self.fi_items.append(it)
-            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_filtro(idx), it)
-        self._mi_filtro_sub = m.AppendSubMenu(sub_f, "&Filtro de mensajes")
-        m.AppendSeparator()
-        mi_estado = m.Append(wx.ID_ANY, "&Anunciar estado" + self._accel("anunciar_estado"))
+        mi_estado = m.Append(wx.ID_ANY, "Anunciar &estado" + self._accel("anunciar_estado"))
         mb.Append(m, "&Ver")
         self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(+1), mi_sig)
         self.Bind(wx.EVT_MENU, lambda e: self._navegar_region(-1), mi_ant)
@@ -497,6 +489,22 @@ class YTChatFrame(wx.Frame):
         # De «Ver», solo tiene sentido con conexión la navegación por paneles;
         # «Ir a conexión (URL)» y «Anunciar estado» quedan siempre disponibles.
         self._mi_ver_conexion = [mi_sig, mi_ant, mi_lista, mi_chat, mi_com, mi_rep]
+
+        # Chat
+        m = wx.Menu()
+        self.mi_enviar_live = m.Append(
+            wx.ID_ANY,
+            "&Enviar mensaje al chat del directo (solo YouTube)…" + self._accel("enviar_chat"))
+        m.AppendSeparator()
+        sub_f = wx.Menu()
+        self.fi_items = []
+        for i, (nombre, _) in enumerate(FILTROS):
+            it = sub_f.AppendRadioItem(wx.ID_ANY, nombre)
+            self.fi_items.append(it)
+            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_filtro(idx), it)
+        self._mi_filtro_sub = m.AppendSubMenu(sub_f, "&Filtro de mensajes")
+        mb.Append(m, "&Chat")
+        self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
 
         # Voz (TTS)
         m = wx.Menu()
@@ -513,7 +521,7 @@ class YTChatFrame(wx.Frame):
         mi_volM   = m.Append(wx.ID_ANY, "&Subir volumen de la voz" + self._accel("volumen_mas"))
         m.AppendSeparator()
         self.mi_sil_lectura = m.AppendCheckItem(
-            wx.ID_ANY, "Silenciar &lectura TTS" + self._accel("silenciar_lectura"))
+            wx.ID_ANY, "S&ilenciar lectura TTS" + self._accel("silenciar_lectura"))
         self.mi_sil_sonidos = m.AppendCheckItem(
             wx.ID_ANY, "Silenciar s&onidos" + self._accel("silenciar_sonidos"))
         m.AppendSeparator()
@@ -554,7 +562,7 @@ class YTChatFrame(wx.Frame):
         mi_rep_volm  = m.Append(wx.ID_ANY, "&Bajar volumen del reproductor" + self._accel("rep_vol_menos"))
         mi_rep_volM  = m.Append(wx.ID_ANY, "S&ubir volumen del reproductor" + self._accel("rep_vol_mas"))
         m.AppendSeparator()
-        self.mi_rep_botones = m.AppendCheckItem(wx.ID_ANY, "Mostrar &botones en pantalla")
+        self.mi_rep_botones = m.AppendCheckItem(wx.ID_ANY, "Mostrar botones en &pantalla")
         self.mi_rep_botones.Check(bool(self._config.get("mostrar_botones_reproductor", False)))
         self.Bind(wx.EVT_MENU, lambda e: self._toggle_botones_rep(), self.mi_rep_botones)
         mb.Append(m, "&Reproductor")
@@ -570,35 +578,31 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", -20), mi_rep_volm)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", +20), mi_rep_volM)
 
+        # Transmisión
+        m = wx.Menu()
+        self.mi_transmision = m.Append(
+            wx.ID_ANY, "&Panel de transmisión…" + self._accel("abrir_transmision"))
+        self.mi_obs_micro = m.Append(
+            wx.ID_ANY, "Silenciar el &micrófono de OBS" + self._accel("obs_micro"))
+        mb.Append(m, "&Transmisión")
+        self.Bind(wx.EVT_MENU, self._on_transmision, self.mi_transmision)
+        self.Bind(wx.EVT_MENU, self._on_obs_micro, self.mi_obs_micro)
+
         # Herramientas
         m = wx.Menu()
-        mi_pref = m.Append(
-            wx.ID_ANY, "&Preferencias…" + self._accel("abrir_preferencias"))
-        m.AppendSeparator()
-        self.mi_enviar_live = m.Append(
-            wx.ID_ANY,
-            "&Enviar mensaje al chat del directo (solo YouTube)…" + self._accel("enviar_chat"))
-        m.AppendSeparator()
         # Gestor de descargas: SIEMPRE habilitado (funciona sin conexión de
         # chat, abriendo una URL pegada a mano). Ctrl+S es el atajo.
         self.mi_descargas = m.Append(
             wx.ID_ANY, "Gestor de &descargas…" + self._accel("descargas_abrir"))
         self.mi_actualizar_ytdlp = m.Append(wx.ID_ANY, "&Actualizar yt-dlp")
-        self.mi_overlay = m.AppendCheckItem(wx.ID_ANY, "&Panel de chat para transmitir")
-        self.mi_overlay.Check(bool(self._config.get("overlay_activo", False)))
-        self.mi_transmision = m.Append(
-            wx.ID_ANY, "&Transmisión…" + self._accel("abrir_transmision"))
-        self.mi_obs_micro = m.Append(
-            wx.ID_ANY, "Silenciar el &micrófono de OBS" + self._accel("obs_micro"))
+        m.AppendSeparator()
+        mi_pref = m.Append(
+            wx.ID_ANY, "&Preferencias…" + self._accel("abrir_preferencias"))
         mb.Append(m, "&Herramientas")
-        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
-        self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
         self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(), self.mi_descargas)
         self.Bind(wx.EVT_MENU, self._on_actualizar_ytdlp,
                   self.mi_actualizar_ytdlp)
-        self.Bind(wx.EVT_MENU, self._on_overlay, self.mi_overlay)
-        self.Bind(wx.EVT_MENU, self._on_transmision, self.mi_transmision)
-        self.Bind(wx.EVT_MENU, self._on_obs_micro, self.mi_obs_micro)
+        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
 
         # Ayuda
         m = wx.Menu()
@@ -615,26 +619,23 @@ class YTChatFrame(wx.Frame):
 
         self.SetMenuBar(mb)
 
-    def _on_overlay(self, event):
-        self._cambiar_overlay(event.IsChecked())
-
     def _cambiar_overlay(self, encender):
         puerto = self._config.get("overlay_puerto", 8730)
         if encender:
             try:
                 overlay_servidor.encender(puerto)
             except overlay_servidor.OverlayPuertoOcupadoError:
-                self.mi_overlay.Check(False)
                 anunciar(f"No se pudo activar el panel, el puerto {puerto} está ocupado")
-                return
+                return False
             self._config["overlay_activo"] = True
             guardar_opcion(RUTA_CONFIG, "overlay", "activo", "true")
             anunciar(f"Panel de chat activo en el puerto {puerto}")
-            return
+            return True
         overlay_servidor.apagar()
         self._config["overlay_activo"] = False
         guardar_opcion(RUTA_CONFIG, "overlay", "activo", "false")
         anunciar("Panel de chat apagado")
+        return False
 
     def _on_actualizar_ytdlp(self, event):
         anunciar("Buscando la última versión de yt-dlp")
@@ -1392,7 +1393,7 @@ class YTChatFrame(wx.Frame):
             motivo = redaccion.motivo_chat(
                 self._conectado, self._es_tiktok, self._tipo_video == deteccion.LIVE,
                 youtube_api.google_disponible(), self._sesion_api_disponible(),
-                bool(self._live_chat_id), getattr(self, "_causa_sin_chat", ""))
+                bool(self._live_chat_id), self._causa_sin_chat)
             self._panel_redactar.establecer_motivo(motivo)
         except Exception:
             pass
