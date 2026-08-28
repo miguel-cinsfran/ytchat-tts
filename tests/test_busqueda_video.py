@@ -2,6 +2,7 @@
 
 import unittest
 from unittest import mock
+from types import SimpleNamespace
 
 from busqueda_video import (
     TOLERANCIA_DESTINO_MS, accion_play_pausa, destino_acumulado,
@@ -80,6 +81,29 @@ class TestCableadoBusqueda(unittest.TestCase):
 
         self.assertEqual(panel._player.set_time.call_args_list,
                          [mock.call(20_000), mock.call(30_000)])
+
+
+class TestCableadoPlayPausa(unittest.TestCase):
+
+    def test_buffering_pausa_sin_recargar_el_video(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_state.return_value = SimpleNamespace(name="Buffering")
+        panel._video_id = "video-cargado"
+        panel._url_flujo = ""
+        panel._intencion_reproducir = True
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._mostrar_pausa = mock.Mock()
+        panel._timer = mock.Mock()
+        panel.cargar = mock.Mock()
+
+        with mock.patch.object(reproductor, "anunciar"):
+            panel._toggle_play()
+
+        panel._player.set_pause.assert_called_once_with(1)
+        panel.cargar.assert_not_called()
 
 
 if __name__ == "__main__":

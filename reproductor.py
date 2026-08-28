@@ -25,8 +25,8 @@ import wx
 
 import config as _cfg
 from busqueda_video import (
-    TOLERANCIA_DESTINO_MS, destino_acumulado, destino_alcanzado,
-    posicion_a_mostrar,
+    TOLERANCIA_DESTINO_MS, accion_play_pausa, destino_acumulado,
+    destino_alcanzado, posicion_a_mostrar,
 )
 import iconos
 import diagnostico
@@ -933,12 +933,17 @@ class ReproductorPanel(wx.Panel):
                 anunciar(aviso)
             return
         st = self._player.get_state()
-        if st == _vlc.State.Playing:
+        estado = getattr(st, "name", str(st)).rsplit(".", 1)[-1].lower()
+        accion = accion_play_pausa(
+            estado, bool(self._video_id or self._url_flujo),
+            getattr(self, "_intencion_reproducir", False))
+        if accion == "pausar":
             self._player.set_pause(1)
+            self._intencion_reproducir = False
             self._mostrar_pausa(False)
             self._timer.Stop()
             anunciar("Pausa")
-        elif st == _vlc.State.Paused:
+        elif accion == "reanudar":
             # En un directo de TikTok (flujo en vivo, sin línea de tiempo)
             # «reanudar» dejaría el vídeo retrasado; recargamos para volver al
             # momento actual del directo.
@@ -946,10 +951,11 @@ class ReproductorPanel(wx.Panel):
                 self._reproducir_flujo()
             else:
                 self._player.set_pause(0)
+                self._intencion_reproducir = True
                 self._mostrar_pausa(True)
                 self._timer.Start(500)
                 anunciar("Reproduciendo")
-        else:
+        elif accion == "cargar":
             if self._video_id:
                 self.cargar(reproducir=True)
             elif self._url_flujo:
