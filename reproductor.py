@@ -24,6 +24,10 @@ import time
 import wx
 
 import config as _cfg
+from busqueda_video import (
+    TOLERANCIA_DESTINO_MS, destino_acumulado, destino_alcanzado,
+    posicion_a_mostrar,
+)
 import iconos
 import diagnostico
 import progreso
@@ -388,6 +392,8 @@ class ReproductorPanel(wx.Panel):
         self._listo = disponible()
         self._pos_ms = 0
         self._dur_ms = 0
+        self._destino_pendiente = None
+        self._intencion_reproducir = False
         self._vol = 80
         self._muted = False
         # Botones de control ocultables (opción minimalista). El estado se guarda
@@ -769,6 +775,8 @@ class ReproductorPanel(wx.Panel):
         if self._cargando:
             anunciar("Cargando vídeo")
             return
+        self._destino_pendiente = None
+        self._intencion_reproducir = reproducir
         self._cargando = True
         self.lbl_estado.SetLabel("Cargando vídeo…")
         anunciar("Cargando vídeo")
@@ -851,6 +859,8 @@ class ReproductorPanel(wx.Panel):
         if not self._url_flujo or not self._asegurar_player():
             anunciar("El reproductor no está disponible.")
             return
+        self._destino_pendiente = None
+        self._intencion_reproducir = reproducir
         try:
             media = self._inst.media_new(self._url_flujo)
             for opt in _MEDIA_OPTS:
@@ -956,6 +966,8 @@ class ReproductorPanel(wx.Panel):
         # reproducción al volver por wx.CallAfter.
         self._gen += 1
         self._cargando = False
+        self._destino_pendiente = None
+        self._intencion_reproducir = False
         self._timer_progreso.Stop()
         if self._player is not None:
             if en_segundo_plano:
@@ -1000,9 +1012,12 @@ class ReproductorPanel(wx.Panel):
         if dur <= 0:
             self._aviso_sin_barra()
             return
-        nueva = min(max(0, self._player.get_time() + delta_ms), dur)
-        self._player.set_time(int(nueva))
-        self._fijar_tiempo(nueva, dur, mover_slider=True, anunciar_t=True)
+        # El salto anterior puede seguir en vuelo: acumulamos sobre su destino.
+        destino = destino_acumulado(
+            self._destino_pendiente, self._player.get_time(), delta_ms, dur)
+        self._player.set_time(destino)
+        self._destino_pendiente = destino
+        self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
 
     def _toggle_mute(self):
         if self._player is None:
@@ -1076,8 +1091,10 @@ class ReproductorPanel(wx.Panel):
         dur = self._player.get_length()
         if dur <= 0:
             return
-        destino = int(self.sld_pos.GetValue() / 1000.0 * dur)
+        destino = destino_acumulado(
+            None, 0, int(self.sld_pos.GetValue() / 1000.0 * dur), dur)
         self._player.set_time(destino)
+        self._destino_pendiente = destino
         self._fijar_tiempo(destino, dur, mover_slider=False, anunciar_t=False)
 
     def _on_pos_key(self, event):
@@ -1103,8 +1120,9 @@ class ReproductorPanel(wx.Panel):
         if dur <= 0:
             self._aviso_sin_barra()
             return
-        destino = int(dur * pct / 100)
+        destino = destino_acumulado(None, 0, int(dur * pct / 100), dur)
         self._player.set_time(destino)
+        self._destino_pendiente = destino
         self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
 
     def _on_vol_key(self, event):
@@ -1150,6 +1168,10 @@ class ReproductorPanel(wx.Panel):
                 self._player.audio_set_volume(self._vol)
         dur = self._player.get_length()
         pos = self._player.get_time()
+        if destino_alcanzado(
+                self._destino_pendiente, pos, TOLERANCIA_DESTINO_MS):
+            self._destino_pendiente = None
+        pos = posicion_a_mostrar(self._destino_pendiente, pos)
         mover = wx.Window.FindFocus() is not self.sld_pos
         self._fijar_tiempo(pos, dur, mover_slider=mover, anunciar_t=False)
         if self._player.get_state() == _vlc.State.Ended:

@@ -1,6 +1,7 @@
 """Pruebas de las decisiones puras del reproductor."""
 
 import unittest
+from unittest import mock
 
 from busqueda_video import (
     TOLERANCIA_DESTINO_MS, accion_play_pausa, destino_acumulado,
@@ -60,6 +61,25 @@ class TestAccionPlayPausa(unittest.TestCase):
             with self.subTest(estado=estado):
                 self.assertEqual(accion_play_pausa(estado, True, True), "pausar")
                 self.assertEqual(accion_play_pausa(estado, True, False), "reanudar")
+
+
+class TestCableadoBusqueda(unittest.TestCase):
+
+    def test_pulsaciones_rapidas_acumulan_desde_el_destino_pendiente(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 60_000
+        panel._player.get_time.return_value = 10_000
+        panel._destino_pendiente = None
+        panel._fijar_tiempo = mock.Mock()
+
+        panel._buscar_rel(10_000)
+        panel._buscar_rel(10_000)
+
+        self.assertEqual(panel._player.set_time.call_args_list,
+                         [mock.call(20_000), mock.call(30_000)])
 
 
 if __name__ == "__main__":
