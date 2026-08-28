@@ -26,6 +26,7 @@ import wx
 import config as _cfg
 import iconos
 import diagnostico
+import progreso
 import ytdlp_bin
 from gui import anunciar, nombre_accesible, _T, _tc
 
@@ -402,6 +403,8 @@ class ReproductorPanel(wx.Panel):
         self._marca_reproduccion = None
         self._marca_extraccion = None
         self._marca_url = None
+        self._inicio_progreso = None
+        self._ultimo_aviso_progreso = None
         self._fs = None        # ventana de pantalla completa, si está activa
         self._precalentamiento_cancelado = False
 
@@ -594,6 +597,8 @@ class ReproductorPanel(wx.Panel):
 
         self._timer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self._on_timer, self._timer)
+        self._timer_progreso = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self._on_timer_progreso, self._timer_progreso)
 
         # Aplicar el estado guardado (por defecto, botones ocultos = minimalista).
         self._aplicar_visibilidad_botones()
@@ -771,6 +776,9 @@ class ReproductorPanel(wx.Panel):
         gen = self._gen   # si cambia al volver, esta carga ya no vale
         marca_inicio = time.monotonic()
         self._marca_reproduccion = marca_inicio
+        self._inicio_progreso = marca_inicio
+        self._ultimo_aviso_progreso = None
+        self._timer_progreso.Start(250)
 
         def _run():
             try:
@@ -788,10 +796,12 @@ class ReproductorPanel(wx.Panel):
     def _info_listo(self, info, reproducir, vid, gen, marca_inicio=None,
                     marca_extraccion=None):
         if gen != self._gen or vid != self._video_id:
+            self._timer_progreso.Stop()
             return  # se detuvo/desconectó o cambió de vídeo mientras cargaba
         self._info = info
         self._alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
         self._cargando = False
+        self._timer_progreso.Stop()
         self._marca_reproduccion = marca_inicio
         self._marca_extraccion = marca_extraccion
         self._reproducir_calidad(self._calidad_sel, reproducir)
@@ -881,10 +891,22 @@ class ReproductorPanel(wx.Panel):
         if gen is not None and gen != self._gen:
             return  # error de una carga ya descartada (stop/desconexión)
         self._cargando = False
+        self._timer_progreso.Stop()
         import sound_player as _snd
         _snd.reproducir("error")
         self.lbl_estado.SetLabel("No se pudo cargar el vídeo.")
         anunciar("No se pudo cargar el vídeo")
+
+    def _on_timer_progreso(self, _event):
+        if not self._cargando:
+            self._timer_progreso.Stop()
+            return
+        segundos = time.monotonic() - self._inicio_progreso
+        frase = progreso.aviso_de_espera(segundos, self._ultimo_aviso_progreso)
+        if frase:
+            self._ultimo_aviso_progreso = segundos
+            self.lbl_estado.SetLabel(frase)
+            anunciar(frase, "progreso")
 
     # ── Transporte ──────────────────────────────────────────────────────────────
 
@@ -934,6 +956,7 @@ class ReproductorPanel(wx.Panel):
         # reproducción al volver por wx.CallAfter.
         self._gen += 1
         self._cargando = False
+        self._timer_progreso.Stop()
         if self._player is not None:
             if en_segundo_plano:
                 # Soltar el player en un hilo: stop()+release() de un flujo en
