@@ -1,3 +1,4 @@
+import importlib
 import logging
 import sys
 import tempfile
@@ -11,10 +12,31 @@ import config
 import diagnostico
 
 
+MODULOS_OMITIDOS = {
+    # Son herramientas ejecutables, no módulos de la aplicación.
+    "generar_docs", "smoke_test", "sound_gen",
+    # main importa diagnostico solo al ejecutarse como programa.
+    "main",
+}
+
+
 class DiagnosticoTest(unittest.TestCase):
     def test_obtener_logger_cuelga_del_arbol_de_la_aplicacion(self):
         logger = diagnostico.obtener_logger("descargas")
         self.assertTrue(logger.name.startswith("ytchat."))
+
+    def test_los_loggers_de_la_aplicacion_cuelgan_del_arbol_ytchat(self):
+        raiz = Path(__file__).resolve().parent.parent
+        for ruta in raiz.glob("*.py"):
+            if ruta.stem in MODULOS_OMITIDOS:
+                continue
+            modulo = importlib.import_module(ruta.stem)
+            logger = getattr(modulo, "logger", None)
+            if isinstance(logger, logging.Logger):
+                self.assertTrue(
+                    logger.name.startswith("ytchat."),
+                    f"El logger del módulo {ruta.stem} está fuera del árbol ytchat: "
+                    f"{logger.name}")
 
     def test_compone_marcas_de_inicio_y_cierre_con_zona_horaria(self):
         momento = datetime(2026, 8, 25, 21, 52, 9,
