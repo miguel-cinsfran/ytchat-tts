@@ -287,6 +287,21 @@ class TestRegistroEsAnunciable(unittest.TestCase):
 
         self.assertEqual(grabador.hablado, ["OBS volvio a responder"])
 
+    def test_log_wx_redirige_segun_nivel(self):
+        with mock.patch.object(gui.logger, "warning") as warn, \
+                mock.patch.object(gui.logger, "debug") as dbg:
+            redir = gui._LogWx()
+            redir.DoLogRecord(gui.wx.LOG_Error, "fallo error", None)
+            redir.DoLogRecord(gui.wx.LOG_Warning, "aviso", None)
+            redir.DoLogRecord(gui.wx.LOG_Message, "mensaje", None)
+            redir.DoLogRecord(gui.wx.LOG_Info, "info", None)
+            redir.DoLogRecord(gui.wx.LOG_Debug, "debug", None)
+        self.assertEqual(warn.call_count, 2)
+        self.assertEqual(dbg.call_count, 3)
+        warn.assert_any_call("wx: %s", "fallo error")
+        warn.assert_any_call("wx: %s", "aviso")
+        dbg.assert_any_call("wx: %s", "mensaje")
+
 
 class _BarraDeMenu:
 

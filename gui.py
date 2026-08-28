@@ -380,6 +380,20 @@ def registro_es_anunciable(nombre_logger: str | None) -> bool:
     return bool(nombre_logger) and nombre_logger in _LOGGERS_ANUNCIABLES
 
 
+class _LogWx(wx.Log):
+    """Reenvia el log de wx al logger del modulo sin recortar el texto."""
+
+    def DoLogRecord(self, level, msg, info):
+        try:
+            # Mensaje entero, sin recortar: es lo unico para diagnosticar
+            if level in (wx.LOG_FatalError, wx.LOG_Error, wx.LOG_Warning):
+                logger.warning("wx: %s", msg)
+            else:
+                logger.debug("wx: %s", msg)
+        except Exception:
+            pass
+
+
 # ── Frame principal ──────────────────────────────────────────────────────────
 
 class YTChatFrame(wx.Frame):
@@ -2308,6 +2322,13 @@ _gui_frame: YTChatFrame | None = None
 class AplicacionYTChat(wx.App):
     def OnInit(self):
         self.Bind(wx.EVT_END_SESSION, self._on_fin_sesion)
+        # Hay que guardar la referencia en la app, si el recolector la libera
+        # wx queda llamando a memoria liberada
+        try:
+            self._wx_log = _LogWx()
+            wx.Log.SetActiveTarget(self._wx_log)
+        except Exception as exc:
+            logger.warning("No se pudo instalar el registro de wx: %s", exc)
         return True
 
     def OnAssert(self, archivo, linea, condicion, mensaje):
