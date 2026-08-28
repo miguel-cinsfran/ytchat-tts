@@ -142,8 +142,14 @@ def aviso_reproductor(hay_reproductor: bool, hay_medio: bool) -> str:
 # libVLC no reconozca hace que libvlc_new devuelva NULL (instancia None), así
 # que el ajuste de buffer va como opción POR MEDIO (más tolerante), no aquí.
 _VLC_ARGS = ("--quiet",)
-# Opciones por medio: poco buffer para que play/pausa/búsqueda respondan rápido.
-_MEDIA_OPTS = (":network-caching=300", ":live-caching=300")
+
+
+def opciones_medio(es_directo: bool) -> tuple[str, ...]:
+    """Opciones de búfer para un medio grabado o en directo."""
+    # El grabado admite más colchón para resistir fluctuaciones de red; el
+    # directo conserva menor demora respecto de la emisión.
+    red = 1500 if es_directo else 3000
+    return (f":network-caching={red}", ":live-caching=1500")
 
 # Alturas de vídeo que ofrecemos como «calidad», de mayor a menor.
 _CALIDADES = [2160, 1440, 1080, 720, 480, 360, 240, 144]
@@ -832,7 +838,7 @@ class ReproductorPanel(wx.Panel):
             return
         try:
             media = self._inst.media_new(url)
-            for opt in _MEDIA_OPTS:
+            for opt in opciones_medio(es_directo):
                 media.add_option(opt)
             if slave:
                 media.add_option(f":input-slave={slave}")
@@ -863,7 +869,7 @@ class ReproductorPanel(wx.Panel):
         self._intencion_reproducir = reproducir
         try:
             media = self._inst.media_new(self._url_flujo)
-            for opt in _MEDIA_OPTS:
+            for opt in opciones_medio(True):
                 media.add_option(opt)
             self._player.set_media(media)
             self._marca_reproduccion = time.monotonic()

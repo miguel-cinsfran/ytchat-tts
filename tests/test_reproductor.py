@@ -172,6 +172,26 @@ class TestAvisoReproductor(unittest.TestCase):
         self.assertEqual(reproductor.aviso_reproductor(True, True), "")
 
 
+class TestOpcionesMedio(unittest.TestCase):
+
+    def test_grabado_tiene_mas_colchon_de_red_que_directo(self):
+        grabado = dict(opcion[1:].split("=", 1)
+                       for opcion in reproductor.opciones_medio(False))
+        directo = dict(opcion[1:].split("=", 1)
+                       for opcion in reproductor.opciones_medio(True))
+        self.assertGreater(int(grabado["network-caching"]),
+                           int(directo["network-caching"]))
+
+    def test_ambos_medios_declaran_las_dos_opciones_de_buffer(self):
+        for es_directo in (False, True):
+            opciones = reproductor.opciones_medio(es_directo)
+            self.assertEqual(len(opciones), 2)
+            self.assertTrue(any(opcion.startswith(":network-caching=")
+                                for opcion in opciones))
+            self.assertTrue(any(opcion.startswith(":live-caching=")
+                                for opcion in opciones))
+
+
 class TestPrecalentamiento(unittest.TestCase):
 
     def _panel(self):
