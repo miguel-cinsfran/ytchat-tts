@@ -367,10 +367,17 @@ class WxAnnouncingHandler(logging.Handler):
         except Exception: pass
 
 
+# Lista blanca: solo estos loggers llegan al lector. Lo no listado se registra
+# pero no se habla, para que un logger.info nuevo no se convierta en voz por descuido.
+_LOGGERS_ANUNCIABLES = frozenset({
+    "ytchat.obs_vigilante",  # avisa cuando OBS vuelve a responder
+})
+
+
 def registro_es_anunciable(nombre_logger: str | None) -> bool:
     """Decide si un registro del log debe llegar al lector de pantalla."""
-    return nombre_logger not in ("diagnostico",) and not (
-        nombre_logger or "").startswith("diagnostico.")
+    # Lista blanca: solo lo explicitamente permitido se habla; lo desconocido se calla.
+    return bool(nombre_logger) and nombre_logger in _LOGGERS_ANUNCIABLES
 
 
 # ── Frame principal ──────────────────────────────────────────────────────────

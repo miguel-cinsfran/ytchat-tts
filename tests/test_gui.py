@@ -206,17 +206,21 @@ class GrabadorDeVoz:
 
 class TestRegistroEsAnunciable(unittest.TestCase):
 
-    def test_descarta_diagnostico_y_sus_hijos(self):
-        self.assertFalse(gui.registro_es_anunciable("diagnostico"))
-        self.assertFalse(gui.registro_es_anunciable("diagnostico.hilos"))
+    def test_obs_vigilante_si_se_anuncia(self):
+        self.assertTrue(gui.registro_es_anunciable("ytchat.obs_vigilante"))
 
-    def test_no_descarta_nombres_parecidos(self):
-        self.assertTrue(gui.registro_es_anunciable("diagnosticador"))
+    def test_diagnostico_no_se_anuncia(self):
+        self.assertFalse(gui.registro_es_anunciable("ytchat.diagnostico"))
 
-    def test_anuncia_el_resto_y_nombres_vacios(self):
-        self.assertTrue(gui.registro_es_anunciable("aplicacion"))
-        self.assertTrue(gui.registro_es_anunciable(""))
-        self.assertTrue(gui.registro_es_anunciable(None))
+    def test_tecnicos_no_se_anuncian(self):
+        for nombre in ("ytchat.descargas", "ytchat.main", "ytchat.tts_worker",
+                       "ytchat.sound_player"):
+            with self.subTest(nombre=nombre):
+                self.assertFalse(gui.registro_es_anunciable(nombre))
+
+    def test_nombres_vacios_no_se_anuncian(self):
+        self.assertFalse(gui.registro_es_anunciable(""))
+        self.assertFalse(gui.registro_es_anunciable(None))
 
     def test_manejador_consulta_el_nombre_del_registro(self):
         manejador = gui.WxAnnouncingHandler()
@@ -267,7 +271,7 @@ class TestRegistroEsAnunciable(unittest.TestCase):
     def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
         grabador = GrabadorDeVoz()
         registro = logging.LogRecord(
-            "diagnostico.hilos", logging.INFO, __file__, 1, "oculto", (), None)
+            "ytchat.diagnostico", logging.INFO, __file__, 1, "oculto", (), None)
         with mock.patch.object(gui, "_ao2", grabador):
             gui.WxAnnouncingHandler().emit(registro)
 
@@ -277,11 +281,11 @@ class TestRegistroEsAnunciable(unittest.TestCase):
     def test_manejador_anuncia_mensaje_de_aplicacion(self):
         grabador = GrabadorDeVoz()
         registro = logging.LogRecord(
-            "aplicacion", logging.INFO, __file__, 1, "conectado", (), None)
+            "ytchat.obs_vigilante", logging.INFO, __file__, 1, "OBS volvio a responder", (), None)
         with mock.patch.object(gui, "_ao2", grabador):
             gui.WxAnnouncingHandler().emit(registro)
 
-        self.assertEqual(grabador.hablado, ["conectado"])
+        self.assertEqual(grabador.hablado, ["OBS volvio a responder"])
 
 
 class _BarraDeMenu:
