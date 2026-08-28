@@ -533,6 +533,85 @@ class TestProgramadosEnPreferencias(unittest.TestCase):
         anunciar.assert_called_once_with("Elige primero un mensaje de la lista")
 
 
+class TestCategoriasDePreferencias(unittest.TestCase):
+
+    def setUp(self):
+        self.app = gui.wx.App(False) if not gui.wx.App.Get() else gui.wx.App.Get()
+        self.ruta = Path.cwd()
+        self.parche_ruta = mock.patch.object(
+            gui_preferencias.cfg, "app_dir", return_value=self.ruta)
+        self.parche_ruta.start()
+        self.addCleanup(self.parche_ruta.stop)
+
+    def _dialogo(self):
+        with mock.patch.object(gui, "_listar_voces_sapi5", return_value=["Voz de prueba"]):
+            dialogo = gui_preferencias.PreferenciasDialog(None, {})
+        self.addCleanup(dialogo.Destroy)
+        return dialogo
+
+    @staticmethod
+    def _buscar(raiz, nombre):
+        pendientes = [raiz]
+        while pendientes:
+            control = pendientes.pop()
+            if control.GetName() == nombre:
+                return control
+            pendientes.extend(control.GetChildren())
+        return None
+
+    def test_tiene_nueve_categorias_en_el_orden_acordado(self):
+        dialogo = self._dialogo()
+        self.assertEqual(
+            [dialogo.nb.GetPageText(i) for i in range(dialogo.nb.GetPageCount())],
+            ["Voz", "Lectura", "Interfaz y sonidos", "Reproductor", "Filtros",
+             "Estado (F2)", "Atajos", "API y sesión", "Mensajes automáticos"])
+
+    def test_abre_con_el_foco_en_la_lista_de_categorias(self):
+        dialogo = self._dialogo()
+        self.assertIs(gui.wx.Window.FindFocus(), dialogo.lista_categorias)
+
+    def test_controles_trasladados_conservan_su_nombre_accesible(self):
+        dialogo = self._dialogo()
+        for nombre, pagina in (("Voz de lectura", "PagVoz"),
+                               ("Tema de sonido", "PagInterfaz"),
+                               ("AutoplayReproductor", "PagReproductor")):
+            control = self._buscar(dialogo, nombre)
+            self.assertIsNotNone(control)
+            self.assertEqual(control.GetParent().GetName(), pagina)
+
+    def test_guardar_escribe_las_mismas_claves(self):
+        dialogo = self._dialogo()
+        with mock.patch.object(gui_preferencias.cfg, "guardar_opcion") as guardar, \
+                mock.patch.object(gui_preferencias._snd, "reproducir"), \
+                mock.patch.object(gui_preferencias, "anunciar"), \
+                mock.patch.object(dialogo, "EndModal"):
+            dialogo._on_guardar(None)
+
+        claves = [(llamada.args[1], llamada.args[2]) for llamada in guardar.call_args_list]
+        esperadas = [
+            ("programados", "activo"),
+            ("ui", "tamanio_fuente_chat"),
+            ("ui", "mostrar_total_superchats"),
+            ("ui", "autoplay_reproductor"),
+            ("ui", "mostrar_metadatos"),
+            ("ui", "mostrar_botones_reproductor"),
+            ("voz", "voz"), ("voz", "voz_eventos"), ("voz", "multivoz"),
+            ("lectura", "formato_prefijo"),
+            ("texto", "limpiar_emojis"), ("texto", "eliminar_urls"),
+            ("tiktok", "anunciar_entradas"), ("texto", "max_longitud_mensaje"),
+        ]
+        esperadas.extend(("estado", componente)
+                          for componente in gui_preferencias.estado_sesion.COMPONENTES)
+        esperadas.extend([
+            ("filtros", "palabras_silenciadas"),
+            ("filtros", "usuarios_silenciados"),
+        ])
+        esperadas.extend(("atajos", accion)
+                          for accion in dialogo._valores_atajo
+                          if accion not in gui_preferencias.cfg.ATAJOS_FIJOS)
+        self.assertEqual(claves, esperadas)
+
+
 class TestProgramadorGui(unittest.TestCase):
     def _frame(self, **config):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
