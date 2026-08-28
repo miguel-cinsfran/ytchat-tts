@@ -192,6 +192,18 @@ class TestOpcionesMedio(unittest.TestCase):
                                 for opcion in opciones))
 
 
+class TestAvisoDeCorte(unittest.TestCase):
+
+    def test_avisa_al_caer_el_buffer_por_primera_vez(self):
+        self.assertTrue(reproductor.aviso_de_corte(99, None))
+
+    def test_avisa_al_recuperarse_el_buffer(self):
+        self.assertTrue(reproductor.aviso_de_corte(100, 99))
+
+    def test_no_avisa_cada_evento_durante_un_corte(self):
+        self.assertEqual(reproductor.aviso_de_corte(80, 99), "")
+
+
 class TestPrecalentamiento(unittest.TestCase):
 
     def _panel(self):
