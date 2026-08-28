@@ -305,3 +305,20 @@ class DiagnosticoTest(unittest.TestCase):
         fin2.set()
         hilo2.join(timeout=2)
         self.assertNotIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
+
+    def test_crear_hilo_da_de_baja_el_registro_interno_al_terminar(self):
+        listo = threading.Event()
+
+        def tarea():
+            listo.set()
+
+        hilo = diagnostico.crear_hilo(tarea, "HiloBajaRegistroUnico")
+        hilo.start()
+        self.assertTrue(listo.wait(timeout=2))
+        hilo.join(timeout=2)
+        try:
+            with diagnostico._bloqueo_hilos:
+                self.assertNotIn(hilo, diagnostico._hilos_vivos)
+        finally:
+            with diagnostico._bloqueo_hilos:
+                diagnostico._hilos_vivos.discard(hilo)
