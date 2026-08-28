@@ -11,6 +11,7 @@ from unittest import mock
 import gui
 import gui_comentarios
 import gui_preferencias
+import config
 import reproductor
 import apagado
 import alias
@@ -646,6 +647,13 @@ class TestCategoriasDePreferencias(unittest.TestCase):
             ("lectura", "formato_prefijo"),
             ("texto", "limpiar_emojis"), ("texto", "eliminar_urls"),
             ("tiktok", "anunciar_entradas"), ("texto", "max_longitud_mensaje"),
+            ("cola", "estrategia"), ("cola", "tamanio_maximo"),
+            ("cola", "umbral_solo_nombre"),
+            ("reconexion", "reconectar"),
+            ("reconexion", "espera_entre_intentos"),
+            ("reconexion", "max_intentos"),
+            ("diagnostico", "registro_detallado"),
+            ("overlay", "puerto"), ("obs", "microfono"),
         ]
         esperadas.extend(("estado", componente)
                           for componente in gui_preferencias.estado_sesion.COMPONENTES)
@@ -657,6 +665,99 @@ class TestCategoriasDePreferencias(unittest.TestCase):
                           for accion in dialogo._valores_atajo
                           if accion not in gui_preferencias.cfg.ATAJOS_FIJOS)
         self.assertEqual(claves, esperadas)
+
+
+class TestGuardadoDeNuevasPreferencias(unittest.TestCase):
+    def setUp(self):
+        self.app = gui.wx.App(False) if not gui.wx.App.Get() else gui.wx.App.Get()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.ruta = Path(self.tmp.name)
+        (self.ruta / "config.ini").write_text(config._CONFIG_FALLBACK,
+                                                encoding="utf-8")
+        parche = mock.patch.object(gui_preferencias.cfg, "app_dir",
+                                   return_value=self.ruta)
+        parche.start()
+        self.addCleanup(parche.stop)
+
+    def _dialogo(self, configuracion=None):
+        with mock.patch.object(gui, "_listar_voces_sapi5", return_value=["Voz de prueba"]):
+            dialogo = gui_preferencias.PreferenciasDialog(None, configuracion or {})
+        self.addCleanup(dialogo.Destroy)
+        return dialogo
+
+    def _guardar(self, dialogo):
+        with mock.patch.object(gui_preferencias._snd, "reproducir"), \
+                mock.patch.object(gui_preferencias, "anunciar") as anunciar, \
+                mock.patch.object(dialogo, "EndModal"):
+            dialogo._on_guardar(None)
+        return anunciar
+
+    def _opciones_guardadas(self):
+        parser = config._mk_parser()
+        parser.read(self.ruta / "config.ini", encoding="utf-8")
+        return parser
+
+    def test_cargar_configuracion_devuelve_registro_detallado_del_archivo(self):
+        for valor, esperado in (("true", True), ("false", False)):
+            with self.subTest(valor=valor):
+                (self.ruta / "config.ini").write_text(
+                    config._CONFIG_FALLBACK.replace("registro_detallado = false",
+                                                    f"registro_detallado = {valor}"),
+                    encoding="utf-8")
+                self.assertEqual(config.cargar_configuracion()["registro_detallado"],
+                                 esperado)
+
+    def test_guardar_escribe_las_nueve_claves_nuevas(self):
+        dialogo = self._dialogo()
+        dialogo.rb_estrategia.SetSelection(0)
+        dialogo.sp_cola_maxima.SetValue(42)
+        dialogo.sp_umbral_nombre.SetValue(7)
+        dialogo.chk_reconectar.SetValue(False)
+        dialogo.sp_espera_reconexion.SetValue(12)
+        dialogo.sp_max_intentos.SetValue(3)
+        dialogo.chk_registro_detallado.SetValue(True)
+        dialogo.sp_puerto_overlay.SetValue(9000)
+        dialogo.cho_microfono_obs.Append("Mic/Aux")
+        dialogo.cho_microfono_obs.SetSelection(1)
+
+        anunciar = self._guardar(dialogo)
+        opciones = self._opciones_guardadas()
+
+        self.assertEqual(opciones.get("cola", "estrategia"), "todas")
+        self.assertEqual(opciones.get("cola", "tamanio_maximo"), "42")
+        self.assertEqual(opciones.get("cola", "umbral_solo_nombre"), "7")
+        self.assertEqual(opciones.get("reconexion", "reconectar"), "false")
+        self.assertEqual(opciones.get("reconexion", "espera_entre_intentos"), "12")
+        self.assertEqual(opciones.get("reconexion", "max_intentos"), "3")
+        self.assertEqual(opciones.get("diagnostico", "registro_detallado"), "true")
+        self.assertEqual(opciones.get("overlay", "puerto"), "9000")
+        self.assertEqual(opciones.get("obs", "microfono"), "Mic/Aux")
+        anunciar.assert_has_calls([
+            mock.call("Preferencias guardadas"),
+            mock.call("El cambio del registro detallado se aplica al reiniciar la aplicación"),
+        ])
+
+    def test_estrategia_guarda_la_clave_y_no_la_etiqueta(self):
+        for seleccion, clave, etiqueta in (
+                (0, "todas", "Leer todos los mensajes"),
+                (1, "limite", "Descartar los mas viejos si se acumulan")):
+            with self.subTest(clave=clave):
+                dialogo = self._dialogo()
+                dialogo.rb_estrategia.SetSelection(seleccion)
+                self._guardar(dialogo)
+                estrategia = self._opciones_guardadas().get("cola", "estrategia")
+                self.assertEqual(estrategia, clave)
+                self.assertNotEqual(estrategia, etiqueta)
+
+    def test_microfono_automatico_se_guarda_vacio(self):
+        dialogo = self._dialogo({"obs_microfono": "Mic/Aux"})
+        dialogo.cho_microfono_obs.SetSelection(0)
+        self.assertEqual(dialogo._ruta, self.ruta / "config.ini")
+
+        self._guardar(dialogo)
+
+        self.assertEqual(self._opciones_guardadas().get("obs", "microfono"), "")
 
 
 class TestProgramadorGui(unittest.TestCase):
