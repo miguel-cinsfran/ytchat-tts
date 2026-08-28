@@ -2,6 +2,7 @@
 
 import logging
 import json
+import queue
 import tempfile
 import unittest
 from pathlib import Path
@@ -78,6 +79,31 @@ class TestEnterEnListas(unittest.TestCase):
         panel._on_char_hook(evento)
         panel._leer.assert_not_called()
         self.assertTrue(evento.omitido)
+
+
+class TestComentariosPanel(unittest.TestCase):
+
+    def test_autocarga_sin_api_key_muestra_aviso_sin_modal(self):
+        app = gui_comentarios.wx.App(False)
+        frame = gui_comentarios.wx.Frame(None)
+        self.addCleanup(frame.Destroy)
+        self.addCleanup(app.Destroy)
+        with mock.patch.object(gui_comentarios.youtube_api, "google_disponible",
+                               return_value=True), \
+                mock.patch.object(gui_comentarios.credenciales, "hay_lectura",
+                                  return_value=False), \
+                mock.patch.object(gui_comentarios.credenciales, "hay_sesion",
+                                  return_value=False), \
+                mock.patch.object(gui_comentarios, "anunciar"), \
+                mock.patch.object(gui_comentarios.wx, "MessageBox",
+                                  side_effect=AssertionError("Se abrió un modal")):
+            panel = gui_comentarios.ComentariosPanel(
+                frame, queue.Queue(), {"tamanio_fuente_chat": 12})
+            panel.set_video("unvideo", autocargar=True)
+        self.assertEqual(panel.lb.GetCount(), 1)
+        self.assertEqual(panel.lb.GetString(0),
+                         "Falta la API key. Ponla en Preferencias, pestaña API, "
+                         "para leer comentarios.")
 
 
 class GrabadorDeVoz:
