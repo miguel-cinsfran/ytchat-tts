@@ -3,15 +3,20 @@
 MAXIMO_CHAT = 200
 
 
-def motivo_chat(conectado, es_tiktok, hay_live_chat, hay_sesion) -> str:
+def motivo_chat(conectado, es_tiktok, es_directo, hay_librerias, hay_sesion,
+                hay_live_chat) -> str:
     if not conectado:
         return "Conéctate a un directo para escribir en el chat"
     if es_tiktok:
         return "El chat de TikTok no permite escribir desde aquí"
-    if not hay_live_chat:
+    if not es_directo:
         return "Este vídeo no tiene chat en vivo"
+    if not hay_librerias:
+        return "Faltan las librerías de la API para escribir en el chat"
     if not hay_sesion:
         return "Inicia sesión en Configuración de API para escribir en el chat"
+    if not hay_live_chat:
+        return "No se pudo acceder al chat de este directo"
     return ""
 
 

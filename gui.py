@@ -1308,8 +1308,9 @@ class YTChatFrame(wx.Frame):
     def _actualizar_motivo_redaccion(self):
         try:
             motivo = redaccion.motivo_chat(
-                self._conectado, self._es_tiktok, bool(self._live_chat_id),
-                self._sesion_api_disponible())
+                self._conectado, self._es_tiktok, self._tipo_video == deteccion.LIVE,
+                youtube_api.google_disponible(), self._sesion_api_disponible(),
+                bool(self._live_chat_id))
             self._panel_redactar.establecer_motivo(motivo)
         except Exception:
             pass

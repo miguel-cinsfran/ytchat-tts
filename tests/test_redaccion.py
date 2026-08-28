@@ -1,26 +1,61 @@
 import unittest
+from unittest import mock
 
+import deteccion
+import gui
+import gui_redactar
 import redaccion
 
 
 class TestRedaccion(unittest.TestCase):
     def test_motivo_chat_prioriza_desconexion(self):
-        self.assertEqual(redaccion.motivo_chat(False, False, False, False),
+        self.assertEqual(redaccion.motivo_chat(False, False, False, False, False, False),
                          "Conéctate a un directo para escribir en el chat")
 
     def test_motivo_chat_prioriza_tiktok(self):
-        self.assertEqual(redaccion.motivo_chat(True, True, True, True),
+        self.assertEqual(redaccion.motivo_chat(True, True, True, True, True, True),
                          "El chat de TikTok no permite escribir desde aquí")
 
-    def test_motivo_chat_sin_chat(self):
-        self.assertEqual(redaccion.motivo_chat(True, False, False, True),
+    def test_motivo_chat_video_sin_directo(self):
+        self.assertEqual(redaccion.motivo_chat(True, False, False, True, True, True),
                          "Este vídeo no tiene chat en vivo")
 
+    def test_motivo_chat_sin_librerias(self):
+        self.assertEqual(redaccion.motivo_chat(True, False, True, False, True, True),
+                         "Faltan las librerías de la API para escribir en el chat")
+
     def test_motivo_chat_sin_sesion(self):
-        self.assertIn("Inicia sesión", redaccion.motivo_chat(True, False, True, False))
+        self.assertIn("Inicia sesión", redaccion.motivo_chat(True, False, True, True, False, True))
+
+    def test_motivo_chat_sin_acceso_al_chat(self):
+        self.assertEqual(redaccion.motivo_chat(True, False, True, True, True, False),
+                         "No se pudo acceder al chat de este directo")
 
     def test_motivo_chat_vacio_si_se_puede(self):
-        self.assertEqual(redaccion.motivo_chat(True, False, True, True), "")
+        self.assertEqual(redaccion.motivo_chat(True, False, True, True, True, True), "")
+
+    def test_motivo_chat_directo_sin_credenciales_no_inventa_chat_ausente(self):
+        for hay_librerias, hay_sesion in ((False, False), (True, False)):
+            with self.subTest(hay_librerias=hay_librerias):
+                motivo = redaccion.motivo_chat(True, False, True, hay_librerias,
+                                                hay_sesion, False)
+                self.assertNotEqual(motivo, "Este vídeo no tiene chat en vivo")
+
+    def test_motivo_chat_llega_al_panel_en_directo_sin_sesion(self):
+        app = gui.wx.App(False)
+        ventana = gui.wx.Frame(None)
+        self.addCleanup(ventana.Destroy)
+        self.addCleanup(app.Destroy)
+        panel = gui_redactar.PanelRedactar(ventana, "Mensaje", 200, lambda texto: None)
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._conectado, frame._es_tiktok = True, False
+        frame._tipo_video, frame._live_chat_id = deteccion.LIVE, ""
+        frame._panel_redactar = panel
+        with mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=False):
+            frame._actualizar_motivo_redaccion()
+        self.assertIn("inicia sesión", panel.boton.GetLabel())
+        self.assertNotIn("no tiene chat", panel.boton.GetLabel())
 
     def test_motivo_comentario(self):
         self.assertIn("Conéctate", redaccion.motivo_comentario(False, True))
