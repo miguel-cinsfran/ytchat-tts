@@ -70,6 +70,7 @@ class DialogoRedactar(wx.Dialog):
                  titulo="Redactar", motivo="", nombre_texto="Texto del comentario",
                  nombre_boton="Publicar"):
         super().__init__(parent, title=titulo, name="DialogoRedactar")
+        self._al_enviar = al_enviar
         self.texto_enviado = ""
         vs = wx.BoxSizer(wx.VERTICAL)
         self.panel = PanelRedactar(self, etiqueta, maximo, self._enviar)
@@ -85,4 +86,6 @@ class DialogoRedactar(wx.Dialog):
 
     def _enviar(self, texto) -> None:
         self.texto_enviado = texto
+        if self._al_enviar:
+            self._al_enviar(texto)
         self.EndModal(wx.ID_OK)
