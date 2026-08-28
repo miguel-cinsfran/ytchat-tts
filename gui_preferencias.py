@@ -19,12 +19,14 @@ import diagnostico
 import config as cfg
 import atajos_captura
 import estado_sesion
+import obs_cliente
 import programados
 import sound_player as _snd
 import credenciales
 import youtube_api
 from config import APP_NAME
 from gui import ContadorAccesible, anunciar, caja_de_grupo, nombre_accesible
+from obs_panel import GestorPanelObs
 
 logger = diagnostico.obtener_logger(__name__)
 
@@ -134,6 +136,8 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
         self.nb.AddPage(self._pag_programados(self.nb), "Mensajes automáticos")
+        self.nb.AddPage(self._pag_transmision(self.nb), "Transmision")
+        self.nb.AddPage(self._pag_diagnostico(self.nb), "Diagnostico")
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -252,6 +256,78 @@ class PreferenciasDialog(wx.Dialog):
 
         p.SetSizer(vs)
         return p
+
+    def _pag_transmision(self, parent):
+        p = self._make_panel(parent, "PagTransmision")
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        vs.Add(self._fila_label(p, "&Puerto del panel de chat"),
+               0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        self.sp_puerto_overlay = ContadorAccesible(
+            p, min=1024, max=65535,
+            initial=int(self._config.get("overlay_puerto", 8730)),
+            name="Puerto del panel de chat")
+        vs.Add(self.sp_puerto_overlay, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        vs.Add(self._fila_label(p, "&Microfono de OBS"),
+               0, wx.LEFT | wx.RIGHT, 10)
+        guardado = str(self._config.get("obs_microfono", ""))
+        opciones = ["Elegir automáticamente"] + ([guardado] if guardado else [])
+        self.cho_microfono_obs = wx.Choice(
+            p, choices=opciones, name="Microfono de OBS")
+        self.cho_microfono_obs.SetSelection(1 if guardado else 0)
+        vs.Add(self.cho_microfono_obs, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        self.btn_buscar_microfonos = wx.Button(
+            p, label="&Buscar los microfonos en OBS",
+            name="Buscar los microfonos en OBS")
+        vs.Add(self.btn_buscar_microfonos, 0, wx.ALL, 10)
+        self.btn_buscar_microfonos.Bind(wx.EVT_BUTTON, self._buscar_microfonos)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_diagnostico(self, parent):
+        p = self._make_panel(parent, "PagDiagnostico")
+        vs = wx.BoxSizer(wx.VERTICAL)
+        self.chk_registro_detallado = wx.CheckBox(
+            p, label="Guardar un registro &detallado para diagnosticar fallos",
+            name="Guardar un registro detallado para diagnosticar fallos")
+        self.chk_registro_detallado.SetValue(
+            bool(self._config.get("registro_detallado", False)))
+        vs.Add(self.chk_registro_detallado, 0, wx.ALL, 10)
+        p.SetSizer(vs)
+        return p
+
+    def _buscar_microfonos(self, event):
+        # Consultar OBS puede tardar o no responder, por eso nunca corre en la interfaz.
+        def consultar():
+            gestor = None
+            try:
+                gestor = GestorPanelObs(ajustes=obs_cliente.leer_ajustes())
+                gestor.conectar()
+                wx.CallAfter(self._microfonos_encontrados, gestor.fuentes_audio())
+            except Exception as exc:
+                wx.CallAfter(anunciar, obs_cliente.mensaje_de_fallo_obs(exc))
+            finally:
+                if gestor is not None:
+                    try:
+                        gestor.cerrar()
+                    except Exception:
+                        pass
+
+        diagnostico.crear_hilo(consultar, "MicrofonosPrefs").start()
+
+    def _microfonos_encontrados(self, fuentes):
+        elegido = self.cho_microfono_obs.GetStringSelection()
+        opciones = ["Elegir automáticamente"]
+        # La fuente guardada se conserva aunque OBS no responda o ya no la vea.
+        for fuente in (elegido, *fuentes):
+            if fuente and fuente not in opciones:
+                opciones.append(fuente)
+        self.cho_microfono_obs.Set(opciones)
+        self.cho_microfono_obs.SetStringSelection(elegido or opciones[0])
+        anunciar(f"Se encontraron {len(fuentes)} microfonos en OBS")
 
     def _pag_reproductor(self, parent):
         p = self._make_panel(parent, "PagReproductor")

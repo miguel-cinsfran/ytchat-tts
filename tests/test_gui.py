@@ -559,26 +559,72 @@ class TestCategoriasDePreferencias(unittest.TestCase):
             pendientes.extend(control.GetChildren())
         return None
 
-    def test_tiene_once_categorias_en_el_orden_acordado(self):
+    def test_tiene_trece_categorias_en_el_orden_acordado(self):
         dialogo = self._dialogo()
         self.assertEqual(
             [dialogo.nb.GetPageText(i) for i in range(dialogo.nb.GetPageCount())],
             ["Voz", "Lectura", "Cola de lectura", "Interfaz y sonidos",
              "Reproductor", "Conexion", "Filtros",
-             "Estado (F2)", "Atajos", "API y sesión", "Mensajes automáticos"])
+             "Estado (F2)", "Atajos", "API y sesión", "Mensajes automáticos",
+             "Transmision", "Diagnostico"])
 
     def test_abre_con_el_foco_en_la_lista_de_categorias(self):
         dialogo = self._dialogo()
         self.assertIs(gui.wx.Window.FindFocus(), dialogo.lista_categorias)
 
-    def test_controles_trasladados_conservan_su_nombre_accesible(self):
+    def test_controles_nuevos_tienen_su_nombre_accesible(self):
         dialogo = self._dialogo()
-        for nombre, pagina in (("Voz de lectura", "PagVoz"),
-                               ("Tema de sonido", "PagInterfaz"),
-                               ("AutoplayReproductor", "PagReproductor")):
+        for nombre, pagina in (
+                ("Estrategia de la cola", "PagCola"),
+                ("Tamaño maximo de la cola", "PagCola"),
+                ("Leer solo el nombre a partir de", "PagCola"),
+                ("Reconectar automaticamente si se corta", "PagConexion"),
+                ("Espera entre intentos, en segundos", "PagConexion"),
+                ("Numero maximo de intentos", "PagConexion"),
+                ("Puerto del panel de chat", "PagTransmision"),
+                ("Microfono de OBS", "PagTransmision"),
+                ("Guardar un registro detallado para diagnosticar fallos",
+                 "PagDiagnostico")):
             control = self._buscar(dialogo, nombre)
             self.assertIsNotNone(control)
             self.assertEqual(control.GetParent().GetName(), pagina)
+
+    def test_microfono_guardado_se_conserva_sin_consultar_obs(self):
+        with mock.patch.object(gui, "_listar_voces_sapi5", return_value=["Voz de prueba"]):
+            dialogo = gui_preferencias.PreferenciasDialog(
+                None, {"obs_microfono": "Mic/Aux"})
+        self.addCleanup(dialogo.Destroy)
+
+        self.assertEqual(dialogo.cho_microfono_obs.GetStringSelection(), "Mic/Aux")
+        self.assertEqual(dialogo.cho_microfono_obs.GetStrings(),
+                         ["Elegir automáticamente", "Mic/Aux"])
+
+    def test_buscar_microfonos_lanza_hilo_sin_conectar_al_construir(self):
+        dialogo = self._dialogo()
+        hilo = mock.Mock()
+        consulta = {}
+
+        def crear_hilo(target, nombre):
+            consulta["target"] = target
+            consulta["nombre"] = nombre
+            return hilo
+
+        gestor = mock.Mock()
+        gestor.fuentes_audio.return_value = ("Mic/Aux",)
+        with mock.patch.object(gui_preferencias.diagnostico, "crear_hilo",
+                               side_effect=crear_hilo), \
+                mock.patch.object(gui_preferencias, "GestorPanelObs",
+                                  return_value=gestor) as gestor_clase, \
+                mock.patch.object(gui_preferencias.obs_cliente, "leer_ajustes"), \
+                mock.patch.object(gui_preferencias.wx, "CallAfter",
+                                  side_effect=lambda funcion, *args: funcion(*args)):
+            dialogo._buscar_microfonos(None)
+            gestor_clase.assert_not_called()
+            consulta["target"]()
+
+        self.assertEqual(consulta["nombre"], "MicrofonosPrefs")
+        hilo.start.assert_called_once_with()
+        gestor.conectar.assert_called_once_with()
 
     def test_guardar_escribe_las_mismas_claves(self):
         dialogo = self._dialogo()
