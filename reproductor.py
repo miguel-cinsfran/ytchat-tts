@@ -1003,7 +1003,7 @@ class ReproductorPanel(wx.Panel):
         estado = getattr(st, "name", str(st)).rsplit(".", 1)[-1].lower()
         accion = accion_play_pausa(
             estado, bool(self._video_id or self._url_flujo),
-            getattr(self, "_intencion_reproducir", False))
+            self._intencion_reproducir)
         if accion == "pausar":
             self._player.set_pause(1)
             self._intencion_reproducir = False
