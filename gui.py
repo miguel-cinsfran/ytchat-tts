@@ -43,6 +43,8 @@ import redaccion
 import alias
 import avisos
 import obs_audio
+import obs_estado
+import obs_vigilante
 from obs_panel import GestorPanelObs
 from gui_redactar import PanelRedactar
 
@@ -82,6 +84,7 @@ REG_REPRODUCTOR = 2
 _NOMBRE_REGION = ("Conexión", "Contenido", "Reproductor")
 
 logger = logging.getLogger(__name__)
+_OBS_COMPONENTES = frozenset(("obs_transmision", "obs_grabacion", "obs_escena"))
 
 
 # ── accessible_output2 (opcional) ───────────────────────────────────────────
@@ -396,6 +399,7 @@ class YTChatFrame(wx.Frame):
         self._diagnostico_marca = time.monotonic()
         self._diagnostico_censo = self._diagnostico_marca
         self._diagnostico_parada = threading.Event()
+        self._obs_vigilante = None
 
         self.SetBackgroundColour(_T.bg)
         self._build_menubar()
@@ -404,6 +408,7 @@ class YTChatFrame(wx.Frame):
         self._build_ui()
         self._bind_events()
         self._init_timer()
+        self._actualizar_vigilante_obs()
         diagnostico.crear_hilo(
             lambda: diagnostico.vigilar_hilo_interfaz(
                 lambda: self._diagnostico_marca, self._diagnostico_parada),
@@ -1139,7 +1144,18 @@ class YTChatFrame(wx.Frame):
                 bool(self._config.get("mostrar_botones_reproductor", False)))
         except Exception:
             pass
+        self._actualizar_vigilante_obs()
         anunciar("Preferencias aplicadas")
+
+    def _actualizar_vigilante_obs(self):
+        activos = set(self._config.get("estado_toggles") or ())
+        if _OBS_COMPONENTES.intersection(activos):
+            if self._obs_vigilante is None:
+                self._obs_vigilante = obs_vigilante.VigilanteObs()
+                self._obs_vigilante.iniciar()
+        elif self._obs_vigilante is not None:
+            self._obs_vigilante.detener()
+            self._obs_vigilante = None
 
     def _on_about(self, event):
         wx.MessageBox(
@@ -1246,6 +1262,10 @@ class YTChatFrame(wx.Frame):
         def _seguro(fn, defecto):
             try:    return fn()
             except Exception: return defecto
+        vigilante = getattr(self, "_obs_vigilante", None)
+        estado_obs = _seguro(lambda: vigilante.estado(), None) if vigilante else None
+        transmision = estado_obs.transmision if estado_obs else None
+        grabacion = estado_obs.grabacion if estado_obs else None
         return estado_sesion.SnapshotSesion(
             conectado=self._conectado,
             tipo=tipo,
@@ -1266,6 +1286,15 @@ class YTChatFrame(wx.Frame):
             programados_proximo=(
                 programados.describir_proximo(self._mensajes_programados, time.time())
                 if self._config.get("programados_activo", False) else ""),
+            obs_transmision=(obs_estado.frase_transmision(
+                transmision["outputActive"], transmision["outputDuration"],
+                transmision["outputSkippedFrames"], transmision["outputTotalFrames"])
+                if transmision else ""),
+            obs_grabacion=(obs_estado.frase_grabacion(
+                grabacion["outputActive"], grabacion["outputPaused"],
+                grabacion["outputTimecode"]) if grabacion else ""),
+            obs_escena=(obs_estado.frase_escena_al_aire(estado_obs.escena)
+                        if estado_obs else ""),
         )
 
     def _total_aportes_texto(self) -> str:
@@ -1624,6 +1653,7 @@ class YTChatFrame(wx.Frame):
         self._apagando = True
         self._alive = False
         self._diagnostico_parada.set()
+        self._actualizar_vigilante_obs_cierre()
         try:    self._timer.Stop()
         except Exception: pass
         if self._pendientes_timer is not None:
@@ -1661,6 +1691,12 @@ class YTChatFrame(wx.Frame):
                 "%s", apagado.componer_resultado_cierre(
                     (), apagado.TOPE_ESPERA_CIERRE))
             self.Destroy()
+
+    def _actualizar_vigilante_obs_cierre(self):
+        vigilante = getattr(self, "_obs_vigilante", None)
+        if vigilante is not None:
+            vigilante.detener()
+            self._obs_vigilante = None
 
     def _comprobar_cierre(self):
         nombres = tuple(hilo.name for hilo in threading.enumerate() if hilo.is_alive())

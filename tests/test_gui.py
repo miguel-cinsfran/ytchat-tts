@@ -664,6 +664,40 @@ class TestProgramadorGui(unittest.TestCase):
         self.assertEqual(snapshot.programados_proximo, "")
 
 
+class TestEstadoObsEnF2(unittest.TestCase):
+    def _frame(self, toggles, vigilante=None):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._config = {"estado_toggles": toggles, "programados_activo": False}
+        frame._obs_vigilante = vigilante
+        frame.__dict__.update(_conectado=False, _es_tiktok=False,
+            _tipo_video=gui.deteccion.DESCONOCIDO, _titulo_stream="", _metadatos={},
+            _sc_totales={}, _mensajes_programados=[])
+        return frame
+    def test_f2_dice_los_tres_datos_frescos_de_la_cache(self):
+        vigilante = mock.Mock(estado=mock.Mock(return_value=gui.obs_vigilante.EstadoObs({"outputActive": True, "outputDuration": 60,
+            "outputSkippedFrames": 2, "outputTotalFrames": 10},
+            {"outputActive": True, "outputPaused": False, "outputTimecode": "00:01:00"}, "Principal")))
+        frame = self._frame(set(gui._OBS_COMPONENTES), vigilante)
+        with mock.patch.object(gui, "anunciar") as anunciar:
+            frame._anunciar_estado()
+        texto = anunciar.call_args.args[0]
+        self.assertTrue(all(x in texto for x in ("Transmitiendo desde hace 1 min, 2 fotogramas perdidos",
+                                                   "Grabando, 00:01:00", "Al aire: Principal")))
+    def test_f2_omite_dato_pasado_y_sin_vigilante(self):
+        for toggles, vigilante in (({"estado", *gui._OBS_COMPONENTES}, mock.Mock(estado=lambda: None)),
+                                    ({"estado"}, None)):
+            with mock.patch.object(gui, "anunciar") as anunciar:
+                self._frame(toggles, vigilante)._anunciar_estado()
+            self.assertEqual(anunciar.call_args.args[0], "Desconectado.")
+    def test_marca_y_desmarca_los_componentes_de_obs(self):
+        frame = self._frame({"obs_transmision"})
+        with mock.patch.object(gui.obs_vigilante, "VigilanteObs") as clase:
+            frame._actualizar_vigilante_obs()
+            clase.return_value.iniciar.assert_called_once_with()
+            frame._config["estado_toggles"] = set()
+            frame._actualizar_vigilante_obs()
+        clase.return_value.detener.assert_called_once_with()
+
 class TestActualizarYtdlp(unittest.TestCase):
 
     class Dialogo:

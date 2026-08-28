@@ -46,6 +46,9 @@ class SnapshotSesion:
     overlay_puerto: int | None = None
     overlay_clientes: int = 0
     programados_proximo: str = ""
+    obs_transmision: str = ""
+    obs_grabacion: str = ""
+    obs_escena: str = ""
 
 
 # Orden canónico de los componentes: estado → contenido → actividad → ajustes.
@@ -62,6 +65,9 @@ COMPONENTES: tuple[str, ...] = (
     "lectura_silenciada",
     "overlay",
     "programados",
+    "obs_transmision",
+    "obs_grabacion",
+    "obs_escena",
 )
 
 # Activos por defecto: lo relevante para quien mira un directo. Lo técnico
@@ -87,6 +93,9 @@ ETIQUETAS = {
     "lectura_silenciada": "Aviso de lectura silenciada",
     "overlay":            "Panel de chat para transmitir",
     "programados":        "Mensajes automáticos",
+    "obs_transmision":    "Estado de la transmisión de OBS",
+    "obs_grabacion":      "Estado de la grabación de OBS",
+    "obs_escena":         "Escena al aire en OBS",
 }
 
 
@@ -179,6 +188,15 @@ def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
 
     if nombre == "programados":
         return s.programados_proximo or ""
+
+    if nombre == "obs_transmision":
+        return s.obs_transmision or ""
+
+    if nombre == "obs_grabacion":
+        return s.obs_grabacion or ""
+
+    if nombre == "obs_escena":
+        return s.obs_escena or ""
 
     return ""
 
