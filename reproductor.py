@@ -982,7 +982,8 @@ class ReproductorPanel(wx.Panel):
         if frase:
             self._ultimo_aviso_progreso = segundos
             self.lbl_estado.SetLabel(frase)
-            anunciar(frase, "progreso")
+            # Se repite durante la carga y no debe cortar lo que se está oyendo.
+            anunciar(frase, urgente=False)
 
     # ── Transporte ──────────────────────────────────────────────────────────────
 
@@ -1114,7 +1115,7 @@ class ReproductorPanel(wx.Panel):
         return self._vol
 
     def ajustar_volumen(self, delta: int):
-        anunciar(f"Volumen reproductor {self._aplicar_volumen(delta)} por ciento", "volumen")
+        anunciar(f"Volumen reproductor {self._aplicar_volumen(delta)} por ciento")
 
     # ── Pantalla completa ──────────────────────────────────────────────────────
 
@@ -1209,7 +1210,7 @@ class ReproductorPanel(wx.Panel):
             event.Skip()
 
     def _vol_flecha(self, delta):
-        anunciar(f"Volumen {self._aplicar_volumen(delta)}", "volumen")
+        anunciar(f"Volumen {self._aplicar_volumen(delta)}")
 
     def _on_sld_vol(self, event):
         self._vol = self.sld_vol.GetValue()

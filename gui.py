@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import random
 import re
+import shutil
 import threading
 import time
 import webbrowser
@@ -41,7 +42,6 @@ import overlay_servidor
 import programados
 import redaccion
 import alias
-import avisos
 import obs_audio
 import obs_estado
 import obs_vigilante
@@ -106,19 +106,33 @@ def _ao2_init():
                     return
             except Exception:
                 pass
-    except Exception:
-        pass
+    except (AttributeError, ImportError):
+        try:
+            import win32com
+            shutil.rmtree(win32com.__gen_path__, ignore_errors=True)
+            from accessible_output2.outputs.auto import Auto
+            candidate = Auto()
+            for out in getattr(candidate, "outputs", []):
+                try:
+                    if out.is_active() and "sapi" not in type(out).__name__.lower():
+                        _ao2 = candidate
+                        return
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.warning("La aplicación se quedó sin salida para lector de pantalla: %s", exc)
+    except Exception as exc:
+        logger.warning("La aplicación se quedó sin salida para lector de pantalla: %s", exc)
 
 
-def anunciar(texto: str, categoria: str = "") -> None:
+def anunciar(texto: str, urgente: bool = True) -> None:
     if _ao2 is None:
         return
     try:
-        _ao2.speak(texto, interrupt=avisos.debe_interrumpir(
-            categoria, avisos.ultima_categoria()))
+        # Casi todos responden a una tecla y deben llegar antes del próximo foco.
+        _ao2.speak(texto, interrupt=urgente)
     except Exception:
         pass
-    avisos.recordar_categoria(categoria)
     # También a la línea braille, como hace TWBlue (output.speak): quien usa
     # pantalla braille sin voz recibe igualmente los anuncios de la app.
     try:
@@ -1218,13 +1232,13 @@ class YTChatFrame(wx.Frame):
         r = self._worker.get_rate()
         wpm = max(50, min(500, r * 20 + 180))
         guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
-        anunciar(f"Velocidad de la voz: {r:+d}", "velocidad")
+        anunciar(f"Velocidad de la voz: {r:+d}")
 
     def _ajustar_volume(self, delta):
         self._worker.cambiar_volumen(delta)
         v = self._worker.get_volume()
         guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
-        anunciar(f"Volumen de la voz: {v}%", "volumen")
+        anunciar(f"Volumen de la voz: {v}%")
 
     def _toggle_silenciar_sonidos(self):
         nuevo = not _snd.esta_silenciado()

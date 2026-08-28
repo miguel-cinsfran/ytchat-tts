@@ -202,7 +202,8 @@ class TransmisionDialog(wx.Dialog):
 
     def _anunciar_consulta(self, event):
         if self._operacion_en_vuelo and not self._cerrando:
-            anunciar("Consultando OBS")
+            # Puede repetirse mientras espera la operación y no debe interrumpir.
+            anunciar("Consultando OBS", False)
 
     def _al_destruir(self, event):
         self._temporizador_consulta.Stop()

@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import avisos
 import gui
 import gui_comentarios
 import gui_preferencias
+import reproductor
 import apagado
 import alias
 import programados
@@ -192,46 +192,41 @@ class TestRegistroEsAnunciable(unittest.TestCase):
         decidir.assert_called_once_with("diagnostico.hilos")
         anunciar.assert_not_called()
 
-    def test_anunciar_envia_el_texto_completo(self):
+    def test_anunciar_interrumpe_por_defecto(self):
         grabador = GrabadorDeVoz()
-        avisos.recordar_categoria("")
         with mock.patch.object(gui, "_ao2", grabador):
             gui.anunciar("hola")
 
         self.assertEqual(grabador.hablado, ["hola"])
-        self.assertEqual(grabador.brailleado, ["hola"])
+        self.assertEqual(grabador.interrupciones, [True])
 
-    def test_anunciar_sustituye_la_misma_categoria(self):
+    def test_anunciar_no_interrumpe_si_no_es_urgente(self):
         grabador = GrabadorDeVoz()
-        avisos.recordar_categoria("")
         with mock.patch.object(gui, "_ao2", grabador):
-            gui.anunciar("Volumen de la voz: 50%", "volumen")
-            gui.anunciar("Volumen de la voz: 60%", "volumen")
+            gui.anunciar("hola", urgente=False)
 
-        self.assertEqual(grabador.interrupciones, [False, True])
+        self.assertEqual(grabador.interrupciones, [False])
 
-    def test_anunciar_no_sustituye_categorias_distintas(self):
+    def test_anunciar_envia_braille_en_los_dos_casos(self):
         grabador = GrabadorDeVoz()
-        avisos.recordar_categoria("")
         with mock.patch.object(gui, "_ao2", grabador):
-            gui.anunciar("Volumen de la voz: 50%", "volumen")
-            gui.anunciar("Velocidad de la voz: +1", "velocidad")
+            gui.anunciar("urgente")
+            gui.anunciar("no urgente", urgente=False)
 
-        self.assertEqual(grabador.interrupciones, [False, False])
+        self.assertEqual(grabador.brailleado, ["urgente", "no urgente"])
 
-    def test_ajustes_de_voz_declararan_su_categoria(self):
-        frame = mock.Mock()
-        frame._worker.get_rate.return_value = 1
-        frame._worker.get_volume.return_value = 50
-        with mock.patch.object(gui, "guardar_opcion"), \
-                mock.patch.object(gui, "anunciar") as anunciar:
-            gui.YTChatFrame._ajustar_rate(frame, 1)
-            gui.YTChatFrame._ajustar_volume(frame, 1)
+    def test_aviso_de_espera_no_interrumpe(self):
+        panel = mock.Mock()
+        panel._cargando = True
+        panel._inicio_progreso = 10
+        panel._ultimo_aviso_progreso = None
+        with mock.patch.object(reproductor.time, "monotonic", return_value=12), \
+                mock.patch.object(reproductor.progreso, "aviso_de_espera",
+                                  return_value="Buscando el vídeo, 2 segundos"), \
+                mock.patch.object(reproductor, "anunciar") as anunciar:
+            reproductor.ReproductorPanel._on_timer_progreso(panel, None)
 
-        self.assertEqual(anunciar.call_args_list, [
-            mock.call("Velocidad de la voz: +1", "velocidad"),
-            mock.call("Volumen de la voz: 50%", "volumen"),
-        ])
+        anunciar.assert_called_once_with("Buscando el vídeo, 2 segundos", urgente=False)
 
     def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
         grabador = GrabadorDeVoz()
