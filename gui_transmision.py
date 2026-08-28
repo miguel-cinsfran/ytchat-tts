@@ -377,7 +377,7 @@ class TransmisionDialog(wx.Dialog):
     def _anunciar_ajuste(self, snap):
         # Aquí la fuente no cambia y ya se anunció al entrar; los otros anuncios pueden cambiar de fuente y llevan nombre.
         anunciar(obs_disposicion.describir(
-            snap, ("posicion", "solape", "fuera")))
+            snap, ("posicion", "solape", "fuera")), "ajuste")
 
     def _ajuste_perdio_foco(self, event):
         if self._ajuste_en_curso:

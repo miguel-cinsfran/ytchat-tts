@@ -94,10 +94,14 @@ class TestTransmisionDialog(unittest.TestCase):
     def setUp(self):
         self.app = wx.App() if not wx.App.Get() else wx.App.Get()
         self.anuncios = []
+        self.categorias = []
+        def anunciar(texto, categoria=""):
+            self.anuncios.append(texto)
+            self.categorias.append(categoria)
         self.parches = [
             mock.patch.object(gui_transmision.threading, "Thread", HiloInmediato),
             mock.patch.object(gui_transmision.wx, "CallAfter", lambda funcion, *args: funcion(*args)),
-            mock.patch.object(gui_transmision, "anunciar", self.anuncios.append),
+            mock.patch.object(gui_transmision, "anunciar", anunciar),
             mock.patch.object(gui_transmision.sound_player, "reproducir"),
         ]
         for parche in self.parches: parche.start()
@@ -291,6 +295,10 @@ class TestTransmisionDialog(unittest.TestCase):
         self.dialogo.EndModal = mock.Mock()
         self.dialogo._cerrar(Evento())
         temporizador.Stop.assert_called_once_with()
+
+    def test_ajuste_fino_declara_su_categoria(self):
+        self.dialogo._anunciar_ajuste(self.gestor.snap)
+        self.assertEqual(self.categorias[-1], "ajuste")
 
 
 if __name__ == "__main__":

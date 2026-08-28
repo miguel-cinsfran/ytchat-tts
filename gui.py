@@ -1174,13 +1174,13 @@ class YTChatFrame(wx.Frame):
         r = self._worker.get_rate()
         wpm = max(50, min(500, r * 20 + 180))
         guardar_opcion(RUTA_CONFIG, "voz", "velocidad", str(wpm))
-        anunciar(f"Velocidad de la voz: {r:+d}")
+        anunciar(f"Velocidad de la voz: {r:+d}", "velocidad")
 
     def _ajustar_volume(self, delta):
         self._worker.cambiar_volumen(delta)
         v = self._worker.get_volume()
         guardar_opcion(RUTA_CONFIG, "voz", "volumen", f"{v / 100:.2f}")
-        anunciar(f"Volumen de la voz: {v}%")
+        anunciar(f"Volumen de la voz: {v}%", "volumen")
 
     def _toggle_silenciar_sonidos(self):
         nuevo = not _snd.esta_silenciado()

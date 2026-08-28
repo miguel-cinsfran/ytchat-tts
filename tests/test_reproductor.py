@@ -391,5 +391,19 @@ class TestAvisoAlReproducir(unittest.TestCase):
             panel._toggle_play()
         anunciar.assert_not_called()
 
+class TestCategoriasDeVolumen(unittest.TestCase):
+
+    def test_los_dos_ajustes_de_volumen_declaran_su_categoria(self):
+        panel = types.SimpleNamespace(_aplicar_volumen=lambda _delta: 42)
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            reproductor.ReproductorPanel.ajustar_volumen(panel, 1)
+            reproductor.ReproductorPanel._vol_flecha(panel, -1)
+
+        self.assertEqual(anunciar.call_args_list, [
+            mock.call("Volumen reproductor 42 por ciento", "volumen"),
+            mock.call("Volumen 42", "volumen"),
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()

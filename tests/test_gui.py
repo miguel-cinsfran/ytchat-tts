@@ -196,6 +196,20 @@ class TestRegistroEsAnunciable(unittest.TestCase):
 
         self.assertEqual(grabador.interrupciones, [False, False])
 
+    def test_ajustes_de_voz_declararan_su_categoria(self):
+        frame = mock.Mock()
+        frame._worker.get_rate.return_value = 1
+        frame._worker.get_volume.return_value = 50
+        with mock.patch.object(gui, "guardar_opcion"), \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            gui.YTChatFrame._ajustar_rate(frame, 1)
+            gui.YTChatFrame._ajustar_volume(frame, 1)
+
+        self.assertEqual(anunciar.call_args_list, [
+            mock.call("Velocidad de la voz: +1", "velocidad"),
+            mock.call("Volumen de la voz: 50%", "volumen"),
+        ])
+
     def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
         grabador = GrabadorDeVoz()
         registro = logging.LogRecord(
