@@ -162,6 +162,19 @@ class TestTransmisionDialog(unittest.TestCase):
             wx.CommandEvent(wx.EVT_BUTTON.typeId, self.dialogo.btn_colocar.GetId()))
         self.assertIn(("colocar", "Principal", "inferior-derecha"), self.gestor.llamadas)
 
+    def test_mostrar_instantanea_refleja_el_anclaje_real_del_panel(self):
+        self.dialogo._mostrar_snap(self.gestor.snap)
+        self.assertEqual(self.dialogo.cho_posicion.GetStringSelection(), "Superior izquierda")
+
+    def test_mostrar_instantanea_fuera_de_anclajes_deja_sin_posicion(self):
+        snap = obs_disposicion.SnapshotPanel(
+            conectado=True, escena="Principal", ancho=460, alto=620,
+            lienzo_ancho=1600, lienzo_alto=900, izquierda=100, arriba=100,
+            visible=True, bloqueada=False)
+        self.dialogo.cho_posicion.SetSelection(0)
+        self.dialogo._mostrar_snap(snap)
+        self.assertEqual(self.dialogo.cho_posicion.GetSelection(), wx.NOT_FOUND)
+
     def test_carga_las_fuentes_y_prefiere_el_panel_de_chat(self):
         self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Cámara", "Chat YTChat", "Juego"])
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Chat YTChat")

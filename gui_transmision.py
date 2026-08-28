@@ -237,6 +237,12 @@ class TransmisionDialog(wx.Dialog):
         self._ultimo_snap = snap
         self.txt_estado.SetValue(obs_disposicion.describir_fuente(
             self._fuente(), snap, obs_disposicion.COMPONENTES, "largo"))
+        anclaje = obs_disposicion.anclaje_de(
+            (snap.izquierda, snap.arriba, snap.ancho, snap.alto),
+            snap.lienzo_ancho, snap.lienzo_alto)
+        self.cho_posicion.SetSelection(
+            tuple(obs_disposicion.ANCLAJES).index(anclaje)
+            if anclaje else wx.NOT_FOUND)
         if snap.ancho:
             self.sp_ancho.SetValue(snap.ancho)
         if snap.alto:
