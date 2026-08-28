@@ -870,6 +870,7 @@ _ETIQUETAS_ATAJO = {
     "abrir_historial":    "Abrir el historial de directos",
     "marcar_incidencia":  "Marcar incidencia",
     "abrir_transmision":  "Abrir Transmisión",
+    "obs_micro":          "Silenciar el micrófono de OBS",
     # Conexión y chat
     "conectar":          "Conectar",
     "desconectar":       "Desconectar",

@@ -117,6 +117,7 @@ ATAJOS_DEFAULTS = {
     "abrir_historial":    "ctrl+shift+h",
     "marcar_incidencia":  "ctrl+shift+i",
     "abrir_transmision":  "ctrl+shift+t",
+    "obs_micro":          "ctrl+shift+m",
     # Conexión y chat (Alt)
     "conectar":          "alt+c",
     "desconectar":       "alt+d",
@@ -157,7 +158,7 @@ ATAJOS_GRUPOS = [
      ["conectar", "desconectar", "enviar_chat", "ir_lista"]),
     ("Ventanas y paneles (Ctrl+Shift)",
      ["abrir_preferencias", "abrir_historial", "marcar_incidencia",
-      "abrir_transmision"]),
+      "abrir_transmision", "obs_micro"]),
     ("Voz y lectura (teclas F)",
      ["pausa", "detener_tts", "velocidad_menos", "velocidad_mas",
       "volumen_menos", "volumen_mas", "silenciar_lectura",
@@ -312,6 +313,7 @@ _DEF = {
     "descargas_formato": "mp4", "descargas_bitrate": "192",
     "descargas_enumerar": "false",
     "activo": "false", "puerto": "8730",
+    "microfono": "",
 }
 
 _CONFIG_FALLBACK = """\
@@ -386,6 +388,8 @@ registro_detallado = false
 [overlay]
 activo = false
 puerto = 8730
+[obs]
+microfono =
 # Componentes que anuncia F2 (estado de sesion). Editable en
 # Preferencias > Estado (F2). true = se dice; false = no.
 [estado]
@@ -653,6 +657,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "overlay", "activo", "false")
     if not p.has_option("overlay", "puerto"):
         guardar_opcion(ruta, "overlay", "puerto", "8730")
+    if not p.has_option("obs", "microfono"):
+        guardar_opcion(ruta, "obs", "microfono", "")
     if not p.has_option("programados", "activo"):
         guardar_opcion(ruta, "programados", "activo", "false")
 
@@ -721,6 +727,7 @@ def cargar_configuracion() -> dict:
         "programados_activo": _pb(p, "programados", "activo"),
         "overlay_activo": _pb(p, "overlay", "activo"),
         "overlay_puerto": _pi(p, "overlay", "puerto", lo=1),
+        "obs_microfono": _gs(p, "obs", "microfono"),
         "estado_toggles": estado_toggles,
         "atajos_raw": atajos_raw,
         "ruta_config": ruta,

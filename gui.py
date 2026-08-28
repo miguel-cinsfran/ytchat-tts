@@ -42,6 +42,8 @@ import programados
 import redaccion
 import alias
 import avisos
+import obs_audio
+from obs_panel import GestorPanelObs
 from gui_redactar import PanelRedactar
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
@@ -556,6 +558,8 @@ class YTChatFrame(wx.Frame):
         self.mi_overlay.Check(bool(self._config.get("overlay_activo", False)))
         self.mi_transmision = m.Append(
             wx.ID_ANY, "&Transmisión…" + self._accel("abrir_transmision"))
+        self.mi_obs_micro = m.Append(
+            wx.ID_ANY, "Silenciar el &micrófono de OBS" + self._accel("obs_micro"))
         mb.Append(m, "&Herramientas")
         self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
@@ -564,6 +568,7 @@ class YTChatFrame(wx.Frame):
                   self.mi_actualizar_ytdlp)
         self.Bind(wx.EVT_MENU, self._on_overlay, self.mi_overlay)
         self.Bind(wx.EVT_MENU, self._on_transmision, self.mi_transmision)
+        self.Bind(wx.EVT_MENU, self._on_obs_micro, self.mi_obs_micro)
 
         # Ayuda
         m = wx.Menu()
@@ -1040,6 +1045,29 @@ class YTChatFrame(wx.Frame):
     def _on_transmision(self, event):
         from gui_transmision import abrir_transmision
         abrir_transmision(self)
+
+    def _on_obs_micro(self, event):
+        def _alternar():
+            gestor = None
+            try:
+                gestor = GestorPanelObs()
+                gestor.conectar()
+                fuente = obs_audio.elegir_microfono(
+                    gestor.fuentes_audio(), self._config.get("obs_microfono", ""))
+                silenciada = gestor.alternar_silencio(fuente) if fuente else False
+                texto = obs_audio.frase_microfono(fuente, silenciada)
+            except Exception:
+                texto = ("OBS no responde. En OBS, menú Herramientas, Configuración "
+                         "del servidor WebSocket, activa el servidor.")
+            finally:
+                if gestor is not None:
+                    try:
+                        gestor.cerrar()
+                    except Exception:
+                        pass
+            wx.CallAfter(anunciar, texto, "microfono")
+
+        diagnostico.crear_hilo(_alternar, "MicrofonoObs").start()
 
     # ── Gestor de descargas (gui_descargas) ──────────────────────────────────
     # Abre el diálogo siempre (no requiere conexión). Si le llega una URL, la

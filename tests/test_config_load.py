@@ -84,6 +84,13 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("[overlay]", texto)
         self.assertIn("puerto = 8730", texto)
 
+    def test_microfono_de_obs_viene_vacio_y_se_persiste_en_el_ejemplo(self):
+        cfg = self._cargar_en(config._CONFIG_FALLBACK)
+        self.assertEqual(cfg["obs_microfono"], "")
+        texto = (Path(self._tmp.name) / "config.ini").read_text(encoding="utf-8")
+        self.assertIn("[obs]", texto)
+        self.assertIn("microfono =", texto)
+
     def test_programados_arranca_apagado_y_se_persiste_en_el_ejemplo(self):
         self.assertEqual(config._DEF["programados_activo"], "false")
         cfg = self._cargar_en(config._CONFIG_FALLBACK)
