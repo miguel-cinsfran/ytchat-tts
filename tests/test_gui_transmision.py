@@ -277,6 +277,19 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertIs(self.dialogo._acciones[indice + 1], self.dialogo.btn_poner_al_aire)
         self.assertEqual(self.dialogo.btn_poner_al_aire.GetName(), "Poner al aire")
 
+    def test_boton_como_se_coloca_tiene_nombre_y_es_una_accion(self):
+        self.assertEqual(self.dialogo.btn_como_se_coloca.GetName(), "Como se coloca el panel")
+        self.assertIn(self.dialogo.btn_como_se_coloca, self.dialogo._acciones)
+
+    def test_boton_como_se_coloca_muestra_la_guia(self):
+        with mock.patch.object(gui_transmision.wx, "MessageBox") as aviso:
+            self.dialogo.btn_como_se_coloca.GetEventHandler().ProcessEvent(
+                wx.CommandEvent(wx.EVT_BUTTON.typeId,
+                                self.dialogo.btn_como_se_coloca.GetId()))
+        texto = aviso.call_args.args[0]
+        self.assertIn("Preparar el panel", texto)
+        self.assertIn("Ajuste fino", texto)
+
     def test_leer_y_ajuste_fino_piden_la_instantanea_de_la_fuente_elegida(self):
         self.dialogo.cho_fuente.SetSelection(0)
         self.gestor.instantaneas.clear()

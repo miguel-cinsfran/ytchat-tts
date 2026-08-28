@@ -26,6 +26,28 @@ _TEXTO_LIENZO = (
     "fondo de este panel es transparente: solo se ven las tarjetas de los\n"
     "mensajes, y solo tapan lo que hay justo debajo de ellas.")
 
+_TEXTO_COMO_SE_COLOCA = (
+    "Este diálogo no crea escenas ni agrega fuentes cualesquiera. Hace una sola\n"
+    "cosa: pone el panel de chat de esta aplicación dentro de una escena de OBS\n"
+    "y lo coloca donde quieras.\n\n"
+    "El orden es este.\n\n"
+    "Uno. Pulsa Preparar el panel. Eso enciende el servidor del panel y crea la\n"
+    "fuente dentro de la escena elegida, si todavía no estaba.\n\n"
+    "Dos. Elige la escena en el desplegable Escena. Recorrerlo no cambia lo que\n"
+    "ven los espectadores: para eso está el botón Poner al aire.\n\n"
+    "Tres. Elige qué fuente vas a mover en el desplegable Fuente. Normalmente es\n"
+    "el panel de chat, pero puedes mover cualquier fuente que ya exista en la\n"
+    "escena. Este diálogo no agrega fuentes que no sean el panel: eso se hace\n"
+    "desde OBS.\n\n"
+    "Cuatro. Coloca la fuente. Tienes dos formas. El desplegable Posición más su\n"
+    "botón la lleva a una de nueve posiciones fijas. El Ajuste fino la mueve de\n"
+    "a poco con las flechas, y confirma con Intro.\n\n"
+    "Cinco. El tamaño se cambia con Ancho y Alto y se aplica con su botón.\n\n"
+    "El cuadro Estado de la transmisión describe en todo momento dónde está la\n"
+    "fuente, de qué tamaño es, si se sale del lienzo y si tapa a otras. Se\n"
+    "actualiza solo con cada cambio.\n\n"
+    "Restablecer deshace todo lo que hiciste desde que abriste esta ventana.")
+
 _PUERTO_PANEL_DEFECTO = 8730
 _RUTA_PANEL_CHAT = "/chat"
 
@@ -118,6 +140,8 @@ class TransmisionDialog(wx.Dialog):
         self._etiqueta_ajuste = "Ajuste &fino"
         self.btn_ajuste = self._boton(panel, self._etiqueta_ajuste, "AjusteFino")
         self.btn_captura = self._boton(panel, "&Guardar una captura de la escena…", "GuardarCaptura")
+        self.btn_como_se_coloca = self._boton(
+            panel, "C&ómo se coloca el panel", "Como se coloca el panel")
         self.btn_lienzo = self._boton(panel, "&Qué es el lienzo", "QueEsElLienzo")
         self.btn_restaurar = self._boton(panel, "&Restablecer", "RestablecerTransmision")
         self.btn_transmitir = self._boton(panel, "&Transmitir", "Transmitir")
@@ -125,7 +149,7 @@ class TransmisionDialog(wx.Dialog):
         self.btn_pausar_grabacion = self._boton(
             panel, "Pausar la gra&bacion", "Pausar la grabacion")
         for boton in (self.btn_frente, self.btn_ajuste, self.btn_captura,
-                      self.btn_lienzo, self.btn_restaurar, self.btn_transmitir,
+                      self.btn_como_se_coloca, self.btn_lienzo, self.btn_restaurar, self.btn_transmitir,
                       self.btn_grabar, self.btn_pausar_grabacion):
             caja.Add(boton, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
@@ -136,7 +160,7 @@ class TransmisionDialog(wx.Dialog):
                           self.btn_poner_al_aire, self.cho_fuente, self.cho_posicion,
                           self.btn_colocar, self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
-                          self.btn_restaurar, self.btn_transmitir, self.btn_grabar,
+                          self.btn_como_se_coloca, self.btn_restaurar, self.btn_transmitir, self.btn_grabar,
                           self.btn_pausar_grabacion)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.btn_preparar.Bind(wx.EVT_BUTTON, self._preparar)
@@ -153,6 +177,7 @@ class TransmisionDialog(wx.Dialog):
         self.btn_ajuste.Bind(wx.EVT_BUTTON, self._iniciar_ajuste)
         self.btn_ajuste.Bind(wx.EVT_KILL_FOCUS, self._ajuste_perdio_foco)
         self.btn_captura.Bind(wx.EVT_BUTTON, self._captura)
+        self.btn_como_se_coloca.Bind(wx.EVT_BUTTON, self._como_se_coloca)
         self.btn_lienzo.Bind(wx.EVT_BUTTON, self._lienzo)
         self.btn_restaurar.Bind(wx.EVT_BUTTON, self._restaurar)
         self.btn_transmitir.Bind(wx.EVT_BUTTON, self._transmitir)
@@ -597,6 +622,10 @@ class TransmisionDialog(wx.Dialog):
 
     def _lienzo(self, event):
         wx.MessageBox(_TEXTO_LIENZO, "Qué es el lienzo", wx.OK | wx.ICON_INFORMATION, self)
+
+    def _como_se_coloca(self, event):
+        wx.MessageBox(_TEXTO_COMO_SE_COLOCA, "Cómo se coloca el panel",
+                      wx.OK | wx.ICON_INFORMATION, self)
 
     def _restaurar(self, event):
         self._en_hilo(self._aplicar_restauracion, lambda snap: anunciar("Restablecido"))
