@@ -362,8 +362,7 @@ class ComentariosPanel(wx.Panel):
                 "Respuesta publicada"),
             titulo="Responder comentario", nombre_texto="Texto del comentario",
             nombre_boton="Publicar")
-        if dlg.ShowModal() == wx.ID_OK:
-            pass
+        dlg.ShowModal()
         dlg.Destroy()
 
     def _comentar(self):
@@ -380,8 +379,7 @@ class ComentariosPanel(wx.Panel):
                 "Comentario publicado"),
             titulo="Comentar", motivo=motivo,
             nombre_texto="Texto del comentario", nombre_boton="Publicar")
-        if dlg.ShowModal() == wx.ID_OK:
-            pass
+        dlg.ShowModal()
         dlg.Destroy()
 
     def _enviar_escritura(self, accion, mensaje_ok):
