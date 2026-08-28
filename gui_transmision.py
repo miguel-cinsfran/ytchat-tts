@@ -403,6 +403,8 @@ class TransmisionDialog(wx.Dialog):
         anunciar(frase)
 
     def _cambiar_escena(self, event):
+        if self._operacion_en_vuelo:
+            return
         self._en_hilo(self._leer_escena, self._escena_cambiada)
         event.Skip()
 
@@ -420,6 +422,8 @@ class TransmisionDialog(wx.Dialog):
             self._anunciar_snap(snap)
 
     def _cambiar_fuente(self, event):
+        if self._operacion_en_vuelo:
+            return
         self._en_hilo(self._leer, self._anunciar_snap)
         event.Skip()
 
