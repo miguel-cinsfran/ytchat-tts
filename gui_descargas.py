@@ -23,7 +23,7 @@ import threading
 import wx
 
 import config as cfg
-from descargas import GestorDescargas, frase_aviso_descarga
+from descargas import frase_aviso_descarga, gestor
 from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
 import sound_player as _snd
 
@@ -80,10 +80,12 @@ class GestorDescargasDialog(wx.Dialog):
         self.SetBackgroundColour(_T.bg)
         self._alive = True
         self._opciones = cfg.obtener_opciones_descarga()
-        self._gestor = GestorDescargas(self._opciones)
+        self._gestor = gestor()
+        self._gestor.suscribir_fin(_avisar_fin_descarga)
         self._items_fila: dict[str, int] = {}   # item_id -> índice en ListCtrl
         self._fila_items: dict[int, str] = {}   # índice -> item_id
         self._build_ui()
+        self._repoblar_lista()
         self.Bind(wx.EVT_CLOSE, self._on_cerrar)
         if url_inicial:
             self.txt_url.SetValue(url_inicial)
@@ -261,15 +263,26 @@ class GestorDescargasDialog(wx.Dialog):
 
         def _cb_estado(item_id, estado, mensaje):
             wx.CallAfter(self._actualizar_estado, item_id, estado, mensaje)
-            item = self._gestor.obtener(item_id)
-            nombre = item.nombre if item is not None and item.nombre != item.url else ""
-            wx.CallAfter(_avisar_fin_descarga, estado, mensaje, nombre)
 
-        item_id = self._gestor.encolar(url, _cb_progreso, _cb_estado)
-        self._items_fila[item_id] = idx
-        self._fila_items[idx] = item_id
+        def _registrar_fila(item_id):
+            self._items_fila[item_id] = idx
+            self._fila_items[idx] = item_id
+
+        self._gestor.encolar(url, _cb_progreso, _cb_estado, _registrar_fila)
         self.txt_url.SetValue("")
         anunciar("Añadido a la cola")
+
+    def _repoblar_lista(self) -> None:
+        for item in self._gestor.lista():
+            idx = self.lista.InsertItem(self.lista.GetItemCount(), item.nombre[:300])
+            self.lista.SetItem(idx, 1, f"{item.progreso:.0f} %")
+            if item.mensaje and item.estado in ("error", "cancelado"):
+                estado = f"{item.estado}: {item.mensaje[:80]}"
+            else:
+                estado = item.estado
+            self.lista.SetItem(idx, 2, estado[:200])
+            self._items_fila[item.id] = idx
+            self._fila_items[idx] = item.id
 
     def _on_cancelar(self, _event):
         idx = self.lista.GetFirstSelected()

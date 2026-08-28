@@ -1,8 +1,10 @@
 """Pruebas de accesibilidad del selector de carpeta."""
 
 import unittest
+import threading
 from unittest import mock
 
+import descargas
 import gui_descargas
 
 try:
@@ -66,6 +68,9 @@ class TestGruposGestorDescargas(unittest.TestCase):
     def setUp(self):
         self.app = wx.App() if not wx.App.Get() else wx.App.Get()
 
+    def tearDown(self):
+        descargas.reiniciar_gestor()
+
     def test_controles_anunciables_cuelgan_de_su_grupo(self):
         dialogo = gui_descargas.GestorDescargasDialog(None)
         try:
@@ -110,20 +115,27 @@ class TestGruposGestorDescargas(unittest.TestCase):
         dialogo._actualizar_estado("item", "completado", "")
 
     def test_fin_avisado_despues_de_cerrar_el_dialogo(self):
-        dialogo = gui_descargas.GestorDescargasDialog(None)
-        dialogo.txt_url.SetValue("https://example.com/video")
+        inicio = threading.Event()
+        terminar = threading.Event()
+        completada = threading.Event()
 
-        def encolar(_gestor, _url, _progreso, estado):
-            estado("item", "completado", "")
-            return "item"
+        def descarga_simulada(_url, _opciones, _progreso, estado, _cancelar):
+            inicio.set()
+            terminar.wait(1)
+            estado("completado", "")
+            completada.set()
 
-        with mock.patch.object(gui_descargas.cfg, "guardar_opciones_descarga"), \
-                mock.patch.object(gui_descargas.GestorDescargas, "encolar", encolar), \
+        with mock.patch.object(descargas, "analizar_url", return_value={}), \
+                mock.patch.object(descargas, "descargar", descarga_simulada), \
                 mock.patch.object(gui_descargas, "anunciar") as anunciar, \
                 mock.patch.object(gui_descargas._snd, "reproducir") as sonido:
-            dialogo._on_anadir(None)
-            anunciar.reset_mock()
-            dialogo._on_cerrar(None)
+            dialogo = gui_descargas.GestorDescargasDialog(None)
+            dialogo._gestor.encolar("https://youtu.be/video", lambda *_: None,
+                                    lambda *_: None)
+            self.assertTrue(inicio.wait(1))
+            dialogo.Destroy()
+            terminar.set()
+            self.assertTrue(completada.wait(1))
             wx.Yield()
 
         anunciar.assert_called_once_with("Descarga completada")
