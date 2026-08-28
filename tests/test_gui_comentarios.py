@@ -91,6 +91,18 @@ class TestComentariosPanel(unittest.TestCase):
         self.panel.set_video("video", autocargar=False)
         self.assertFalse(self.panel._comentarios_cerrados)
 
+    def test_aplicar_orden_recarga_pero_elegir_no(self):
+        self.panel._recargar = mock.Mock()
+        evento = wx.CommandEvent(wx.EVT_CHOICE.typeId, self.panel.cho_orden.GetId())
+        evento.SetEventObject(self.panel.cho_orden)
+        self.panel.cho_orden.GetEventHandler().ProcessEvent(evento)
+        self.panel._recargar.assert_not_called()
+        evento = wx.CommandEvent(wx.EVT_BUTTON.typeId,
+                                 self.panel.btn_aplicar_orden.GetId())
+        evento.SetEventObject(self.panel.btn_aplicar_orden)
+        self.panel.btn_aplicar_orden.GetEventHandler().ProcessEvent(evento)
+        self.panel._recargar.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

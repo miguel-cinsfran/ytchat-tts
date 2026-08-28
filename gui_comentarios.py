@@ -63,8 +63,13 @@ class ComentariosPanel(wx.Panel):
                                    name="Orden de comentarios")
         _tc(self.cho_orden)
         self.cho_orden.SetSelection(0)
-        self.cho_orden.Bind(wx.EVT_CHOICE, lambda e: self._recargar())
         row.Add(self.cho_orden, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 12)
+        # Recorrer las opciones no debe gastar cuota de la API; se aplica aparte.
+        self.btn_aplicar_orden = wx.Button(self, label="Aplicar el &orden",
+                                           name="Aplicar el orden")
+        _btn(self.btn_aplicar_orden)
+        self.btn_aplicar_orden.Bind(wx.EVT_BUTTON, lambda e: self._recargar())
+        row.Add(self.btn_aplicar_orden, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         self.btn_recargar = wx.Button(self, label="&Recargar comentarios",
                                       name="RecargarComentarios")
         _btn(self.btn_recargar)
