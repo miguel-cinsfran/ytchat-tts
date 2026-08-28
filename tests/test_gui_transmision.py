@@ -347,14 +347,14 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertTrue(self.dialogo._ajuste_en_curso)
         self.assertEqual(self.dialogo.btn_ajuste.GetLabel(), "Ajustando, flechas para mover")
         self.assertIn("Ajuste fino.", self.anuncios[-2])
-        self.assertEqual(self.anuncios[-1], "Superior izquierda; Libre.")
+        self.assertEqual(self.anuncios[-1], "Esquina superior izquierda; Libre.")
 
     def test_flecha_del_ajuste_mueve_y_anuncia_el_conjunto_corto(self):
         self.dialogo._iniciar_ajuste(Evento())
         self.anuncios.clear()
         self.dialogo._tecla_ajuste(EventoTecla(wx.WXK_RIGHT))
         self.assertIn(("mover", "Principal", 10, 0), self.gestor.llamadas)
-        self.assertEqual(self.anuncios[-1], "Superior izquierda; Libre.")
+        self.assertEqual(self.anuncios[-1], "Esquina superior izquierda; Libre.")
 
     def test_flecha_se_descarta_si_hay_movimiento_en_vuelo(self):
         self.dialogo._iniciar_ajuste(Evento())

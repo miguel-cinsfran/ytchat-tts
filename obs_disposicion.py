@@ -190,7 +190,8 @@ def _render(nombre: str, s: SnapshotPanel, largo: bool) -> str:
         return f"Capa: {valor}" if largo else valor[0].upper() + valor[1:]
     if nombre == "solape":
         if not s.solapes:
-            return "No se superpone con ninguna otra fuente"
+            # El modo corto se oye en cada pulsación del ajuste fino.
+            return "No se superpone con ninguna otra fuente" if largo else "Libre"
         # El porcentaje de superposición es de la otra fuente; el de recorte, del propio panel.
         partes = [f"al {_porcentaje(porcentaje)}% de {nombre}"
                   for nombre, porcentaje in s.solapes]
