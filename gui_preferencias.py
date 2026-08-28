@@ -874,7 +874,7 @@ class PreferenciasDialog(wx.Dialog):
                 logger.warning("Login OAuth falló: %s", exc)
                 wx.CallAfter(self._api_login_err, exc)
 
-        threading.Thread(target=_run, daemon=True, name="OAuthLogin").start()
+        diagnostico.crear_hilo(_run, "OAuthLogin").start()
 
     def _api_login_ok(self):
         self._login_en_curso = False

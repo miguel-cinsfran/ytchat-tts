@@ -10,6 +10,7 @@ import ajuste_fino
 import obs_cliente
 import obs_disposicion
 import obs_estado
+import diagnostico
 import overlay_servidor
 from gui import ContadorAccesible, _T, anunciar, nombre_accesible
 from obs_panel import GestorPanelObs, NOMBRE_FUENTE
@@ -205,7 +206,7 @@ class TransmisionDialog(wx.Dialog):
                 wx.CallAfter(self._fallo, str(error))
             else:
                 wx.CallAfter(self._terminar, resultado, al_terminar)
-        threading.Thread(target=ejecutar, daemon=True, name="TransmisionOBS").start()
+        diagnostico.crear_hilo(ejecutar, "TransmisionOBS").start()
 
     def _alternar_panel_chat(self, event):
         if self._alternar_panel is not None:
@@ -562,7 +563,7 @@ class TransmisionDialog(wx.Dialog):
                 wx.CallAfter(self._movimiento_fallo, str(error))
             else:
                 wx.CallAfter(self._movimiento_terminado, snap)
-        threading.Thread(target=mover, daemon=True, name="AjusteFinoOBS").start()
+        diagnostico.crear_hilo(mover, "AjusteFinoOBS").start()
 
     def _movimiento_terminado(self, snap):
         self._movimiento_en_vuelo = False
@@ -650,8 +651,7 @@ class TransmisionDialog(wx.Dialog):
             return
         self._cerrando = True
         self._temporizador_consulta.Stop()
-        threading.Thread(target=self._cerrar_gestor, daemon=True,
-                         name="CerrarTransmisionOBS").start()
+        diagnostico.crear_hilo(self._cerrar_gestor, "CerrarTransmisionOBS").start()
         self.EndModal(wx.ID_CANCEL)
 
     def _cerrar_gestor(self):

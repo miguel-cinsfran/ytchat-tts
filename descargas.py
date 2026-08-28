@@ -220,11 +220,9 @@ def descargar(url: str, opciones: dict,
             proceso.wait()
             estado_cb("cancelado", "Descarga cancelada")
             return
-        threading.Thread(
-            target=_vigilar_cancelacion,
+        diagnostico.crear_hilo(
+            _vigilar_cancelacion, "Vigilante-cancelacion",
             args=(proceso, cancel_event),
-            daemon=True,
-            name="Vigilante-cancelacion",
         ).start()
         for linea in iter(proceso.stdout.readline, ""):
             if cancel_event.is_set():
@@ -369,7 +367,7 @@ class GestorDescargas:
                 logger.warning("hilo descarga: %s", exc)
                 _cb_estado("error", str(exc) or exc.__class__.__name__)
 
-        hilo = threading.Thread(target=_run, daemon=True, name=f"Descarga-{item_id}")
+        hilo = diagnostico.crear_hilo(_run, f"Descarga-{item_id}")
         hilo.start()
         return item_id
 

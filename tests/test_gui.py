@@ -1194,7 +1194,7 @@ class TestCierreVentana(unittest.TestCase):
         hilo = mock.Mock()
         hilo.name = "Chat"
         hilo.is_alive.return_value = True
-        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("Chat",)), \
                 mock.patch.object(gui, "anunciar") as anunciar, \
                 mock.patch.object(gui.wx, "CallLater") as call_later:
             frame._on_close(None)
@@ -1205,7 +1205,7 @@ class TestCierreVentana(unittest.TestCase):
 
     def test_sin_captura_no_anuncia_y_destruye(self):
         frame = self._frame()
-        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui, "anunciar") as anunciar, \
                 mock.patch.object(gui.wx, "CallLater") as call_later:
             frame._on_close(None)
@@ -1216,7 +1216,7 @@ class TestCierreVentana(unittest.TestCase):
 
     def test_al_cerrar_detiene_el_vigilante_de_interfaz(self):
         frame = self._frame()
-        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui, "anunciar"), \
                 mock.patch.object(gui.diagnostico.logger, "info"):
             frame._on_close(None)
@@ -1238,7 +1238,7 @@ class TestCierreVentana(unittest.TestCase):
 
     def test_cerrar_apaga_el_overlay(self):
         frame = self._frame()
-        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui, "anunciar"), \
                 mock.patch.object(gui.overlay_servidor, "apagar") as apagar:
             frame._on_close(None)
@@ -1284,12 +1284,12 @@ class TestCierreVentana(unittest.TestCase):
         self.assertNotIn("VigilanteInterfaz", apagado.NOMBRES_HILOS_CAPTURA)
 
     def test_el_tope_del_cierre_sale_de_apagado(self):
-        self.assertEqual(apagado.TOPE_ESPERA_CIERRE, 3.0)
+        self.assertEqual(apagado.TOPE_ESPERA_CIERRE, 8.0)
         frame = self._frame()
         hilo = mock.Mock()
         hilo.name = "TikTok"
         hilo.is_alive.return_value = True
-        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("TikTok",)), \
                 mock.patch.object(gui, "anunciar"), \
                 mock.patch.object(gui.wx, "CallLater"):
             frame._on_close(None)
@@ -1299,11 +1299,11 @@ class TestCierreVentana(unittest.TestCase):
     def test_comprobar_cierre_con_hilos_vivos_reprograma_y_no_destruye(self):
         frame = self._frame()
         frame._cierre_inicio = 100.0
-        frame._cierre_tope = 3.0
+        frame._cierre_tope = 8.0
         hilo = mock.Mock(name="Chat")
         hilo.name = "Chat"
         hilo.is_alive.return_value = True
-        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("Chat",)), \
                 mock.patch.object(gui.time, "monotonic", return_value=101.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later:
             frame._comprobar_cierre()
@@ -1314,8 +1314,8 @@ class TestCierreVentana(unittest.TestCase):
     def test_comprobar_cierre_sin_hilos_destruye_y_registra_cierre_limpio(self):
         frame = self._frame()
         frame._cierre_inicio = 100.0
-        frame._cierre_tope = 3.0
-        with mock.patch.object(gui.threading, "enumerate", return_value=[]), \
+        frame._cierre_tope = 8.0
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui.time, "monotonic", return_value=101.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
                 mock.patch.object(gui.diagnostico.logger, "info") as registrar:
@@ -1328,12 +1328,12 @@ class TestCierreVentana(unittest.TestCase):
     def test_comprobar_cierre_con_tope_vencido_destruye_y_registra_hilos(self):
         frame = self._frame()
         frame._cierre_inicio = 100.0
-        frame._cierre_tope = 3.0
+        frame._cierre_tope = 8.0
         hilo = mock.Mock(name="TikTok")
         hilo.name = "TikTok"
         hilo.is_alive.return_value = True
-        with mock.patch.object(gui.threading, "enumerate", return_value=[hilo]), \
-                mock.patch.object(gui.time, "monotonic", return_value=104.0), \
+        with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("TikTok",)), \
+                mock.patch.object(gui.time, "monotonic", return_value=109.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
                 mock.patch.object(gui.diagnostico.logger, "info") as registrar:
             frame._comprobar_cierre()
@@ -1341,7 +1341,7 @@ class TestCierreVentana(unittest.TestCase):
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
         registrar.assert_called_once_with(
-            "%s", "CIERRE por tope=3.0s hilos vivos=TikTok")
+            "%s", "CIERRE por tope=8.0s hilos vivos=TikTok")
 
 
 if __name__ == "__main__":

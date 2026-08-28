@@ -215,7 +215,7 @@ class ComentariosPanel(wx.Panel):
                 logger.warning("leer_comentarios: %s", exc)
                 wx.CallAfter(self._pagina_err, exc)
 
-        threading.Thread(target=_run, daemon=True, name="Comentarios").start()
+        diagnostico.crear_hilo(_run, "Comentarios").start()
 
     def _pagina_ok(self, coms, nxt):
         self._cargando = False
@@ -410,7 +410,7 @@ class ComentariosPanel(wx.Panel):
                 logger.warning("escritura API: %s", exc)
                 wx.CallAfter(self._escritura_err, exc)
 
-        threading.Thread(target=_run, daemon=True, name="ComentarAPI").start()
+        diagnostico.crear_hilo(_run, "ComentarAPI").start()
 
     def _escritura_ok(self, mensaje):
         _snd.reproducir("comentario")
