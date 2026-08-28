@@ -16,6 +16,7 @@ from descargas import (
     debe_emitir_progreso,
     descargar,
     formato_a_ydl,
+    frase_aviso_descarga,
     tiene_ffmpeg,
     _vigilar_cancelacion,
 )
@@ -26,6 +27,23 @@ class TestDebeEmitirProgreso(unittest.TestCase):
     def test_aviso_final(self): self.assertTrue(debe_emitir_progreso(10, 10.01, 100))
     def test_aviso_al_intervalo(self): self.assertTrue(debe_emitir_progreso(10, 10.5, 40))
     def test_aviso_dentro_del_intervalo(self): self.assertFalse(debe_emitir_progreso(10, 10.01, 40))
+
+
+class TestFraseAvisoDescarga(unittest.TestCase):
+    def test_completada_incluye_nombre(self):
+        self.assertEqual(frase_aviso_descarga("completado", "", "archivo.mp4"),
+                         "Descarga completada: archivo.mp4")
+
+    def test_error_incluye_motivo(self):
+        self.assertEqual(frase_aviso_descarga("error", "sin espacio", ""),
+                         "Error en la descarga: sin espacio")
+
+    def test_cancelada_no_agrega_mensaje(self):
+        self.assertEqual(frase_aviso_descarga("cancelado", "motivo", "archivo"),
+                         "Descarga cancelada")
+
+    def test_progreso_no_se_anuncia(self):
+        self.assertEqual(frase_aviso_descarga("descargando", "", "archivo"), "")
 
 
 class TestFormatoAYdl(unittest.TestCase):

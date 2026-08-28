@@ -23,7 +23,7 @@ import threading
 import wx
 
 import config as cfg
-from descargas import GestorDescargas
+from descargas import GestorDescargas, frase_aviso_descarga
 from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
 import sound_player as _snd
 
@@ -57,6 +57,17 @@ def nombrar_selector_carpeta(selector) -> None:
         boton_carpeta = selector.GetPickerCtrl()
         boton_carpeta.SetLabel("Examinar…")
         nombre_accesible(boton_carpeta, "Examinar…")
+
+
+def _avisar_fin_descarga(estado: str, mensaje: str, nombre: str) -> None:
+    frase = frase_aviso_descarga(estado, mensaje, nombre)
+    if not frase:
+        return
+    try:
+        _snd.reproducir("error" if estado == "error" else "copiar")
+    except Exception:
+        pass
+    anunciar(frase)
 
 
 class GestorDescargasDialog(wx.Dialog):
@@ -250,6 +261,9 @@ class GestorDescargasDialog(wx.Dialog):
 
         def _cb_estado(item_id, estado, mensaje):
             wx.CallAfter(self._actualizar_estado, item_id, estado, mensaje)
+            item = self._gestor.obtener(item_id)
+            nombre = item.nombre if item is not None and item.nombre != item.url else ""
+            wx.CallAfter(_avisar_fin_descarga, estado, mensaje, nombre)
 
         item_id = self._gestor.encolar(url, _cb_progreso, _cb_estado)
         self._items_fila[item_id] = idx
@@ -301,17 +315,11 @@ class GestorDescargasDialog(wx.Dialog):
         else:
             texto = estado
         self.lista.SetItem(idx, 2, texto[:200])
-        # Anunciar SOLO inicio/fin/error/cancel (no cada %). La transición a
-        # «completado/error/cancelado» es la que el lector verbaliza.
-        if estado in ("descargando", "completado", "error", "cancelado"):
-            try:    _snd.reproducir("error" if estado == "error" else "copiar")
-            except Exception: pass
-            if estado == "error":
-                anunciar(f"Error: {mensaje or 'fallo en la descarga'}")
-            elif estado == "completado":
-                anunciar("Descarga completada")
-            elif estado == "cancelado":
-                anunciar("Descarga cancelada")
+        if estado == "descargando":
+            try:
+                _snd.reproducir("copiar")
+            except Exception:
+                pass
 
 
 def abrir(parent, url_inicial: str | None = None) -> bool:

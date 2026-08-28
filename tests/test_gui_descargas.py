@@ -100,6 +100,26 @@ class TestGruposGestorDescargas(unittest.TestCase):
         dialogo._actualizar_progreso("item", 50, "archivo.mp4")
         dialogo._actualizar_estado("item", "completado", "")
 
+    def test_fin_avisado_despues_de_cerrar_el_dialogo(self):
+        dialogo = gui_descargas.GestorDescargasDialog(None)
+        dialogo.txt_url.SetValue("https://example.com/video")
+
+        def encolar(_gestor, _url, _progreso, estado):
+            estado("item", "completado", "")
+            return "item"
+
+        with mock.patch.object(gui_descargas.cfg, "guardar_opciones_descarga"), \
+                mock.patch.object(gui_descargas.GestorDescargas, "encolar", encolar), \
+                mock.patch.object(gui_descargas, "anunciar") as anunciar, \
+                mock.patch.object(gui_descargas._snd, "reproducir") as sonido:
+            dialogo._on_anadir(None)
+            anunciar.reset_mock()
+            dialogo._on_cerrar(None)
+            wx.Yield()
+
+        anunciar.assert_called_once_with("Descarga completada")
+        sonido.assert_called_once_with("copiar")
+
 
 if __name__ == "__main__":
     unittest.main()

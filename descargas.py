@@ -252,6 +252,17 @@ def tiene_ffmpeg() -> bool:
     return shutil.which("ffmpeg") is not None
 
 
+def frase_aviso_descarga(estado: str, mensaje: str, nombre: str) -> str:
+    """Devuelve el aviso accesible de un fin de descarga."""
+    if estado == "completado":
+        return "Descarga completada" + (f": {nombre}" if nombre else "")
+    if estado == "error":
+        return "Error en la descarga" + (f": {mensaje}" if mensaje else "")
+    if estado == "cancelado":
+        return "Descarga cancelada"
+    return ""
+
+
 # ── Gestor de cola ───────────────────────────────────────────────────────────
 
 class GestorDescargas:
