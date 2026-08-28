@@ -150,9 +150,16 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertFalse(self.dialogo.cho_escena.IsEnabled())
         self.assertFalse(self.dialogo.btn_tamano.IsEnabled())
 
-    def test_cambiar_posicion_usa_clave_de_anclaje(self):
+    def test_elegir_una_posicion_no_coloca_el_panel(self):
+        self.gestor.colocar = mock.Mock()
+        evento = wx.CommandEvent(wx.EVT_CHOICE.typeId, self.dialogo.cho_posicion.GetId())
+        self.dialogo.cho_posicion.GetEventHandler().ProcessEvent(evento)
+        self.gestor.colocar.assert_not_called()
+
+    def test_boton_colocar_usa_la_clave_del_anclaje_elegido(self):
         self.dialogo.cho_posicion.SetSelection(8)
-        self.dialogo._colocar(Evento())
+        self.dialogo.btn_colocar.GetEventHandler().ProcessEvent(
+            wx.CommandEvent(wx.EVT_BUTTON.typeId, self.dialogo.btn_colocar.GetId()))
         self.assertIn(("colocar", "Principal", "inferior-derecha"), self.gestor.llamadas)
 
     def test_carga_las_fuentes_y_prefiere_el_panel_de_chat(self):

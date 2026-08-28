@@ -90,6 +90,9 @@ class TransmisionDialog(wx.Dialog):
             name="Posición del panel")
         nombre_accesible(self.cho_posicion, "Posición del panel")
         caja.Add(self.cho_posicion, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        self.btn_colocar = self._boton(
+            panel, "&Colocar en esa posición", "Colocar en esa posición")
+        caja.Add(self.btn_colocar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.sp_ancho = wx.SpinCtrl(panel, min=100, max=4000, initial=460,
                                     name="Ancho del panel en píxeles")
         self.sp_alto = wx.SpinCtrl(panel, min=100, max=4000, initial=620,
@@ -123,7 +126,7 @@ class TransmisionDialog(wx.Dialog):
         panel.SetSizer(caja)
         self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena,
                           self.btn_poner_al_aire, self.cho_fuente, self.cho_posicion,
-                          self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
+                          self.btn_colocar, self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
                           self.btn_restaurar, self.btn_transmitir, self.btn_grabar,
                           self.btn_pausar_grabacion)
@@ -132,7 +135,8 @@ class TransmisionDialog(wx.Dialog):
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
         self.btn_poner_al_aire.Bind(wx.EVT_BUTTON, self._poner_al_aire)
         self.cho_fuente.Bind(wx.EVT_CHOICE, self._cambiar_fuente)
-        self.cho_posicion.Bind(wx.EVT_CHOICE, self._colocar)
+        # Recorrer con flechas dispara EVT_CHOICE y esto sale al aire.
+        self.btn_colocar.Bind(wx.EVT_BUTTON, self._colocar)
         self.btn_tamano.Bind(wx.EVT_BUTTON, self._tamano)
         self.chk_mostrar.Bind(wx.EVT_CHECKBOX, self._mostrar)
         self.chk_fijar.Bind(wx.EVT_CHECKBOX, self._fijar)
