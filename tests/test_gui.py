@@ -18,6 +18,29 @@ import programados
 import ytdlp_bin
 
 
+class TestInicioGui(unittest.TestCase):
+    def test_muestra_trae_al_frente_y_enfoca_la_url_en_ese_orden(self):
+        orden = []
+        aplicacion = mock.Mock()
+        frame = mock.Mock()
+        frame.txt_url.SetFocus.side_effect = lambda: orden.append("foco")
+        frame.Show.side_effect = lambda: orden.append("muestra")
+        frame.Raise.side_effect = lambda: orden.append("frente")
+        configuracion = mock.Mock()
+        configuracion.get.return_value = ""
+
+        with mock.patch.object(gui.wx, "App", return_value=aplicacion), \
+                mock.patch.object(gui, "YTChatFrame", return_value=frame), \
+                mock.patch.object(gui, "app_dir", return_value=Path(".")), \
+                mock.patch.object(gui, "_ao2_init"), \
+                mock.patch.object(gui, "_listar_voces_sapi5", return_value=[]), \
+                mock.patch.object(gui._snd, "reproducir"), \
+                mock.patch.object(gui.wx, "CallAfter"):
+            gui.iniciar_gui(configuracion, object(), object(), object(), object())
+
+        self.assertEqual(orden, ["muestra", "frente", "foco"])
+
+
 class EventoTecladoFalso:
     def __init__(self, codigo):
         self.codigo = codigo

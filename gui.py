@@ -2243,6 +2243,11 @@ def iniciar_gui(config, cola, stats, worker, parada,
         frame.set_url(url_inicial)
 
     frame.Show()
+    try:
+        frame.Raise()
+        frame.txt_url.SetFocus()
+    except Exception:
+        pass
     _snd.reproducir("app_inicio")
     wx.CallAfter(frame._arrancar_precalentamiento)
 
