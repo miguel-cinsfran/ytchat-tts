@@ -265,19 +265,30 @@ def _resolver_live_chat_id(video_id: str) -> None:
     Es totalmente opcional: cualquier fallo se ignora y la captura del chat
     (que va por pytchat, sin API) sigue funcionando igual.
     """
+    lcid = ""
+    hay_credenciales = consulta_fallo = hay_video = hay_directo = False
     try:
         import credenciales
+        import redaccion
         import youtube_api
-        if not (youtube_api.google_disponible() and credenciales.hay_lectura()):
-            return
-        cli = youtube_api.ClienteYouTube(credenciales.cargar())
-        lcid = cli.resolver_live_chat_id(video_id)
-        if not lcid:
-            return
+        hay_credenciales = (youtube_api.google_disponible()
+                            and credenciales.hay_lectura())
+        if hay_credenciales:
+            try:
+                datos = youtube_api.ClienteYouTube(
+                    credenciales.cargar()).datos_chat_directo(video_id)
+                hay_video = datos["hay_video"]
+                hay_directo = datos["hay_directo"]
+                lcid = datos["live_chat_id"]
+            except Exception as exc:
+                logger.debug("resolver_live_chat_id: %s", exc)
+                consulta_fallo = True
+        causa = redaccion.causa_sin_chat(
+            hay_credenciales, consulta_fallo, hay_video, hay_directo, lcid)
         import wx
         import gui as _gm
         if _gm._gui_frame and _gm._gui_frame._alive:
-            wx.CallAfter(_gm._gui_frame.set_live_chat_id, lcid)
+            wx.CallAfter(_gm._gui_frame.set_live_chat_id, lcid, causa)
     except Exception as exc:
         logger.debug("resolver_live_chat_id: %s", exc)
 

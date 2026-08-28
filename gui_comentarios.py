@@ -40,6 +40,7 @@ class ComentariosPanel(wx.Panel):
         self._video_id = ""
         self._next_token = ""
         self._cargando = False
+        self._comentarios_cerrados = False
         # ids ya mostrados: con orden «relevancia» YouTube devuelve páginas que se
         # solapan o se repiten, así que deduplicamos para no contar/añadir repetidos.
         self._ids_vistos: set[str] = set()
@@ -122,7 +123,8 @@ class ComentariosPanel(wx.Panel):
     def _actualizar_botones_sesion(self):
         self.btn_comentar.Enable()
         motivo = redaccion.motivo_comentario(
-            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible())
+            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible(),
+            self._comentarios_cerrados)
         base = "Comen&tar en el vídeo"
         self.btn_comentar.SetLabel(redaccion.etiqueta_con_motivo(base, motivo))
 
@@ -134,6 +136,7 @@ class ComentariosPanel(wx.Panel):
     def set_video(self, video_id: str, autocargar: bool = True) -> None:
         """Fija el vídeo objetivo y, por defecto, carga la primera página."""
         self._video_id = video_id or ""
+        self._comentarios_cerrados = False
         self.lb.Clear()
         self._coms.clear()
         self._ids_vistos.clear()
@@ -145,6 +148,7 @@ class ComentariosPanel(wx.Panel):
 
     def limpiar(self) -> None:
         self._video_id = ""
+        self._comentarios_cerrados = False
         self.lb.Clear()
         self._coms.clear()
         self._ids_vistos.clear()
@@ -251,6 +255,9 @@ class ComentariosPanel(wx.Panel):
         # Si había más páginas pendientes, que un error transitorio no deje
         # «Cargar más» apagado (obligaba a recargar todo).
         self.btn_mas.Enable(bool(self._next_token))
+        if youtube_api.comentarios_desactivados(exc):
+            self._comentarios_cerrados = True
+            self._actualizar_botones_sesion()
         _snd.reproducir("error")
         msg = youtube_api.mensaje_error_api(exc)
         anunciar(msg)
@@ -367,10 +374,10 @@ class ComentariosPanel(wx.Panel):
 
     def _comentar(self):
         motivo = redaccion.motivo_comentario(
-            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible())
+            bool(self._video_id), credenciales.hay_sesion() and youtube_api.google_disponible(),
+            self._comentarios_cerrados)
         if motivo:
             anunciar(motivo)
-        if not self._video_id:
             return
         dlg = DialogoRedactar(
             self, "&Comentario:", redaccion.MAXIMO_CHAT,

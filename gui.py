@@ -1367,7 +1367,7 @@ class YTChatFrame(wx.Frame):
             motivo = redaccion.motivo_chat(
                 self._conectado, self._es_tiktok, self._tipo_video == deteccion.LIVE,
                 youtube_api.google_disponible(), self._sesion_api_disponible(),
-                bool(self._live_chat_id))
+                bool(self._live_chat_id), getattr(self, "_causa_sin_chat", ""))
             self._panel_redactar.establecer_motivo(motivo)
         except Exception:
             pass
@@ -1859,6 +1859,7 @@ class YTChatFrame(wx.Frame):
         comentarios, reproductor, cola de lectura, super chats y contadores. NO
         toca las preferencias del usuario (filtro, voz, sonidos, tema)."""
         self._live_chat_id = ""
+        self._causa_sin_chat = ""
         self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
         self._es_tiktok = False
@@ -1905,10 +1906,11 @@ class YTChatFrame(wx.Frame):
             msg = "Conectado."
         anunciar(msg)
 
-    def set_live_chat_id(self, live_chat_id: str) -> None:
+    def set_live_chat_id(self, live_chat_id: str, causa: str = "") -> None:
         if not self._alive:
             return
         self._live_chat_id = live_chat_id or ""
+        self._causa_sin_chat = causa or ""
         self._actualizar_estado_online()
 
     def set_espectadores(self, n: int) -> None:

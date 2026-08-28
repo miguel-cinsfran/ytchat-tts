@@ -1,6 +1,8 @@
 """Tests de los parsers puros de youtube_api (sin red ni libs de Google)."""
 
 import unittest
+import sys
+import types
 from unittest import mock
 
 from youtube_api import (
@@ -182,6 +184,28 @@ class TestMensajeError(unittest.TestCase):
 
     def test_generico(self):
         self.assertIn("Error de la API", mensaje_error_api("algo raro"))
+
+
+class TestCableadoChatDirecto(unittest.TestCase):
+
+    def test_entrega_la_causa_a_la_interfaz(self):
+        import main
+        llamadas = []
+        frame = types.SimpleNamespace(
+            _alive=True, set_live_chat_id=lambda *args: llamadas.append(args))
+        cliente = mock.Mock(datos_chat_directo=mock.Mock(return_value={
+            "hay_video": True, "hay_directo": True, "live_chat_id": ""}))
+        modulos = {
+            "credenciales": types.SimpleNamespace(hay_lectura=lambda: True,
+                                                    cargar=lambda: {}),
+            "youtube_api": types.SimpleNamespace(
+                google_disponible=lambda: True, ClienteYouTube=lambda _: cliente),
+            "gui": types.SimpleNamespace(_gui_frame=frame),
+            "wx": types.SimpleNamespace(CallAfter=lambda funcion, *args: funcion(*args)),
+        }
+        with mock.patch.dict(sys.modules, modulos):
+            main._resolver_live_chat_id("abc")
+        self.assertEqual(llamadas, [("", "chat_desactivado")])
 
 
 if __name__ == "__main__":
