@@ -82,6 +82,58 @@ class TestCableadoBusqueda(unittest.TestCase):
         self.assertEqual(panel._player.set_time.call_args_list,
                          [mock.call(20_000), mock.call(30_000)])
 
+    def test_on_timer_con_salto_en_vuelo_conserva_el_destino_pendiente(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 60_000
+        panel._player.get_time.return_value = 10_000
+        panel._destino_pendiente = 30_000
+        panel._muted = False
+        panel._marca_url = None
+        panel._fijar_tiempo = mock.Mock()
+        panel.sld_pos = mock.Mock()
+
+        estado_vlc = SimpleNamespace(State=SimpleNamespace(
+            Playing="playing", Ended="ended"))
+        with mock.patch.object(reproductor, "_vlc", estado_vlc):
+            with mock.patch.object(reproductor.wx.Window, "FindFocus",
+                                   return_value=None):
+                panel._on_timer(None)
+
+        self.assertEqual(panel._destino_pendiente, 30_000)
+        panel._fijar_tiempo.assert_called_once_with(
+            30_000, 60_000, mover_slider=True, anunciar_t=False)
+
+    def test_on_timer_al_alcanzar_el_salto_limpia_el_destino_pendiente(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 60_000
+        panel._player.get_time.return_value = 29_000
+        panel._player.get_state.return_value = "paused"
+        panel._destino_pendiente = 30_000
+        panel._muted = False
+        panel._marca_url = None
+        panel._fijar_tiempo = mock.Mock()
+        panel.sld_pos = mock.Mock()
+
+        estado_vlc = SimpleNamespace(State=SimpleNamespace(
+            Playing="playing", Ended="ended"))
+        with mock.patch.object(reproductor, "_vlc", estado_vlc):
+            with mock.patch.object(reproductor.wx.Window, "FindFocus",
+                                   return_value=None):
+                with mock.patch.object(
+                        reproductor, "destino_alcanzado",
+                        wraps=destino_alcanzado) as destino_consultado:
+                    panel._on_timer(None)
+
+        self.assertIsNone(panel._destino_pendiente)
+        destino_consultado.assert_called_once_with(
+            30_000, 29_000, TOLERANCIA_DESTINO_MS)
+
 
 class TestCableadoPlayPausa(unittest.TestCase):
 
