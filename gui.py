@@ -626,6 +626,8 @@ class YTChatFrame(wx.Frame):
                 overlay_servidor.encender(puerto)
             except overlay_servidor.OverlayPuertoOcupadoError:
                 anunciar(f"No se pudo activar el panel, el puerto {puerto} está ocupado")
+                # El puerto ocupado solo afecta esta sesión, no la preferencia guardada.
+                self._config["overlay_activo"] = False
                 return False
             self._config["overlay_activo"] = True
             guardar_opcion(RUTA_CONFIG, "overlay", "activo", "true")
@@ -1075,7 +1077,7 @@ class YTChatFrame(wx.Frame):
 
     def _on_transmision(self, event):
         from gui_transmision import abrir_transmision
-        abrir_transmision(self)
+        abrir_transmision(self, self._cambiar_overlay)
 
     def _on_obs_micro(self, event):
         def _alternar():

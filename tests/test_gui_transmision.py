@@ -150,6 +150,33 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertFalse(self.dialogo.cho_escena.IsEnabled())
         self.assertFalse(self.dialogo.btn_tamano.IsEnabled())
 
+    def test_casilla_del_panel_alterna_el_servidor(self):
+        self.dialogo.Destroy()
+        alternar = mock.Mock(side_effect=(True, False))
+        self.dialogo = gui_transmision.TransmisionDialog(
+            None, self.gestor, alternar_panel=alternar)
+
+        self.dialogo.chk_panel_chat.SetValue(True)
+        self.dialogo._alternar_panel_chat(Evento())
+        self.dialogo.chk_panel_chat.SetValue(False)
+        self.dialogo._alternar_panel_chat(Evento())
+
+        self.assertEqual(alternar.call_args_list, [mock.call(True), mock.call(False)])
+
+    def test_casilla_del_panel_se_desmarca_si_no_se_pudo_encender(self):
+        self.dialogo.Destroy()
+        self.dialogo = gui_transmision.TransmisionDialog(
+            None, self.gestor, alternar_panel=mock.Mock(return_value=False))
+
+        self.dialogo.chk_panel_chat.SetValue(True)
+        self.dialogo._alternar_panel_chat(Evento())
+
+        self.assertFalse(self.dialogo.chk_panel_chat.GetValue())
+
+    def test_casilla_del_panel_sin_ventana_principal_esta_desactivada(self):
+        self.assertIsNotNone(self.dialogo.chk_panel_chat)
+        self.assertFalse(self.dialogo.chk_panel_chat.IsEnabled())
+
     def test_elegir_una_posicion_no_coloca_el_panel(self):
         self.gestor.colocar = mock.Mock()
         evento = wx.CommandEvent(wx.EVT_CHOICE.typeId, self.dialogo.cho_posicion.GetId())

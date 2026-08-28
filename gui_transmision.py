@@ -32,10 +32,11 @@ _RUTA_PANEL_CHAT = "/chat"
 
 class TransmisionDialog(wx.Dialog):
 
-    def __init__(self, parent, gestor=None):
+    def __init__(self, parent, gestor=None, alternar_panel=None):
         super().__init__(parent, title="Transmisión", size=(620, 680),
                          name="DialogoTransmision")
         self._gestor = gestor or GestorPanelObs()
+        self._alternar_panel = alternar_panel
         self._restablecer = {}
         self._ultimo_snap = None
         self._ajuste_en_curso = False
@@ -75,6 +76,12 @@ class TransmisionDialog(wx.Dialog):
         caja.Add(self.btn_actualizar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         self.btn_preparar = self._boton(panel, "&Preparar el panel", "Preparar el panel")
         caja.Add(self.btn_preparar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.chk_panel_chat = wx.CheckBox(
+            panel, label="&Panel de chat para transmitir",
+            name="Panel de chat para transmitir")
+        self.chk_panel_chat.SetValue(overlay_servidor.esta_encendido())
+        self.chk_panel_chat.Enable(self._alternar_panel is not None)
+        caja.Add(self.chk_panel_chat, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
         self.cho_escena = wx.Choice(panel, name="Escena")
         nombre_accesible(self.cho_escena, "Escena")
@@ -124,7 +131,8 @@ class TransmisionDialog(wx.Dialog):
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         panel.SetSizer(caja)
-        self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena,
+        self._acciones = (self.btn_actualizar, self.btn_preparar, self.chk_panel_chat,
+                          self.cho_escena,
                           self.btn_poner_al_aire, self.cho_fuente, self.cho_posicion,
                           self.btn_colocar, self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
@@ -132,6 +140,7 @@ class TransmisionDialog(wx.Dialog):
                           self.btn_pausar_grabacion)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
         self.btn_preparar.Bind(wx.EVT_BUTTON, self._preparar)
+        self.chk_panel_chat.Bind(wx.EVT_CHECKBOX, self._alternar_panel_chat)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
         self.btn_poner_al_aire.Bind(wx.EVT_BUTTON, self._poner_al_aire)
         self.cho_fuente.Bind(wx.EVT_CHOICE, self._cambiar_fuente)
@@ -173,8 +182,15 @@ class TransmisionDialog(wx.Dialog):
                 wx.CallAfter(self._terminar, resultado, al_terminar)
         threading.Thread(target=ejecutar, daemon=True, name="TransmisionOBS").start()
 
+    def _alternar_panel_chat(self, event):
+        if self._alternar_panel is not None:
+            self.chk_panel_chat.SetValue(
+                self._alternar_panel(self.chk_panel_chat.GetValue()))
+
     def _activar(self, activo):
         for control in self._acciones:
+            if control is self.chk_panel_chat and self._alternar_panel is None:
+                continue
             control.Enable(activo)
 
     def _terminar(self, resultado, al_terminar):
@@ -616,8 +632,8 @@ class TransmisionDialog(wx.Dialog):
             pass
 
 
-def abrir_transmision(parent) -> None:
-    dialogo = TransmisionDialog(parent)
+def abrir_transmision(parent, alternar_panel=None) -> None:
+    dialogo = TransmisionDialog(parent, alternar_panel=alternar_panel)
     try:
         dialogo.ShowModal()
     finally:
