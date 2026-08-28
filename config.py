@@ -737,6 +737,7 @@ def cargar_configuracion() -> dict:
         "silenciar_lectura": _pb(p, "sesion", "silenciar_lectura"),
         "tiktok_anunciar_entradas": _pb(p, "tiktok", "anunciar_entradas"),
         "programados_activo": _pb(p, "programados", "activo"),
+        "registro_detallado": _pb(p, "diagnostico", "registro_detallado"),  # configurar_logging se adelanta al diccionario.
         "overlay_activo": _pb(p, "overlay", "activo"),
         "overlay_puerto": _pi(p, "overlay", "puerto", lo=1),
         "obs_microfono": _gs(p, "obs", "microfono"),
