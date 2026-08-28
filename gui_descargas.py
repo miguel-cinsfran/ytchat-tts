@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import datetime
 
 import wx
 
 import diagnostico
 import config as cfg
-from descargas import frase_aviso_descarga, gestor
+from descargas import frase_aviso_descarga, gestor, recortar_url_registro
+import historial_descargas
 from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
 import sound_player as _snd
 
@@ -85,8 +87,13 @@ class GestorDescargasDialog(wx.Dialog):
         self._gestor.suscribir_fin(_avisar_fin_descarga)
         self._items_fila: dict[str, int] = {}   # item_id -> índice en ListCtrl
         self._fila_items: dict[int, str] = {}   # índice -> item_id
+        self._carpetas_items: dict[str, str] = {}
+        self._finalizados: set[str] = set()
+        self._ruta_historial = cfg.app_dir() / "historial_descargas.json"
+        self._historial = historial_descargas.cargar(self._ruta_historial)
         self._build_ui()
         self._repoblar_lista()
+        self._repoblar_historial()
         self.Bind(wx.EVT_CLOSE, self._on_cerrar)
         if url_inicial:
             self.txt_url.SetValue(url_inicial)
@@ -102,7 +109,7 @@ class GestorDescargasDialog(wx.Dialog):
 
         vs.Add(self._seccion_opciones(panel), 0, wx.EXPAND | wx.ALL, 10)
         vs.Add(self._seccion_anadir(panel), 0, wx.EXPAND | wx.ALL, 10)
-        vs.Add(self._seccion_cola(panel), 1, wx.EXPAND | wx.ALL, 10)
+        vs.Add(self._seccion_listas(panel), 1, wx.EXPAND | wx.ALL, 10)
         vs.Add(self._seccion_botones(panel), 0, wx.EXPAND | wx.ALL, 10)
         panel.SetSizer(vs)
 
@@ -185,25 +192,43 @@ class GestorDescargasDialog(wx.Dialog):
         box.Add(fila, 0, wx.EXPAND | wx.ALL, 6)
         return box
 
-    def _seccion_cola(self, parent):
-        box, padre = caja_de_grupo(parent, "Cola de descargas")
-        self.lista = wx.ListCtrl(padre, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
+    def _seccion_listas(self, parent):
+        self.pestanas = wx.Notebook(parent, name="PestanasDescargas")
+        cola = wx.Panel(self.pestanas)
+        vs_cola = wx.BoxSizer(wx.VERTICAL)
+        self.lista = wx.ListCtrl(cola, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
                                  name="ColaDescargas")
         nombre_accesible(self.lista, "Cola de descargas", msaa=False)
         self.lista.InsertColumn(0, "Nombre", width=320)
         self.lista.InsertColumn(1, "Progreso", width=100)
         self.lista.InsertColumn(2, "Estado", width=160)
-        box.Add(self.lista, 1, wx.EXPAND | wx.ALL, 6)
+        vs_cola.Add(self.lista, 1, wx.EXPAND | wx.ALL, 6)
 
         fila = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_cancelar = wx.Button(padre, label="&Cancelar seleccionado",
+        self.btn_cancelar = wx.Button(cola, label="&Cancelar seleccionado",
                                       name="CancelarDescarga")
         self.btn_cancelar.SetBackgroundColour(_T.btn)
         self.btn_cancelar.SetForegroundColour(_T.btn_t)
         self.btn_cancelar.Bind(wx.EVT_BUTTON, self._on_cancelar)
         fila.Add(self.btn_cancelar, 0)
-        box.Add(fila, 0, wx.ALL, 6)
-        return box
+        vs_cola.Add(fila, 0, wx.ALL, 6)
+        cola.SetSizer(vs_cola)
+
+        pagina_historial = wx.Panel(self.pestanas)
+        vs_historial = wx.BoxSizer(wx.VERTICAL)
+        self.lista_historial = wx.ListCtrl(
+            pagina_historial, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
+            name="Lista del historial de descargas")
+        nombre_accesible(self.lista_historial, "Lista del historial de descargas",
+                         msaa=False)
+        self.lista_historial.InsertColumn(0, "Nombre", width=360)
+        self.lista_historial.InsertColumn(1, "Fecha", width=180)
+        self.lista_historial.InsertColumn(2, "Estado", width=140)
+        vs_historial.Add(self.lista_historial, 1, wx.EXPAND | wx.ALL, 6)
+        pagina_historial.SetSizer(vs_historial)
+        self.pestanas.AddPage(cola, "Cola")
+        self.pestanas.AddPage(pagina_historial, "Historial")
+        return self.pestanas
 
     def _seccion_botones(self, parent):
         fila = wx.BoxSizer(wx.HORIZONTAL)
@@ -265,9 +290,12 @@ class GestorDescargasDialog(wx.Dialog):
         def _cb_estado(item_id, estado, mensaje):
             wx.CallAfter(self._actualizar_estado, item_id, estado, mensaje)
 
+        carpeta = op["carpeta"]
+
         def _registrar_fila(item_id):
             self._items_fila[item_id] = idx
             self._fila_items[idx] = item_id
+            self._carpetas_items[item_id] = carpeta
 
         self._gestor.encolar(url, _cb_progreso, _cb_estado, _registrar_fila)
         self.txt_url.SetValue("")
@@ -284,6 +312,37 @@ class GestorDescargasDialog(wx.Dialog):
             self.lista.SetItem(idx, 2, estado[:200])
             self._items_fila[item.id] = idx
             self._fila_items[idx] = item.id
+
+    def _repoblar_historial(self) -> None:
+        for entrada in self._historial:
+            self._agregar_fila_historial(entrada)
+
+    def _agregar_fila_historial(self, entrada: dict) -> None:
+        nombre, fecha, estado = historial_descargas.formatear(entrada)
+        idx = self.lista_historial.InsertItem(self.lista_historial.GetItemCount(), nombre)
+        self.lista_historial.SetItem(idx, 1, fecha)
+        self.lista_historial.SetItem(idx, 2, estado)
+
+    def _registrar_historial(self, item_id: str, estado: str) -> None:
+        if item_id in self._finalizados:
+            return
+        item = self._gestor.obtener(item_id)
+        if item is None:
+            return
+        self._finalizados.add(item_id)
+        entrada = {
+            "fecha": datetime.now().isoformat(timespec="seconds"),
+            "nombre": item.nombre or item.url,
+            "url": recortar_url_registro(item.url),
+            "estado": estado,
+            "carpeta": self._carpetas_items.get(
+                item_id, self._opciones.get("carpeta", "")),
+        }
+        self._historial = historial_descargas.agregar(self._historial, entrada)
+        historial_descargas.guardar(self._ruta_historial, self._historial)
+        self.lista_historial.InsertItem(0, historial_descargas.formatear(entrada)[0])
+        self.lista_historial.SetItem(0, 1, entrada["fecha"])
+        self.lista_historial.SetItem(0, 2, estado)
 
     def _on_cancelar(self, _event):
         idx = self.lista.GetFirstSelected()
@@ -331,6 +390,8 @@ class GestorDescargasDialog(wx.Dialog):
         else:
             texto = estado
         self.lista.SetItem(idx, 2, texto[:200])
+        if estado in ("completado", "cancelado", "error"):
+            self._registrar_historial(item_id, estado)
         if estado == "descargando":
             try:
                 _snd.reproducir("copiar")

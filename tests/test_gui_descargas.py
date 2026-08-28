@@ -71,14 +71,12 @@ class TestGruposGestorDescargas(unittest.TestCase):
     def tearDown(self):
         descargas.reiniciar_gestor()
 
-    def test_controles_anunciables_cuelgan_de_su_grupo(self):
+    def test_listas_en_pestanas_con_nombres_accesibles(self):
         dialogo = gui_descargas.GestorDescargasDialog(None)
         try:
             esperados = {
-                "EnumerarPlaylist": "Opciones de descarga",
-                "EtiquetaURL": "Añadir URL",
-                "URL del vídeo o playlist": "Añadir URL",
-                "Cola de descargas": "Cola de descargas",
+                "Cola de descargas": "Cola",
+                "Lista del historial de descargas": "Historial",
             }
             encontrados = {}
             pendientes = list(dialogo.GetChildren())
@@ -88,11 +86,10 @@ class TestGruposGestorDescargas(unittest.TestCase):
                 if control.GetName() in esperados:
                     encontrados[control.GetName()] = control
             self.assertEqual(set(esperados), set(encontrados))
+            self.assertEqual(dialogo.pestanas.GetName(), "PestanasDescargas")
             for nombre, control in encontrados.items():
-                padre = control.GetParent()
-                self.assertIsInstance(padre, wx.StaticBox,
-                                      msg=nombre)
-                self.assertEqual(esperados[nombre], padre.GetLabel())
+                indice = 0 if esperados[nombre] == "Cola" else 1
+                self.assertIs(control.GetParent(), dialogo.pestanas.GetPage(indice))
         finally:
             dialogo.Destroy()
 
@@ -140,6 +137,25 @@ class TestGruposGestorDescargas(unittest.TestCase):
 
         anunciar.assert_called_once_with("Descarga completada")
         sonido.assert_called_once_with("copiar")
+
+    def test_terminar_descarga_agrega_una_entrada_al_historial(self):
+        with mock.patch.object(gui_descargas.historial_descargas, "cargar",
+                               return_value=[]), \
+                mock.patch.object(gui_descargas.historial_descargas, "guardar"):
+            dialogo = gui_descargas.GestorDescargasDialog(None)
+            try:
+                item = descargas.ItemDescarga(
+                    "item", "https://www.youtube.com/watch?v=abc&token=secreto",
+                    "video", nombre="video.mp4")
+                dialogo._gestor._items[item.id] = item
+                dialogo.lista.InsertItem(0, item.nombre)
+                dialogo._items_fila[item.id] = 0
+                dialogo._carpetas_items[item.id] = "C:/Descargas"
+                dialogo._actualizar_estado(item.id, "completado", "")
+                self.assertEqual(dialogo.lista_historial.GetItemCount(), 1)
+                self.assertEqual(dialogo._historial[0]["url"], "abc")
+            finally:
+                dialogo.Destroy()
 
 
 if __name__ == "__main__":
