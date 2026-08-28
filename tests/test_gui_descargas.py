@@ -91,6 +91,15 @@ class TestGruposGestorDescargas(unittest.TestCase):
         finally:
             dialogo.Destroy()
 
+    def test_progreso_rezagado_despues_de_cerrar_no_lanza(self):
+        dialogo = gui_descargas.GestorDescargasDialog(None)
+        dialogo.lista.InsertItem(0, "archivo.mp4")
+        dialogo._items_fila["item"] = 0
+        dialogo._on_cerrar(None)
+        wx.Yield()
+        dialogo._actualizar_progreso("item", 50, "archivo.mp4")
+        dialogo._actualizar_estado("item", "completado", "")
+
 
 if __name__ == "__main__":
     unittest.main()

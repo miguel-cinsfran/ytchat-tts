@@ -67,11 +67,13 @@ class GestorDescargasDialog(wx.Dialog):
                          size=(720, 560),
                          name="DialogoGestorDescargas")
         self.SetBackgroundColour(_T.bg)
+        self._alive = True
         self._opciones = cfg.obtener_opciones_descarga()
         self._gestor = GestorDescargas(self._opciones)
         self._items_fila: dict[str, int] = {}   # item_id -> índice en ListCtrl
         self._fila_items: dict[int, str] = {}   # índice -> item_id
         self._build_ui()
+        self.Bind(wx.EVT_CLOSE, self._on_cerrar)
         if url_inicial:
             self.txt_url.SetValue(url_inicial)
         self.Centre()
@@ -269,11 +271,17 @@ class GestorDescargasDialog(wx.Dialog):
         anunciar("Cancelando descarga")
 
     def _on_cerrar(self, _event):
-        self.EndModal(wx.ID_CANCEL)
+        self._alive = False
+        if self.IsModal():
+            self.EndModal(wx.ID_CANCEL)
+        else:
+            self.Destroy()
 
     # ── Callbacks del hilo de descarga (CallAfter) ──────────────────────────
 
     def _actualizar_progreso(self, item_id: str, pct: float, nombre: str) -> None:
+        if not self._alive:
+            return
         idx = self._items_fila.get(item_id)
         if idx is None:
             return
@@ -283,6 +291,8 @@ class GestorDescargasDialog(wx.Dialog):
         self.lista.SetItem(idx, 1, texto)
 
     def _actualizar_estado(self, item_id: str, estado: str, mensaje: str) -> None:
+        if not self._alive:
+            return
         idx = self._items_fila.get(item_id)
         if idx is None:
             return
