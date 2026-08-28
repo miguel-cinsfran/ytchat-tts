@@ -4,7 +4,10 @@ from __future__ import annotations
 
 
 NOMBRES_HILOS_CAPTURA = frozenset(("Chat", "TikTok", "LiveChatId"))
-TOPE_ESPERA_CIERRE = 3.0
+# El tope subio de 3.0 a 8.0 porque en la sesion del 25/08/2026 el hilo Chat
+# tardo mas de cuatro segundos en terminar y tres no alcanzaban, lo que dejo
+# un hilo dentro de codigo nativo y termino en corrupcion de heap 0xc0000374.
+TOPE_ESPERA_CIERRE = 8.0
 
 
 def hilos_captura_vivos(nombres: set[str] | tuple[str, ...]) -> tuple[str, ...]:
@@ -15,13 +18,13 @@ def hilos_captura_vivos(nombres: set[str] | tuple[str, ...]) -> tuple[str, ...]:
 def hay_que_seguir_esperando(
     nombres: set[str] | tuple[str, ...], transcurrido: float, tope: float
 ) -> bool:
-    """Indica si quedan capturas y todavía no venció el tope."""
-    return bool(hilos_captura_vivos(nombres)) and transcurrido < tope
+    """Indica si quedan hilos vivos y todavía no venció el tope."""
+    return bool(nombres) and transcurrido < tope
 
 
 def componer_resultado_cierre(nombres: set[str] | tuple[str, ...], tope: float) -> str:
     """Compone el registro del resultado final de la espera."""
-    vivos = hilos_captura_vivos(nombres)
+    vivos = tuple(sorted(set(nombres)))
     if not vivos:
         return "CIERRE captura limpia"
     return f"CIERRE por tope={tope:.1f}s hilos vivos={', '.join(vivos)}"

@@ -1688,9 +1688,8 @@ class YTChatFrame(wx.Frame):
             try:    self._pendientes_timer.Stop()
             except Exception: pass
             self._pendientes_timer = None
-        hilos = apagado.hilos_captura_vivos(
-            tuple(hilo.name for hilo in threading.enumerate() if hilo.is_alive()))
-        if hilos:
+        hilos_vivos = diagnostico.hilos_vivos_de_la_aplicacion()
+        if apagado.hilos_captura_vivos(hilos_vivos):
             anunciar("Cerrando")
         try:    self.Hide()
         except Exception: pass
@@ -1710,7 +1709,7 @@ class YTChatFrame(wx.Frame):
         except Exception: pass
         try:    _snd.cerrar()
         except Exception: pass
-        if hilos:
+        if hilos_vivos:
             self._cierre_inicio = time.monotonic()
             self._cierre_tope = apagado.TOPE_ESPERA_CIERRE
             wx.CallLater(200, self._comprobar_cierre)
@@ -1727,7 +1726,7 @@ class YTChatFrame(wx.Frame):
             self._obs_vigilante = None
 
     def _comprobar_cierre(self):
-        nombres = tuple(hilo.name for hilo in threading.enumerate() if hilo.is_alive())
+        nombres = diagnostico.hilos_vivos_de_la_aplicacion()
         transcurrido = time.monotonic() - self._cierre_inicio
         if apagado.hay_que_seguir_esperando(nombres, transcurrido, self._cierre_tope):
             wx.CallLater(200, self._comprobar_cierre)
