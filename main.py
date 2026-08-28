@@ -26,8 +26,6 @@ from config import (
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
 
-logger = diagnostico.obtener_logger(__name__)
-
 from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd
 import deteccion
@@ -37,6 +35,8 @@ import avisos_red
 import ytdlp_bin
 import conexion
 import alias
+
+logger = diagnostico.obtener_logger(__name__)
 
 
 # Traducción pytchat → tipos internos.
