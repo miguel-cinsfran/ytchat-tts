@@ -614,11 +614,14 @@ def main():
         # Ya hay una instancia abierta. Intentamos informar al usuario.
         try:
             import ctypes
+            MB_ICONINFORMATION = 0x40  # Bandera de Win32 para el icono informativo.
+            MB_SETFOREGROUND = 0x00010000  # Bandera de Win32 para traer al frente.
+            MB_TOPMOST = 0x00040000  # Bandera de Win32 para mantener arriba el aviso.
             ctypes.windll.user32.MessageBoxW(
                 0,
                 f"{APP_NAME} ya se está ejecutando.\nCierra la otra ventana antes de abrir una nueva.",
                 APP_NAME,
-                0x40  # MB_ICONINFORMATION
+                MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST
             )
         except Exception:
             pass

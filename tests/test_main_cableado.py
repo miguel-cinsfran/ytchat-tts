@@ -1,5 +1,7 @@
 import unittest
-from unittest.mock import patch
+import sys
+import types
+from unittest.mock import Mock, patch
 
 import main
 
@@ -16,6 +18,24 @@ class ConexionFalsa:
 
 
 class PruebasCableadoMain(unittest.TestCase):
+    def test_aviso_de_instancia_usa_banderas_de_primer_plano(self):
+        message_box = Mock()
+        ctypes_falso = types.SimpleNamespace(
+            windll=types.SimpleNamespace(
+                user32=types.SimpleNamespace(MessageBoxW=message_box)))
+
+        with patch.object(main, "_verificar_instancia_unica", return_value=False), \
+                patch.object(main, "configurar_logging"), \
+                patch.object(main.diagnostico, "instalar_capturadores"), \
+                patch.object(main.diagnostico, "registrar_entorno"), \
+                patch.dict(sys.modules, {"ctypes": ctypes_falso}), \
+                patch.object(sys, "exit", side_effect=SystemExit(0)):
+            with self.assertRaises(SystemExit):
+                main.main()
+
+        banderas = message_box.call_args.args[3]
+        self.assertEqual(banderas, 0x40 | 0x00010000 | 0x00040000)
+
     def test_los_callbacks_comparten_el_registro_de_conexiones(self):
         with patch.object(main.conexion, "Conexiones", ConexionFalsa):
             conectar, desconectar = main.armar_callbacks_captura(
