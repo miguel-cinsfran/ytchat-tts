@@ -212,6 +212,12 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Captura")
         self.assertNotIn(("poner_escena_al_aire", "Juego"), self.gestor.llamadas)
 
+    def test_cambiar_escena_no_pone_la_escena_elegida_al_aire(self):
+        self.gestor.poner_escena_al_aire = mock.Mock()
+        self.dialogo.cho_escena.SetStringSelection("Juego")
+        self.dialogo._cambiar_escena(Evento())
+        self.gestor.poner_escena_al_aire.assert_not_called()
+
     def test_poner_al_aire_usa_la_escena_elegida_y_anuncia_la_devuelta(self):
         self.dialogo.cho_escena.SetStringSelection("Juego")
         self.gestor.escena_resultante = "Principal"
