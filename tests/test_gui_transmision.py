@@ -134,6 +134,19 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Cámara", "Chat YTChat", "Juego"])
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Chat YTChat")
 
+    def test_apertura_anuncia_el_estado_sin_preparar_nada(self):
+        gestor = GestorFalso()
+        encender = mock.Mock()
+        with mock.patch.object(gui_transmision.overlay_servidor, "esta_encendido",
+                               return_value=False), \
+             mock.patch.object(gui_transmision.overlay_servidor, "puerto_actual",
+                               return_value=None), \
+             mock.patch.object(gui_transmision.overlay_servidor, "encender", encender):
+            dialogo = gui_transmision.TransmisionDialog(None, gestor)
+        self.addCleanup(dialogo.Destroy)
+        self.assertEqual(self.anuncios[-1], "Falta preparar el panel. El panel de chat está apagado.")
+        encender.assert_not_called()
+
     def test_preparar_panel_enciende_y_crea_solo_lo_necesario(self):
         for encendido, tiene_panel in ((False, False), (True, False),
                                        (False, True), (True, True)):

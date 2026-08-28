@@ -1373,15 +1373,15 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
     desconectada. Esta es la única auditoría automática de esta superficie.
     """
     auditar_dialogo(
-        app, res, "Transmisión", "Transmisión", vueltas_tab=20,
-        esperados=("Estado de la transmisión", "Actualizar estado", "Escena",
+        app, res, "Transmisión", "Transmisión", vueltas_tab=21,
+        esperados=("Estado de la transmisión", "Actualizar estado", "Preparar el panel", "Escena",
                    "Fuente",
                    "Posición del panel", "Ancho del panel", "Alto del panel",
                    "Aplicar tamaño", "Mostrar el panel", "Fijar el panel",
                    "Poner al frente", "Ajuste fino", "captura", "lienzo",
                    "Restablecer",
                    "Cerrar"),
-        esperados_en_tab=("Fuente", "Escena", "Posición del panel"))
+        esperados_en_tab=("Preparar el panel", "Fuente", "Escena", "Posición del panel"))
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):
