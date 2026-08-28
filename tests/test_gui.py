@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import avisos
 import gui
 import gui_comentarios
 import gui_preferencias
@@ -133,10 +134,12 @@ class GrabadorDeVoz:
 
     def __init__(self):
         self.hablado = []
+        self.interrupciones = []
         self.brailleado = []
 
     def speak(self, texto, interrupt=None):
         self.hablado.append(texto)
+        self.interrupciones.append(interrupt)
 
     def braille(self, texto):
         self.brailleado.append(texto)
@@ -168,11 +171,30 @@ class TestRegistroEsAnunciable(unittest.TestCase):
 
     def test_anunciar_envia_el_texto_completo(self):
         grabador = GrabadorDeVoz()
+        avisos.recordar_categoria("")
         with mock.patch.object(gui, "_ao2", grabador):
             gui.anunciar("hola")
 
         self.assertEqual(grabador.hablado, ["hola"])
         self.assertEqual(grabador.brailleado, ["hola"])
+
+    def test_anunciar_sustituye_la_misma_categoria(self):
+        grabador = GrabadorDeVoz()
+        avisos.recordar_categoria("")
+        with mock.patch.object(gui, "_ao2", grabador):
+            gui.anunciar("Volumen de la voz: 50%", "volumen")
+            gui.anunciar("Volumen de la voz: 60%", "volumen")
+
+        self.assertEqual(grabador.interrupciones, [False, True])
+
+    def test_anunciar_no_sustituye_categorias_distintas(self):
+        grabador = GrabadorDeVoz()
+        avisos.recordar_categoria("")
+        with mock.patch.object(gui, "_ao2", grabador):
+            gui.anunciar("Volumen de la voz: 50%", "volumen")
+            gui.anunciar("Velocidad de la voz: +1", "velocidad")
+
+        self.assertEqual(grabador.interrupciones, [False, False])
 
     def test_manejador_omite_diagnostico_sin_parchear_anunciar(self):
         grabador = GrabadorDeVoz()

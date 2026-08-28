@@ -41,6 +41,7 @@ import overlay_servidor
 import programados
 import redaccion
 import alias
+import avisos
 from gui_redactar import PanelRedactar
 
 # Mapeo entre índice de FILTROS y clave persistida en config.ini.
@@ -104,13 +105,15 @@ def _ao2_init():
         pass
 
 
-def anunciar(texto: str) -> None:
+def anunciar(texto: str, categoria: str = "") -> None:
     if _ao2 is None:
         return
     try:
-        _ao2.speak(texto, interrupt=True)
+        _ao2.speak(texto, interrupt=avisos.debe_interrumpir(
+            categoria, avisos.ultima_categoria()))
     except Exception:
         pass
+    avisos.recordar_categoria(categoria)
     # También a la línea braille, como hace TWBlue (output.speak): quien usa
     # pantalla braille sin voz recibe igualmente los anuncios de la app.
     try:
