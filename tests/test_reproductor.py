@@ -318,6 +318,27 @@ class TestPrecalentamiento(unittest.TestCase):
         finally:
             reproductor._vlc = anterior
 
+
+class TestEventosVlc(unittest.TestCase):
+
+    def test_engancha_eventos_solo_con_registro_detallado(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = None
+        panel._inst = mock.Mock()
+        panel._asegurar_instancia = mock.Mock(return_value=True)
+        panel._video = mock.Mock()
+        panel._fijar_salida = mock.Mock()
+        panel._enganchar_eventos_vlc = mock.Mock()
+        with mock.patch.object(reproductor, "_registro_detallado_activo",
+                               return_value=False):
+            self.assertTrue(panel._asegurar_player())
+        panel._enganchar_eventos_vlc.assert_not_called()
+        panel._player = None
+        with mock.patch.object(reproductor, "_registro_detallado_activo",
+                               return_value=True):
+            self.assertTrue(panel._asegurar_player())
+        panel._enganchar_eventos_vlc.assert_called_once()
+
     def test_crear_instancia_registra_su_tramo(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
         panel._inst = None
@@ -352,6 +373,7 @@ class TestAvisoAlReproducir(unittest.TestCase):
         panel._url_flujo = ""
         panel._asegurar_player = lambda: True
         panel._player = mock.Mock()
+        panel._intencion_reproducir = False
         panel._player.get_state.return_value = object()
 
         estados = mock.Mock(Playing=object(), Paused=object())
