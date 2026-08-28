@@ -19,7 +19,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+import diagnostico
+
+logger = diagnostico.obtener_logger(__name__)
 
 # Scope mínimo que cubre moderar, comentar y enviar mensajes al live.
 SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]

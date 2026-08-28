@@ -20,7 +20,9 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import diagnostico
+
+logger = diagnostico.obtener_logger(__name__)
 
 MAX_ENTRADAS = 100
 

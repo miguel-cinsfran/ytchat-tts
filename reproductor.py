@@ -34,7 +34,7 @@ import progreso
 import ytdlp_bin
 from gui import anunciar, nombre_accesible, _T, _tc
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 _vlc = None          # binding python-vlc; se importa perezosamente
 _VLC_PREPARADO = False

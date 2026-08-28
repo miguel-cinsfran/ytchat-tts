@@ -15,8 +15,9 @@ import logging
 from pathlib import Path
 
 import config
+import diagnostico
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 NOMBRE_ARCHIVO = "credenciales.json"
 

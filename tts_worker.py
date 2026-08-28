@@ -13,7 +13,9 @@ import logging
 import re
 import time
 
-logger = logging.getLogger(__name__)
+import diagnostico
+
+logger = diagnostico.obtener_logger(__name__)
 
 _STOP = object()
 

@@ -52,6 +52,19 @@ class DiagnosticoTest(unittest.TestCase):
             "websockets.client", logging.DEBUG, "", 0, "prueba", (), None)
         self.assertFalse(manejador.filter(registro))
 
+    def test_manejador_detallado_rota_el_registro_anterior_al_arrancar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ruta = Path(tmp) / "x.log"
+            ruta.write_text("sesion anterior", encoding="utf-8")
+            manejador = diagnostico.crear_manejador_detallado(ruta)
+            try:
+                self.assertEqual(ruta.read_text(encoding="utf-8"), "")
+                self.assertEqual(
+                    ruta.with_name("x.log.1").read_text(encoding="utf-8"),
+                    "sesion anterior")
+            finally:
+                manejador.close()
+
     def test_volcado_incluye_datos_y_faltantes(self):
         texto = diagnostico.componer_volcado_entorno(
             "2.0.0", vlc_version="3.0", ytdlp_version="2025.1", gpu="Placa",

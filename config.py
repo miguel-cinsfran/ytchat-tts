@@ -76,7 +76,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
             datefmt="%Y-%m-%d %H:%M:%S"))
         root.addHandler(fh)
     except Exception as exc:
-        logging.getLogger(__name__).warning("No se pudo crear ytchat.log: %s", exc)
+        logger.warning("No se pudo crear ytchat.log: %s", exc)
 
     # El registro detallado se activa únicamente si se solicita en Preferencias.
     detallado = False
@@ -86,16 +86,17 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
         detallado = p_diag.getboolean("diagnostico", "registro_detallado",
                                      fallback=False)
     except Exception as exc:
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "No se pudo leer la configuración de diagnóstico: %s", exc)
     if detallado:
         try:
             root.addHandler(diagnostico.crear_manejador_detallado(
                 app_dir() / "ytchat-debug.log"))
         except Exception as exc:
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "No se pudo crear ytchat-debug.log: %s", exc)
 
+    # ytchat.log conserva los avisos de terceros, que pueden explicar un fallo.
     # Las librerías de terceros no deben ocultar los diagnósticos propios.
     for _lib in librerias_silenciadas():
         logging.getLogger(_lib).setLevel(logging.WARNING)
@@ -191,7 +192,7 @@ _TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space"}
 _RE_ATAJO = re.compile(r"^(ctrl\+shift|ctrl|alt)\+(.+)$", re.IGNORECASE)
 _RE_FKEY  = re.compile(r"^f(1[0-2]|[1-9])$", re.IGNORECASE)
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)

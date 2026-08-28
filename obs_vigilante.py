@@ -56,7 +56,7 @@ class VigilanteObs:
             return self._estado
 
     def _vigilar(self):
-        logger = logging.getLogger(__name__)
+        logger = diagnostico.obtener_logger(__name__)
         fallo = False
         gestor = self._crear_gestor()
         self._gestor = gestor

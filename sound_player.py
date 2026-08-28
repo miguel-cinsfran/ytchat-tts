@@ -18,7 +18,9 @@ import threading
 import time
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+import diagnostico
+
+logger = diagnostico.obtener_logger(__name__)
 
 
 _backend_winmm: bool = False

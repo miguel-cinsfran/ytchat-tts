@@ -26,7 +26,7 @@ from config import (
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd

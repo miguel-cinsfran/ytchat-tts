@@ -22,12 +22,13 @@ import threading
 
 import wx
 
+import diagnostico
 import config as cfg
 from descargas import frase_aviso_descarga, gestor
 from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
 import sound_player as _snd
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 
 # Paleta neutral para el diálogo (no la de la ventana principal): misma lógica

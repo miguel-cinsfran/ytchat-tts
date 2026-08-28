@@ -28,11 +28,12 @@ from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
+import diagnostico
 from config import app_dir, obtener_opciones_descarga
 import ytdlp_bin
 from progreso_ytdlp import PLANTILLA, analizar_linea_progreso
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 @dataclass
 class ItemDescarga:

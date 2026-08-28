@@ -27,9 +27,10 @@ import os
 import re
 import sys
 
+import diagnostico
 from config import TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_MIEMBRO, TIPO_ENTRADA
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 # tiktok.com/@usuario[/live]. Los usuarios de TikTok llevan letras, números,
 # guion bajo y punto. No se aceptan "@usuario" sueltos (chocarían con los

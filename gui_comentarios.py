@@ -14,6 +14,7 @@ import threading
 
 import wx
 
+import diagnostico
 import credenciales
 import youtube_api
 import sound_player as _snd
@@ -24,7 +25,7 @@ from gui import (
     _T, _tc,
 )
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 _ORDENES = [("Más relevantes", "relevance"), ("Más recientes", "time")]
 

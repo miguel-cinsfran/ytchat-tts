@@ -6,8 +6,9 @@ import json
 import logging
 from pathlib import Path
 
+import diagnostico
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 _vigente: dict = {}
 
 

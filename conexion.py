@@ -11,7 +11,7 @@ from overlay_datos import evento_de_mensaje
 from sesiones import RegistroSesiones
 
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 
 class Conexiones:

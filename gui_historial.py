@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import logging
 
+import diagnostico
 import wx
 
 import historial
 from gui import anunciar, nombre_accesible, _T
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 _PLATAFORMAS = [("YouTube", "youtube"), ("TikTok", "tiktok")]
 

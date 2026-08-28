@@ -49,9 +49,12 @@ def componer_cierre_fallos(momento: datetime) -> str:
 
 def crear_manejador_detallado(ruta: str | Path) -> RotatingFileHandler:
     """Arma el manejador del registro detallado, sin instalarlo."""
+    ruta = Path(ruta)
     manejador = RotatingFileHandler(
         ruta, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
     )
+    if ruta.exists() and ruta.stat().st_size:
+        manejador.doRollover()
     manejador.setLevel(logging.DEBUG)
     manejador.setFormatter(logging.Formatter(FORMATO_DETALLADO, FECHA_DETALLADA))
     # Solo entra lo propio, sin mantener una lista de librerias de terceros.

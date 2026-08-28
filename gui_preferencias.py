@@ -15,6 +15,7 @@ import webbrowser
 
 import wx
 
+import diagnostico
 import config as cfg
 import atajos_captura
 import estado_sesion
@@ -25,7 +26,7 @@ import youtube_api
 from config import APP_NAME
 from gui import anunciar, caja_de_grupo
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 
 
 # El diálogo de Preferencias usa apariencia NATIVA (sin el tema oscuro de la

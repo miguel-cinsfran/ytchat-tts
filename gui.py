@@ -83,7 +83,7 @@ REG_CONTENIDO = 1
 REG_REPRODUCTOR = 2
 _NOMBRE_REGION = ("Conexión", "Contenido", "Reproductor")
 
-logger = logging.getLogger(__name__)
+logger = diagnostico.obtener_logger(__name__)
 _OBS_COMPONENTES = frozenset(("obs_transmision", "obs_grabacion", "obs_escena"))
 
 
