@@ -157,7 +157,13 @@ class ComentariosPanel(wx.Panel):
         por qué está vacía en vez de creer que falla. El aviso no es un
         comentario real: leer o copiar sobre él no hacen nada."""
         self.limpiar()
+        self._mostrar_aviso(texto)
+
+    def _mostrar_aviso(self, texto: str) -> None:
+        self.lb.Clear()
+        self._coms.clear()
         self.lb.Append(texto)
+        self.btn_mas.Disable()
         self._actualizar_botones_sesion()
 
     def anclar_foco(self) -> None:
@@ -180,7 +186,7 @@ class ComentariosPanel(wx.Panel):
             youtube_api.google_disponible(), credenciales.hay_lectura(),
             bool(self._video_id))
         if motivo:
-            self.mostrar_no_disponible(motivo)
+            self._mostrar_aviso(motivo)
             anunciar(motivo)
             return
         self._cargando = True
@@ -249,7 +255,7 @@ class ComentariosPanel(wx.Panel):
         msg = youtube_api.mensaje_error_api(exc)
         anunciar(msg)
         if not self.lb.GetCount():
-            self.mostrar_no_disponible(msg)
+            self._mostrar_aviso(msg)
 
     def _formato(self, c: youtube_api.Comentario) -> str:
         if c.es_respuesta:

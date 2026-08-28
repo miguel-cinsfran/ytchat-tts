@@ -83,27 +83,49 @@ class TestEnterEnListas(unittest.TestCase):
 
 class TestComentariosPanel(unittest.TestCase):
 
-    def test_autocarga_sin_api_key_muestra_aviso_sin_modal(self):
+    def _panel_sin_api_key(self):
         app = gui_comentarios.wx.App(False)
         frame = gui_comentarios.wx.Frame(None)
         self.addCleanup(frame.Destroy)
         self.addCleanup(app.Destroy)
-        with mock.patch.object(gui_comentarios.youtube_api, "google_disponible",
-                               return_value=True), \
-                mock.patch.object(gui_comentarios.credenciales, "hay_lectura",
-                                  return_value=False), \
-                mock.patch.object(gui_comentarios.credenciales, "hay_sesion",
-                                  return_value=False), \
-                mock.patch.object(gui_comentarios, "anunciar"), \
-                mock.patch.object(gui_comentarios.wx, "MessageBox",
-                                  side_effect=AssertionError("Se abrió un modal")):
-            panel = gui_comentarios.ComentariosPanel(
-                frame, queue.Queue(), {"tamanio_fuente_chat": 12})
-            panel.set_video("unvideo", autocargar=True)
+        hay_lectura = self.enterContext(mock.patch.object(gui_comentarios.credenciales, "hay_lectura", return_value=False))
+        parches = ((gui_comentarios.youtube_api, "google_disponible", True),
+                   (gui_comentarios.credenciales, "hay_sesion", False),
+                   (gui_comentarios, "anunciar", None))
+        for objeto, nombre, valor in parches:
+            self.enterContext(mock.patch.object(objeto, nombre, return_value=valor))
+        self.enterContext(mock.patch.object(gui_comentarios.wx, "MessageBox",
+                                             side_effect=AssertionError("Se abrió un modal")))
+        return gui_comentarios.ComentariosPanel(frame, queue.Queue(), {"tamanio_fuente_chat": 12}), hay_lectura
+
+    def test_autocarga_sin_api_key_muestra_aviso_sin_modal(self):
+        panel, _ = self._panel_sin_api_key()
+        panel.set_video("unvideo", autocargar=True)
         self.assertEqual(panel.lb.GetCount(), 1)
         self.assertEqual(panel.lb.GetString(0),
                          "Falta la API key. Ponla en Preferencias, pestaña API, "
                          "para leer comentarios.")
+        self.assertEqual(panel._video_id, "unvideo")
+        self.assertNotIn("conectate a un video", panel.btn_comentar.GetLabel().lower())
+
+    def test_recargar_tras_agregar_api_key_carga_el_video_recordado(self):
+        panel, hay_lectura = self._panel_sin_api_key()
+        panel.set_video("unvideo", autocargar=True)
+        hay_lectura.return_value = True
+        cliente = mock.Mock(leer_comentarios=mock.Mock(return_value=([], "")))
+        def hilo_inmediato(*args, **kwargs):
+            return mock.Mock(start=lambda: kwargs["target"]())
+
+        with mock.patch.object(panel, "_cliente", return_value=cliente), \
+                mock.patch.object(gui_comentarios.threading, "Thread", side_effect=hilo_inmediato):
+            panel._recargar()
+        cliente.leer_comentarios.assert_called_once_with("unvideo", page_token="", orden="relevance")
+
+    def test_mostrar_no_disponible_olvida_el_video(self):
+        panel, _ = self._panel_sin_api_key()
+        panel.set_video("unvideo", autocargar=False)
+        panel.mostrar_no_disponible("No hay comentarios aquí.")
+        self.assertEqual(panel._video_id, "")
 
 
 class GrabadorDeVoz:

@@ -70,3 +70,6 @@ todosloslogs.txt
 
 # carpeta que deja Playwright al capturar
 .playwright-mcp/
+
+# Cache de win32com, se regenera sola al cargar SAPI5.
+gen_py/
