@@ -2314,7 +2314,8 @@ def iniciar_gui(config, cola, stats, worker, parada,
         frame.txt_url.SetFocus()
     except Exception:
         pass
-    _snd.reproducir("app_inicio")
+    diagnostico.crear_hilo(
+        lambda: _snd.reproducir("app_inicio"), "SonidoInicio").start()
     wx.CallAfter(frame._arrancar_precalentamiento)
 
     if url_inicial and iniciar_captura_cb:
