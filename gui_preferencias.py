@@ -123,10 +123,12 @@ class PreferenciasDialog(wx.Dialog):
         self.lista_categorias = self.nb.GetListView()
         nombre_accesible(self.lista_categorias, "Categorias")
         _tc(self.lista_categorias, bg=_T.surface)
-        self.nb.AddPage(self._pag_interfaz(self.nb), "Interfaz")
+        self.nb.AddPage(self._pag_voz(self.nb), "Voz")
         self.nb.AddPage(self._pag_lectura(self.nb), "Lectura")
-        self.nb.AddPage(self._pag_estado(self.nb), "Estado (F2)")
+        self.nb.AddPage(self._pag_interfaz(self.nb), "Interfaz y sonidos")
+        self.nb.AddPage(self._pag_reproductor(self.nb), "Reproductor")
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
+        self.nb.AddPage(self._pag_estado(self.nb), "Estado (F2)")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
         self.nb.AddPage(self._pag_programados(self.nb), "Mensajes automáticos")
@@ -177,17 +179,24 @@ class PreferenciasDialog(wx.Dialog):
         self.chk_total_sc.SetValue(bool(self._config.get("mostrar_total_superchats", True)))
         vs.Add(self.chk_total_sc, 0, wx.ALL, 10)
 
-        self.chk_autoplay = wx.CheckBox(p, label="&Reproducir el audio automáticamente al conectar",
-                                        name="AutoplayReproductor")
-        self.chk_autoplay.SetForegroundColour(_T.text)
-        self.chk_autoplay.SetValue(bool(self._config.get("autoplay_reproductor", True)))
-        vs.Add(self.chk_autoplay, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
-
         self.chk_metadatos = wx.CheckBox(p, label="Mostrar la pestaña de &información del vídeo (canal, vistas, descripción)",
                                          name="MostrarMetadatos")
         self.chk_metadatos.SetForegroundColour(_T.text)
         self.chk_metadatos.SetValue(bool(self._config.get("mostrar_metadatos", True)))
         vs.Add(self.chk_metadatos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_reproductor(self, parent):
+        p = self._make_panel(parent, "PagReproductor")
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        self.chk_autoplay = wx.CheckBox(p, label="&Reproducir el audio automáticamente al conectar",
+                                        name="AutoplayReproductor")
+        self.chk_autoplay.SetForegroundColour(_T.text)
+        self.chk_autoplay.SetValue(bool(self._config.get("autoplay_reproductor", True)))
+        vs.Add(self.chk_autoplay, 0, wx.ALL, 10)
 
         self.chk_botones_rep = wx.CheckBox(p, label="Mostrar los &botones del reproductor (también con su interruptor y el menú Reproductor)",
                                            name="MostrarBotonesReproductor")
@@ -198,8 +207,8 @@ class PreferenciasDialog(wx.Dialog):
         p.SetSizer(vs)
         return p
 
-    def _pag_lectura(self, parent):
-        p = self._make_panel(parent, "PagLectura")
+    def _pag_voz(self, parent):
+        p = self._make_panel(parent, "PagVoz")
         vs = wx.BoxSizer(wx.VERTICAL)
 
         # Voz SAPI5. También está en el menú Voz → Seleccionar voz; aquí queda
@@ -243,6 +252,13 @@ class PreferenciasDialog(wx.Dialog):
             wx.EVT_CHECKBOX,
             lambda e: self.cho_voz_eventos.Enable(bool(self._voces) and e.IsChecked()))
         vs.Add(self.cho_voz_eventos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_lectura(self, parent):
+        p = self._make_panel(parent, "PagLectura")
+        vs = wx.BoxSizer(wx.VERTICAL)
 
         vs.Add(self._fila_label(p, "Qué leer de cada mensaje:"), 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
         self.rb_formato = wx.RadioBox(
