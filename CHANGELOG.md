@@ -93,6 +93,50 @@ personalización de los atajos.
   dirección exacta de la pantalla de Google Cloud correspondiente, y se explican
   los tres puntos en los que es fácil quedarse atascado con un lector de
   pantalla.
+- **Publicar un comentario y responder a uno ya funcionan.** No hacían nada: se
+  escribía el texto, se pulsaba *Publicar*, la ventana se cerraba y no se
+  enviaba ni se avisaba de nada.
+- **Los avisos ya no se cortan a la mitad.** Cuando la aplicación decía algo,
+  ese texto se ponía en la cola del lector de pantalla detrás de lo que el
+  lector estuviera diciendo por su cuenta, y se perdía en cuanto se pulsaba otra
+  tecla. Ahora los avisos de la aplicación se oyen enteros. Los dos únicos que
+  no interrumpen son los que se repiten solos: el aviso de que un vídeo sigue
+  cargando y el de que se está consultando a OBS.
+- **Cuando no se puede escribir en el chat, ahora dice por qué.** Antes daba
+  siempre el mismo motivo. Ahora distingue si falta la clave de la API, si el
+  vídeo no existe, si no es un directo o si el directo tiene el chat
+  desactivado.
+- **En un vídeo con los comentarios cerrados ya no deja escribir uno.** Antes se
+  podía redactarlo entero y solo al publicarlo se descubría que no se podía.
+- **El reproductor deja de desfasarse al avanzar rápido.** Pulsando varias veces
+  seguidas para adelantar, algunas pulsaciones se perdían y el tiempo anunciado
+  retrocedía solo. Y pulsar reproducir o pausa mientras el vídeo estaba
+  cargando lo hacía empezar de cero.
+- **El vídeo se corta menos.** El colchón de red era muy pequeño y cualquier
+  fluctuación de la conexión interrumpía la reproducción.
+- **Las descargas avisan cuando terminan**, esté abierto o cerrado el gestor, y
+  la cola ya no se olvida al cerrar la ventana.
+- **Recorrer un desplegable ya no cambia nada.** En el diálogo de Transmisión,
+  pasar por las nueve posiciones con las flechas movía el panel dentro de OBS
+  una vez por flecha, en directo. Ahora se elige la posición y se aplica con su
+  botón. Lo mismo con el orden de los comentarios, que recargaba la lista en
+  cada flecha y gastaba cuota de la API.
+- **El diálogo de Transmisión explica dónde está el panel en castellano
+  llano.** Antes mezclaba tres porcentajes que medían cosas distintas y usaba
+  la palabra «fuera» para dos ideas: pasarse de un borde y perder superficie.
+  Y hay un botón nuevo que explica en qué orden se usa la ventana.
+- **Preferencias se recorre con una lista de categorías**, no con pestañas. Con
+  lector de pantalla, las flechas anuncian cada categoría al pasar por ella. Son
+  trece, repartidas por tema.
+- **Nueve opciones que existían y no se podían tocar.** Cómo se comporta la cola
+  de lectura cuando el chat se acelera, la reconexión automática, el puerto del
+  panel de chat, el micrófono de OBS que silencia el atajo, y el registro
+  detallado, que hasta ahora solo se encendía editando un archivo a mano.
+- **Los contadores numéricos se pueden reescribir sin borrar antes.** Al entrar
+  en uno, su contenido queda seleccionado.
+- **El registro de diagnóstico dejó de llenarse de ruido.** Nueve de cada diez
+  líneas eran de librerías internas, y con una sesión larga ese ruido borraba el
+  principio del archivo, que es justo donde suele estar el problema.
 
 ## 2.0.1 — agosto de 2026
 

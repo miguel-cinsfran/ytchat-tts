@@ -4,7 +4,7 @@ Lector del chat de YouTube Live con las voces SAPI5 de Windows, pensado para
 personas ciegas o con baja visión que transmiten en directo. La interfaz
 completa se maneja con el teclado y está probada con NVDA.
 
-Versión 2.0.1 · Windows 10 y 11 · [novedades de cada versión](CHANGELOG.md).
+Versión 2.1.0 · Windows 10 y 11 · [novedades de cada versión](CHANGELOG.md).
 
 ## Índice
 
