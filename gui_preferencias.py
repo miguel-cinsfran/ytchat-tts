@@ -1,4 +1,4 @@
-"""Diálogo de Preferencias con pestañas (accesible).
+"""Diálogo de Preferencias por categorías (accesible).
 
 Reúne en un solo sitio lo que antes solo se editaba a mano en config.ini y
 sounds.ini: interfaz (fuente, tema de sonido), lectura, filtros de palabras y
@@ -24,7 +24,7 @@ import sound_player as _snd
 import credenciales
 import youtube_api
 from config import APP_NAME
-from gui import ContadorAccesible, anunciar, caja_de_grupo
+from gui import ContadorAccesible, anunciar, caja_de_grupo, nombre_accesible
 
 logger = diagnostico.obtener_logger(__name__)
 
@@ -118,8 +118,11 @@ class PreferenciasDialog(wx.Dialog):
         panel.SetForegroundColour(_T.text)
         vs = wx.BoxSizer(wx.VERTICAL)
 
-        self.nb = wx.Notebook(panel, name="PestanasPreferencias")
-        _tc(self.nb, bg=_T.surface)
+        # La lista se anuncia sola al recorrerla, a diferencia de las pestañas.
+        self.nb = wx.Listbook(panel, name="Categorias de preferencias")
+        self.lista_categorias = self.nb.GetListView()
+        nombre_accesible(self.lista_categorias, "Categorias")
+        _tc(self.lista_categorias, bg=_T.surface)
         self.nb.AddPage(self._pag_interfaz(self.nb), "Interfaz")
         self.nb.AddPage(self._pag_lectura(self.nb), "Lectura")
         self.nb.AddPage(self._pag_estado(self.nb), "Estado (F2)")
@@ -127,8 +130,6 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
         self.nb.AddPage(self._pag_programados(self.nb), "Mensajes automáticos")
-        # Anunciar la pestaña al cambiar (Ctrl+Tab no lo verbaliza solo).
-        self.nb.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._on_pestana)
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
@@ -142,12 +143,7 @@ class PreferenciasDialog(wx.Dialog):
 
         panel.SetSizer(vs)
         btn_guardar.Bind(wx.EVT_BUTTON, self._on_guardar)
-
-    def _on_pestana(self, event):
-        idx = event.GetSelection()
-        if 0 <= idx < self.nb.GetPageCount():
-            anunciar(self.nb.GetPageText(idx))
-        event.Skip()
+        self.lista_categorias.SetFocus()
 
     def _make_panel(self, parent, name):
         p = wx.Panel(parent, name=name)
