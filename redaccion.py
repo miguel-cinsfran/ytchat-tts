@@ -23,6 +23,17 @@ def motivo_comentario(hay_video, hay_sesion) -> str:
     return ""
 
 
+def motivo_lectura_comentarios(hay_librerias, hay_api_key, hay_video) -> str:
+    if not hay_librerias:
+        return ("Faltan las librerías de la API. Instálalas con: pip install "
+                "google-api-python-client google-auth-oauthlib")
+    if not hay_api_key:
+        return "Falta la API key. Ponla en Preferencias, pestaña API, para leer comentarios."
+    if not hay_video:
+        return "Conéctate a un vídeo para poder leer los comentarios"
+    return ""
+
+
 def validar(texto, maximo) -> str:
     texto_limpio = limpiar(texto)
     if not texto_limpio:

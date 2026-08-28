@@ -27,6 +27,27 @@ class TestRedaccion(unittest.TestCase):
         self.assertIn("Inicia sesión", redaccion.motivo_comentario(True, False))
         self.assertEqual(redaccion.motivo_comentario(True, True), "")
 
+    def test_motivo_lectura_comentarios_sin_librerias(self):
+        self.assertEqual(
+            redaccion.motivo_lectura_comentarios(False, True, True),
+            "Faltan las librerías de la API. Instálalas con: pip install "
+            "google-api-python-client google-auth-oauthlib")
+
+    def test_motivo_lectura_comentarios_sin_api_key(self):
+        self.assertEqual(
+            redaccion.motivo_lectura_comentarios(True, False, True),
+            "Falta la API key. Ponla en Preferencias, pestaña API, para leer comentarios.")
+
+    def test_motivo_lectura_comentarios_sin_video(self):
+        self.assertEqual(redaccion.motivo_lectura_comentarios(True, True, False),
+                         "Conéctate a un vídeo para poder leer los comentarios")
+
+    def test_motivo_lectura_comentarios_vacio_si_se_puede(self):
+        self.assertEqual(redaccion.motivo_lectura_comentarios(True, True, True), "")
+
+    def test_motivo_lectura_comentarios_prioriza_librerias(self):
+        self.assertIn("librerías", redaccion.motivo_lectura_comentarios(False, False, False))
+
     def test_validar(self):
         self.assertIn("Escribe", redaccion.validar("  \n ", 3))
         self.assertIn("4 caracteres", redaccion.validar("  abcd  ", 3))
