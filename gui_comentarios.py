@@ -176,18 +176,12 @@ class ComentariosPanel(wx.Panel):
     def _cargar_pagina(self, page_token):
         if self._cargando:
             return
-        if not youtube_api.google_disponible():
-            wx.MessageBox("Faltan las librerías de la API. Instálalas con:\n"
-                          "pip install google-api-python-client google-auth-oauthlib",
-                          "Librerías ausentes", wx.OK | wx.ICON_WARNING, self)
-            return
-        if not credenciales.hay_lectura():
-            wx.MessageBox("Falta la API key. Ponla en Preferencias, pestaña API, "
-                          "para leer comentarios.",
-                          "Sin API key", wx.OK | wx.ICON_WARNING, self)
-            return
-        if not self._video_id:
-            anunciar("Conecta primero un vídeo")
+        motivo = redaccion.motivo_lectura_comentarios(
+            youtube_api.google_disponible(), credenciales.hay_lectura(),
+            bool(self._video_id))
+        if motivo:
+            self.mostrar_no_disponible(motivo)
+            anunciar(motivo)
             return
         self._cargando = True
         self.btn_recargar.Disable()
@@ -254,8 +248,8 @@ class ComentariosPanel(wx.Panel):
         _snd.reproducir("error")
         msg = youtube_api.mensaje_error_api(exc)
         anunciar(msg)
-        wx.MessageBox(msg, "No se pudieron cargar los comentarios",
-                      wx.OK | wx.ICON_ERROR, self)
+        if not self.lb.GetCount():
+            self.mostrar_no_disponible(msg)
 
     def _formato(self, c: youtube_api.Comentario) -> str:
         if c.es_respuesta:
