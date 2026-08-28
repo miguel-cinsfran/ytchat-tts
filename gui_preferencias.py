@@ -24,7 +24,7 @@ import sound_player as _snd
 import credenciales
 import youtube_api
 from config import APP_NAME
-from gui import anunciar, caja_de_grupo
+from gui import ContadorAccesible, anunciar, caja_de_grupo
 
 logger = diagnostico.obtener_logger(__name__)
 
@@ -161,7 +161,7 @@ class PreferenciasDialog(wx.Dialog):
 
         vs.Add(self._fila_label(p, "Tamaño de &fuente del chat (8 a 24):"),
                0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
-        self.sp_fuente = wx.SpinCtrl(p, min=8, max=24,
+        self.sp_fuente = ContadorAccesible(p, min=8, max=24,
                                      initial=int(self._config.get("tamanio_fuente_chat", 12)),
                                      name="Tamaño de fuente del chat")
         _tc(self.sp_fuente)
@@ -281,7 +281,7 @@ class PreferenciasDialog(wx.Dialog):
 
         vs.Add(self._fila_label(p, "&Longitud máxima del mensaje (caracteres):"),
                0, wx.LEFT | wx.RIGHT, 10)
-        self.sp_long = wx.SpinCtrl(p, min=20, max=1000,
+        self.sp_long = ContadorAccesible(p, min=20, max=1000,
                                    initial=int(self._config.get("max_longitud_mensaje", 200)),
                                    name="Longitud máxima del mensaje")
         _tc(self.sp_long)
@@ -563,11 +563,11 @@ class PreferenciasDialog(wx.Dialog):
         vs.Add(self.txt_programado, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 
         vs.Add(self._fila_label(p, "Cada, &mínimo (minutos)"), 0, wx.LEFT | wx.RIGHT, 10)
-        self.sp_min_programado = wx.SpinCtrl(
+        self.sp_min_programado = ContadorAccesible(
             p, min=5, max=240, initial=10, name="MinutosMin")
         vs.Add(self.sp_min_programado, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         vs.Add(self._fila_label(p, "y &máximo (minutos)"), 0, wx.LEFT | wx.RIGHT, 10)
-        self.sp_max_programado = wx.SpinCtrl(
+        self.sp_max_programado = ContadorAccesible(
             p, min=5, max=240, initial=10, name="MinutosMax")
         vs.Add(self.sp_max_programado, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
 

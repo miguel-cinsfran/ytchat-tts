@@ -11,7 +11,7 @@ import obs_cliente
 import obs_disposicion
 import obs_estado
 import overlay_servidor
-from gui import _T, anunciar, nombre_accesible
+from gui import ContadorAccesible, _T, anunciar, nombre_accesible
 from obs_panel import GestorPanelObs, NOMBRE_FUENTE
 import sound_player
 
@@ -93,9 +93,9 @@ class TransmisionDialog(wx.Dialog):
         self.btn_colocar = self._boton(
             panel, "&Colocar en esa posición", "Colocar en esa posición")
         caja.Add(self.btn_colocar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
-        self.sp_ancho = wx.SpinCtrl(panel, min=100, max=4000, initial=460,
+        self.sp_ancho = ContadorAccesible(panel, min=100, max=4000, initial=460,
                                     name="Ancho del panel en píxeles")
-        self.sp_alto = wx.SpinCtrl(panel, min=100, max=4000, initial=620,
+        self.sp_alto = ContadorAccesible(panel, min=100, max=4000, initial=620,
                                    name="Alto del panel en píxeles")
         caja.Add(self.sp_ancho, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         caja.Add(self.sp_alto, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
