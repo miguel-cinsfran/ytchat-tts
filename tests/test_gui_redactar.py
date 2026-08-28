@@ -99,5 +99,45 @@ class TestPanelRedactar(unittest.TestCase):
         panel.Destroy()
 
 
+class TestDialogoRedactar(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = wx.App() if not wx.App.Get() else wx.App.Get()
+        cls.frame = wx.Frame(None)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.frame.Destroy()
+
+    def dialogo(self, texto="mensaje", motivo=""):
+        llamadas = []
+        dialogo = gui_redactar.DialogoRedactar(
+            self.frame, "&Comentario:", 200, llamadas.append, motivo=motivo)
+        dialogo.panel.texto.SetValue(texto)
+        dialogo._llamadas = llamadas
+        return dialogo
+
+    def test_publicar_llama_al_enviar_una_vez_con_el_texto(self):
+        dialogo = self.dialogo()
+        with mock.patch.object(dialogo, "EndModal"):
+            dialogo.panel._on_enviar(None)
+        self.assertEqual(dialogo._llamadas, ["mensaje"])
+        dialogo.Destroy()
+
+    def test_publicar_guarda_el_texto_enviado(self):
+        dialogo = self.dialogo("  mensaje  ")
+        with mock.patch.object(dialogo, "EndModal"):
+            dialogo.panel._on_enviar(None)
+        self.assertEqual(dialogo.texto_enviado, "mensaje")
+        dialogo.Destroy()
+
+    def test_motivo_no_llama_al_enviar(self):
+        dialogo = self.dialogo(motivo="Inicia sesión")
+        with mock.patch.object(gui_redactar, "_anunciar"):
+            dialogo.panel._on_enviar(None)
+        self.assertEqual(dialogo._llamadas, [])
+        dialogo.Destroy()
+
+
 if __name__ == "__main__":
     unittest.main()
