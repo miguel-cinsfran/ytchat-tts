@@ -294,7 +294,8 @@ class GestorDescargasDialog(wx.Dialog):
     # ── Callbacks del hilo de descarga (CallAfter) ──────────────────────────
 
     def _actualizar_progreso(self, item_id: str, pct: float, nombre: str) -> None:
-        if not self._alive:
+        # _alive cubre el cierre ordenado, pero wx invalida controles al destruirlos.
+        if not self or not self._alive or not self.lista:
             return
         idx = self._items_fila.get(item_id)
         if idx is None:
@@ -305,7 +306,8 @@ class GestorDescargasDialog(wx.Dialog):
         self.lista.SetItem(idx, 1, texto)
 
     def _actualizar_estado(self, item_id: str, estado: str, mensaje: str) -> None:
-        if not self._alive:
+        # _alive cubre el cierre ordenado, pero wx invalida controles al destruirlos.
+        if not self or not self._alive or not self.lista:
             return
         idx = self._items_fila.get(item_id)
         if idx is None:

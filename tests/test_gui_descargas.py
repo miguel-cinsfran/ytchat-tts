@@ -100,6 +100,15 @@ class TestGruposGestorDescargas(unittest.TestCase):
         dialogo._actualizar_progreso("item", 50, "archivo.mp4")
         dialogo._actualizar_estado("item", "completado", "")
 
+    def test_callbacks_rezagados_despues_de_destruir_no_lanzan(self):
+        dialogo = gui_descargas.GestorDescargasDialog(None)
+        dialogo.lista.InsertItem(0, "archivo.mp4")
+        dialogo._items_fila["item"] = 0
+        dialogo.Destroy()
+        wx.Yield()
+        dialogo._actualizar_progreso("item", 50, "archivo.mp4")
+        dialogo._actualizar_estado("item", "completado", "")
+
     def test_fin_avisado_despues_de_cerrar_el_dialogo(self):
         dialogo = gui_descargas.GestorDescargasDialog(None)
         dialogo.txt_url.SetValue("https://example.com/video")
