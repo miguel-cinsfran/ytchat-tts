@@ -279,6 +279,31 @@ class TestGestorDescargas(unittest.TestCase):
         gestor = GestorDescargas(self.opciones()); gestor.set_opciones({"formato": "mp3"})
         self.assertEqual(gestor._opciones["formato"], "mp3")
 
+    def test_encolar_devuelve_id_antes_de_analizar(self):
+        gestor = GestorDescargas(self.opciones())
+        analisis_iniciado = threading.Event()
+        terminar_analisis = threading.Event()
+        progresos = []
+
+        def analizar(_url):
+            analisis_iniciado.set()
+            terminar_analisis.wait(1)
+            return {"tipo": "video", "titulo": "Título conocido"}
+
+        with mock.patch.object(descargas, "analizar_url", side_effect=analizar), \
+                mock.patch.object(descargas, "descargar"):
+            item_id = gestor.encolar("url", lambda *args: progresos.append(args),
+                                     lambda *args: None)
+            self.assertEqual(gestor.obtener(item_id).nombre, "url")
+            self.assertTrue(analisis_iniciado.wait(1))
+            terminar_analisis.set()
+            for _ in range(100):
+                if progresos:
+                    break
+                threading.Event().wait(0.01)
+
+        self.assertEqual(progresos[0][4], "Título conocido")
+
 
 class TestFfmpeg(unittest.TestCase):
     def test_devuelve_bool(self): self.assertIsInstance(tiene_ffmpeg(), bool)

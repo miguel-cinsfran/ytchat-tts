@@ -281,14 +281,7 @@ class GestorDescargas:
         `estado_cb(item_id, estado, mensaje)` reciben el id del ítem.
         """
         item_id = uuid.uuid4().hex[:12]
-        # analizar_url es opcional aquí: si el programa falta, igualmente creamos
-        # el item con tipo "error" y nombre = url para que la cola no se
-        # rompa; el hilo de descarga informará el error 3-vías.
-        info = analizar_url(url) if ytdlp_bin.ruta_ytdlp() is not None else \
-            {"tipo": "video", "id": "", "titulo": url, "cuenta": 1}
-        it = ItemDescarga(id=item_id, url=url,
-                          tipo=info.get("tipo", "video"),
-                          nombre=info.get("titulo") or url)
+        it = ItemDescarga(id=item_id, url=url, tipo="video", nombre=url)
         ev = threading.Event()
         with self._lock:
             self._items[item_id] = it
@@ -315,6 +308,11 @@ class GestorDescargas:
         def _run() -> None:
             # Doble red de seguridad: capturar lo que sea que se escape.
             try:
+                info = analizar_url(url)
+                it.tipo = info.get("tipo", "video")
+                titulo = info.get("titulo") or ""
+                if titulo:
+                    _cb_progreso(it.progreso, "", "", titulo)
                 descargar(url, self._opciones, _cb_progreso, _cb_estado, ev)
             except Exception as exc:
                 logger.warning("hilo descarga: %s", exc)
