@@ -119,14 +119,16 @@ class PreferenciasDialog(wx.Dialog):
         vs = wx.BoxSizer(wx.VERTICAL)
 
         # La lista se anuncia sola al recorrerla, a diferencia de las pestañas.
-        self.nb = wx.Listbook(panel, name="Categorias de preferencias")
+        self.nb = wx.Listbook(panel, name="Categorías de preferencias")
         self.lista_categorias = self.nb.GetListView()
-        nombre_accesible(self.lista_categorias, "Categorias")
+        nombre_accesible(self.lista_categorias, "Categorías")
         _tc(self.lista_categorias, bg=_T.surface)
         self.nb.AddPage(self._pag_voz(self.nb), "Voz")
         self.nb.AddPage(self._pag_lectura(self.nb), "Lectura")
+        self.nb.AddPage(self._pag_cola(self.nb), "Cola de lectura")
         self.nb.AddPage(self._pag_interfaz(self.nb), "Interfaz y sonidos")
         self.nb.AddPage(self._pag_reproductor(self.nb), "Reproductor")
+        self.nb.AddPage(self._pag_conexion(self.nb), "Conexion")
         self.nb.AddPage(self._pag_filtros(self.nb), "Filtros")
         self.nb.AddPage(self._pag_estado(self.nb), "Estado (F2)")
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
@@ -184,6 +186,69 @@ class PreferenciasDialog(wx.Dialog):
         self.chk_metadatos.SetForegroundColour(_T.text)
         self.chk_metadatos.SetValue(bool(self._config.get("mostrar_metadatos", True)))
         vs.Add(self.chk_metadatos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_cola(self, parent):
+        p = self._make_panel(parent, "PagCola")
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        self.rb_estrategia = wx.RadioBox(
+            p, label="&Estrategia de la cola", majorDimension=1,
+            choices=["Leer todos los mensajes",
+                     "Descartar los mas viejos si se acumulan"],
+            style=wx.RA_SPECIFY_COLS, name="Estrategia de la cola")
+        self.rb_estrategia.SetSelection(
+            0 if self._config.get("estrategia", "limite") == "todas" else 1)
+        vs.Add(self.rb_estrategia, 0, wx.ALL, 10)
+
+        vs.Add(self._fila_label(p, "Tamaño &maximo de la cola"),
+               0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_cola_maxima = ContadorAccesible(
+            p, min=1, max=500,
+            initial=int(self._config.get("tamanio_maximo", 15)),
+            name="Tamaño maximo de la cola")
+        vs.Add(self.sp_cola_maxima, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        vs.Add(self._fila_label(p, "Leer solo el &nombre a partir de"),
+               0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_umbral_nombre = ContadorAccesible(
+            p, min=0, max=500,
+            initial=int(self._config.get("umbral_solo_nombre", 0)),
+            name="Leer solo el nombre a partir de")
+        vs.Add(self.sp_umbral_nombre, 0, wx.LEFT | wx.RIGHT, 10)
+        vs.Add(wx.StaticText(p, label="Con 0, esta opción queda apagada."),
+               0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+
+        p.SetSizer(vs)
+        return p
+
+    def _pag_conexion(self, parent):
+        p = self._make_panel(parent, "PagConexion")
+        vs = wx.BoxSizer(wx.VERTICAL)
+
+        self.chk_reconectar = wx.CheckBox(
+            p, label="&Reconectar automaticamente si se corta",
+            name="Reconectar automaticamente si se corta")
+        self.chk_reconectar.SetValue(bool(self._config.get("reconectar", True)))
+        vs.Add(self.chk_reconectar, 0, wx.ALL, 10)
+
+        vs.Add(self._fila_label(p, "&Espera entre intentos, en segundos"),
+               0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_espera_reconexion = ContadorAccesible(
+            p, min=1, max=300,
+            initial=int(self._config.get("espera_entre_intentos", 10)),
+            name="Espera entre intentos, en segundos")
+        vs.Add(self.sp_espera_reconexion, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
+        vs.Add(self._fila_label(p, "Numero maximo de &intentos"),
+               0, wx.LEFT | wx.RIGHT, 10)
+        self.sp_max_intentos = ContadorAccesible(
+            p, min=0, max=100,
+            initial=int(self._config.get("max_intentos", 5)),
+            name="Numero maximo de intentos")
+        vs.Add(self.sp_max_intentos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         p.SetSizer(vs)
         return p
