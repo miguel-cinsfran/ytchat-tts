@@ -29,7 +29,7 @@ class TestInicioGui(unittest.TestCase):
         configuracion = mock.Mock()
         configuracion.get.return_value = ""
 
-        with mock.patch.object(gui.wx, "App", return_value=aplicacion), \
+        with mock.patch.object(gui, "AplicacionYTChat", return_value=aplicacion), \
                 mock.patch.object(gui, "YTChatFrame", return_value=frame), \
                 mock.patch.object(gui, "app_dir", return_value=Path(".")), \
                 mock.patch.object(gui, "_ao2_init"), \
@@ -39,6 +39,31 @@ class TestInicioGui(unittest.TestCase):
             gui.iniciar_gui(configuracion, object(), object(), object(), object())
 
         self.assertEqual(orden, ["muestra", "frente", "foco"])
+
+    def test_asercion_de_wx_se_registra_sin_anunciarse(self):
+        aplicacion = mock.Mock()
+        with mock.patch.object(gui.logger, "warning") as registrar, \
+                mock.patch.object(gui, "anunciar") as anunciar:
+            gui.AplicacionYTChat.OnAssert(
+                aplicacion, "ventana.cpp", 42, "indice < total", "índice inválido")
+
+        registrar.assert_called_once_with(
+            "wx aserción archivo=%s línea=%s condición=%s mensaje=%s",
+            "ventana.cpp", 42, "indice < total", "índice inválido")
+        anunciar.assert_not_called()
+
+    def test_fin_de_sesion_usa_el_cierre_normal_de_la_ventana(self):
+        aplicacion = mock.Mock()
+        ventana = mock.Mock()
+        evento = object()
+        anterior = gui._gui_frame
+        try:
+            gui._gui_frame = ventana
+            gui.AplicacionYTChat._on_fin_sesion(aplicacion, evento)
+        finally:
+            gui._gui_frame = anterior
+
+        ventana._on_close.assert_called_once_with(evento)
 
 
 class EventoTecladoFalso:

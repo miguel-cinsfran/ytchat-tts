@@ -2285,6 +2285,21 @@ def _resolver_idx_voz(cfg: str, voces: list) -> int:
 _gui_frame: YTChatFrame | None = None
 
 
+class AplicacionYTChat(wx.App):
+    def OnInit(self):
+        self.Bind(wx.EVT_END_SESSION, self._on_fin_sesion)
+        return True
+
+    def OnAssert(self, archivo, linea, condicion, mensaje):
+        # En un ejecutable empaquetado las aserciones de wx se pierden enteras.
+        logger.warning("wx aserción archivo=%s línea=%s condición=%s mensaje=%s",
+                       archivo, linea, condicion, mensaje)
+
+    def _on_fin_sesion(self, event):
+        if _gui_frame is not None:
+            _gui_frame._on_close(event)
+
+
 def iniciar_gui(config, cola, stats, worker, parada,
                 url_inicial: str = "",
                 iniciar_captura_cb=None,
@@ -2294,7 +2309,7 @@ def iniciar_gui(config, cola, stats, worker, parada,
     RUTA_CONFIG = app_dir() / "config.ini"
     _ao2_init()
 
-    app = wx.App(redirect=False)
+    app = AplicacionYTChat(redirect=False)
     frame = YTChatFrame(None, config, cola, stats, worker, parada)
     _gui_frame = frame
     frame.on_conectar_cb    = iniciar_captura_cb
