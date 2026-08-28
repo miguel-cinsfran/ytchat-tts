@@ -910,6 +910,7 @@ class PreferenciasDialog(wx.Dialog):
 
     def _on_guardar(self, event):
         c = self._config
+        registro_detallado_inicial = bool(c.get("registro_detallado", False))
         # Los atajos ya vienen validados desde la captura (área + conflicto), así
         # que aquí solo se guardan; no hace falta revalidar por escritura.
 
@@ -976,6 +977,39 @@ class PreferenciasDialog(wx.Dialog):
         self._set("texto", "max_longitud_mensaje", longitud)
         c["max_longitud_mensaje"] = int(longitud)
 
+        # Se guarda la clave, no la etiqueta, porque config.ini solo admite estas claves.
+        estrategia = ("todas", "limite")[self.rb_estrategia.GetSelection()]
+        self._set("cola", "estrategia", estrategia)
+        c["estrategia"] = estrategia
+        tamanio_maximo = int(self.sp_cola_maxima.GetValue())
+        self._set("cola", "tamanio_maximo", str(tamanio_maximo))
+        c["tamanio_maximo"] = tamanio_maximo
+        umbral_solo_nombre = int(self.sp_umbral_nombre.GetValue())
+        self._set("cola", "umbral_solo_nombre", str(umbral_solo_nombre))
+        c["umbral_solo_nombre"] = umbral_solo_nombre
+
+        reconectar = self.chk_reconectar.GetValue()
+        self._set("reconexion", "reconectar", "true" if reconectar else "false")
+        c["reconectar"] = reconectar
+        espera_entre_intentos = int(self.sp_espera_reconexion.GetValue())
+        self._set("reconexion", "espera_entre_intentos", str(espera_entre_intentos))
+        c["espera_entre_intentos"] = espera_entre_intentos
+        max_intentos = int(self.sp_max_intentos.GetValue())
+        self._set("reconexion", "max_intentos", str(max_intentos))
+        c["max_intentos"] = max_intentos
+
+        registro_detallado = self.chk_registro_detallado.GetValue()
+        self._set("diagnostico", "registro_detallado",
+                  "true" if registro_detallado else "false")
+        c["registro_detallado"] = registro_detallado
+        puerto_overlay = int(self.sp_puerto_overlay.GetValue())
+        self._set("overlay", "puerto", str(puerto_overlay))
+        c["overlay_puerto"] = puerto_overlay
+        microfono_obs = ("" if self.cho_microfono_obs.GetSelection() == 0
+                         else self.cho_microfono_obs.GetStringSelection())
+        self._set("obs", "microfono", microfono_obs)
+        c["obs_microfono"] = microfono_obs
+
         # Estado (F2): una clave por componente + el set en memoria.
         activos = set()
         for comp, chk in self._chk_estado.items():
@@ -1003,6 +1037,8 @@ class PreferenciasDialog(wx.Dialog):
 
         _snd.reproducir("copiar")
         anunciar("Preferencias guardadas")
+        if registro_detallado != registro_detallado_inicial:
+            anunciar("El cambio del registro detallado se aplica al reiniciar la aplicación")
         self.EndModal(wx.ID_OK)
 
     def hubo_cambios(self) -> bool:
