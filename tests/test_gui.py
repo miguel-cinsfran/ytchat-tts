@@ -1144,11 +1144,8 @@ class TestCierreVentana(unittest.TestCase):
     def test_el_overlay_no_miente_si_el_puerto_esta_ocupado_al_arrancar(self):
         configuracion = {"overlay_activo": True, "overlay_puerto": 8730}
 
-        def construir_menu(frame):
-            frame.mi_overlay = mock.Mock()
-
         with mock.patch.object(gui.wx.Frame, "__init__", return_value=None), \
-                mock.patch.object(gui.YTChatFrame, "_build_menubar", construir_menu), \
+                mock.patch.object(gui.YTChatFrame, "_build_menubar"), \
                 mock.patch.object(gui.YTChatFrame, "_build_ui"), \
                 mock.patch.object(gui.YTChatFrame, "_bind_events"), \
                 mock.patch.object(gui.YTChatFrame, "_init_timer"), \
@@ -1161,7 +1158,7 @@ class TestCierreVentana(unittest.TestCase):
                 mock.patch.object(gui, "anunciar") as anunciar:
             frame = gui.YTChatFrame(None, configuracion, None, None, None, None)
 
-        frame.mi_overlay.Check.assert_called_once_with(False)
+        self.assertFalse(frame._config["overlay_activo"])
         anunciar.assert_called_once_with(
             "No se pudo activar el panel, el puerto 8730 está ocupado")
 
@@ -1226,18 +1223,15 @@ class TestCierreVentana(unittest.TestCase):
 
         frame._diagnostico_parada.set.assert_called_once_with()
 
-    def test_menu_overlay_falla_y_queda_desmarcado(self):
+    def test_encender_el_overlay_con_el_puerto_ocupado_no_persiste_ni_miente(self):
         frame = self._frame()
         frame._config = {"overlay_puerto": 8730, "overlay_activo": False}
-        frame.mi_overlay = mock.Mock()
-        evento = mock.Mock()
-        evento.IsChecked.return_value = True
         with mock.patch.object(gui.overlay_servidor, "encender",
                                side_effect=gui.overlay_servidor.OverlayPuertoOcupadoError()), \
                 mock.patch.object(gui, "anunciar") as anunciar, \
                 mock.patch.object(gui, "RUTA_CONFIG", None):
-            frame._on_overlay(evento)
-        frame.mi_overlay.Check.assert_called_once_with(False)
+            resultado = frame._cambiar_overlay(True)
+        self.assertFalse(resultado)
         self.assertFalse(frame._config["overlay_activo"])
         anunciar.assert_called_once_with(
             "No se pudo activar el panel, el puerto 8730 está ocupado")
