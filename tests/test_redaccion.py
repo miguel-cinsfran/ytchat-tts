@@ -34,6 +34,33 @@ class TestRedaccion(unittest.TestCase):
     def test_motivo_chat_vacio_si_se_puede(self):
         self.assertEqual(redaccion.motivo_chat(True, False, True, True, True, True), "")
 
+    def test_causa_sin_chat(self):
+        casos = [
+            ((False, False, False, False, ""), "sin_credenciales"),
+            ((True, True, False, False, ""), "fallo_consulta"),
+            ((True, False, False, False, ""), "sin_video"),
+            ((True, False, True, False, ""), "no_es_directo"),
+            ((True, False, True, True, ""), "chat_desactivado"),
+            ((True, False, True, True, "chat"), ""),
+        ]
+        for argumentos, esperada in casos:
+            with self.subTest(argumentos=argumentos):
+                self.assertEqual(redaccion.causa_sin_chat(*argumentos), esperada)
+
+    def test_motivo_chat_detalla_la_causa(self):
+        casos = {
+            "sin_credenciales": ("Falta la API key para saber si este directo permite "
+                                  "escribir. Ponla en Preferencias, pestaña API"),
+            "sin_video": "No se encontró este video",
+            "no_es_directo": "Este video no es un directo",
+            "chat_desactivado": "Este directo tiene el chat desactivado",
+            "desconocida": "No se pudo acceder al chat de este directo",
+        }
+        for causa, esperada in casos.items():
+            with self.subTest(causa=causa):
+                self.assertEqual(redaccion.motivo_chat(
+                    True, False, True, True, True, False, causa), esperada)
+
     def test_motivo_chat_directo_sin_credenciales_no_inventa_chat_ausente(self):
         for hay_librerias, hay_sesion in ((False, False), (True, False)):
             with self.subTest(hay_librerias=hay_librerias):
@@ -59,6 +86,7 @@ class TestRedaccion(unittest.TestCase):
 
     def test_motivo_comentario(self):
         self.assertIn("Conéctate", redaccion.motivo_comentario(False, True))
+        self.assertIn("desactivados", redaccion.motivo_comentario(True, False, True))
         self.assertIn("Inicia sesión", redaccion.motivo_comentario(True, False))
         self.assertEqual(redaccion.motivo_comentario(True, True), "")
 
