@@ -40,6 +40,10 @@ class GestorPanelObs:
         datos = self._pedir("GetCurrentProgramScene", parada=parada)
         return datos.get("currentProgramSceneName", "")
 
+    def poner_escena_al_aire(self, escena, parada=None) -> str:
+        self._pedir("SetCurrentProgramScene", {"sceneName": escena}, parada)
+        return self.escena_al_aire(parada)
+
     def fuentes_audio(self, parada=None) -> tuple:
         entradas = self._pedir("GetInputList", parada=parada).get("inputs", ())
         fuentes = []

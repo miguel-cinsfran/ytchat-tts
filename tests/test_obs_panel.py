@@ -80,6 +80,9 @@ class DobleObs:
             return {"responseData": {"outputPaused": self.grabacion_en_pausa}}
         if tipo == "GetCurrentProgramScene":
             return {"responseData": {"currentProgramSceneName": self.escena}}
+        if tipo == "SetCurrentProgramScene":
+            self.escena = datos["sceneName"]
+            return {"responseData": {}}
         if tipo == "GetVideoSettings":
             return {"responseData": {"baseWidth": 1600, "baseHeight": 900}}
         if tipo in ("CreateSceneItem", "CreateInput"):
@@ -193,6 +196,14 @@ class GestorPanelObsTest(unittest.TestCase):
         self.assertEqual(gestor.estado_grabacion(), {
             "outputActive": False, "outputPaused": False,
             "outputTimecode": "00:01:02.000"})
+
+    def test_poner_escena_al_aire_confirma_la_escena_leida(self):
+        doble = DobleObs(escena="Principal", escenas=("Principal", "Juego"))
+        gestor = self.gestor(doble)
+        self.assertEqual(gestor.poner_escena_al_aire("Juego"), "Juego")
+        self.assertEqual([llamada[0] for llamada in doble.llamadas],
+                         ["SetCurrentProgramScene", "GetCurrentProgramScene"])
+        self.assertEqual(doble.llamadas[0][1], {"sceneName": "Juego"})
 
     def test_las_alternancias_piden_a_obs_y_devuelven_el_estado_resultante(self):
         doble = DobleObs()
