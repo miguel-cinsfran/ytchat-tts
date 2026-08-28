@@ -86,7 +86,7 @@ class TestCargaReproductor(unittest.TestCase):
 
         panel._on_timer_progreso(None)
 
-        anunciar.assert_called_once_with("Buscando el vídeo, 5 segundos", "progreso")
+        anunciar.assert_called_once_with("Buscando el vídeo, 5 segundos", urgente=False)
 
 
 if __name__ == "__main__":
