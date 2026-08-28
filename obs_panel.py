@@ -162,7 +162,6 @@ class GestorPanelObs:
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemTransform": transformacion,
         }, parada)
-        self._elemento(escena, fuente, parada)
 
     def redimensionar(self, escena, ancho, alto, parada=None) -> None:
         self._elemento(escena, NOMBRE_FUENTE, parada)
@@ -174,7 +173,6 @@ class GestorPanelObs:
         self._pedir("SetInputSettings", {
             "inputName": NOMBRE_FUENTE, "inputSettings": ajustes,
         }, parada)
-        self._elemento(escena, NOMBRE_FUENTE, parada)
 
     def escalar(self, escena, ancho, alto, parada=None, *, fuente=NOMBRE_FUENTE) -> bool:
         elemento = self._elemento(escena, fuente, parada)
@@ -196,7 +194,6 @@ class GestorPanelObs:
             "sceneName": escena, "sceneItemId": elemento["sceneItemId"],
             "sceneItemEnabled": visible,
         }, parada)
-        self._elemento(escena, fuente, parada)
 
     def fijar(self, escena, fijada, parada=None, *, fuente=NOMBRE_FUENTE) -> None:
         elemento = self._elemento(escena, fuente, parada)

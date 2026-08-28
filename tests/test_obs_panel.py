@@ -246,6 +246,15 @@ class GestorPanelObsTest(unittest.TestCase):
         transformacion = doble.elementos[0]["sceneItemTransform"]
         self.assertEqual((transformacion["positionX"], transformacion["positionY"]), (47, 47))
 
+    def test_mover_hace_una_lectura_y_una_escritura(self):
+        gestor = self.gestor(DobleObs())
+        gestor._pedir = mock.Mock(side_effect=[
+            {"sceneItems": [elemento(1, obs_panel.NOMBRE_FUENTE, 0)]}, {}])
+        gestor.mover("Escena", 7, -3)
+        self.assertEqual(gestor._pedir.call_count, 2)
+        self.assertEqual([llamada.args[0] for llamada in gestor._pedir.call_args_list],
+                         ["GetSceneItemList", "SetSceneItemTransform"])
+
     def test_colocar_manda_solo_las_claves_de_posicion_y_alineacion(self):
         doble = DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])
         self.gestor(doble).colocar("Escena", "superior-izquierda")
