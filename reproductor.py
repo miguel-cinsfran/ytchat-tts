@@ -161,6 +161,16 @@ def aviso_de_corte(pct, pct_anterior) -> str:
     return ""
 
 
+def _registro_detallado_activo() -> bool:
+    try:
+        parser = _cfg._mk_parser()
+        parser.read(_cfg.app_dir() / "config.ini", encoding="utf-8")
+        return parser.getboolean("diagnostico", "registro_detallado",
+                                 fallback=False)
+    except Exception:
+        return False
+
+
 # Alturas de vídeo que ofrecemos como «calidad», de mayor a menor.
 _CALIDADES = [2160, 1440, 1080, 720, 480, 360, 240, 144]
 
@@ -495,7 +505,47 @@ class ReproductorPanel(wx.Panel):
         except Exception as exc:
             logger.warning("No se pudo crear el reproductor de VLC: %s", exc)
             return False
+        if _registro_detallado_activo():
+            self._enganchar_eventos_vlc()
         return True
+
+    def _enganchar_eventos_vlc(self) -> None:
+        pct_anterior = None
+
+        def al_buffer(event):
+            nonlocal pct_anterior
+            try:
+                pct = event.u.media_player_buffering.new_cache
+                aviso = aviso_de_corte(pct, pct_anterior)
+                pct_anterior = pct
+                if aviso:
+                    logger.debug("%s", aviso)
+            except Exception:
+                pass
+
+        def al_estado(nombre):
+            def callback(_event):
+                try:
+                    logger.debug("VLC_ESTADO %s", nombre)
+                except Exception:
+                    pass
+            return callback
+
+        callbacks = (
+            (_vlc.EventType.MediaPlayerPlaying, al_estado("reproduciendo")),
+            (_vlc.EventType.MediaPlayerPaused, al_estado("pausado")),
+            (_vlc.EventType.MediaPlayerStopped, al_estado("detenido")),
+            (_vlc.EventType.MediaPlayerEndReached, al_estado("fin")),
+            (_vlc.EventType.MediaPlayerEncounteredError, al_estado("error")),
+            (_vlc.EventType.MediaPlayerBuffering, al_buffer),
+        )
+        self._callbacks_vlc = callbacks
+        try:
+            gestor = self._player.event_manager()
+            for tipo, callback in callbacks:
+                gestor.event_attach(tipo, callback)
+        except Exception as exc:
+            logger.debug("No se pudieron enganchar los eventos de VLC: %s", exc)
 
     def _fijar_salida(self, hwnd):
         try:
