@@ -17,7 +17,9 @@ from descargas import (
     descargar,
     formato_a_ydl,
     frase_aviso_descarga,
+    gestor,
     recortar_url_registro,
+    reiniciar_gestor,
     tiene_ffmpeg,
     _vigilar_cancelacion,
 )
@@ -328,6 +330,58 @@ class TestGestorDescargas(unittest.TestCase):
                 threading.Event().wait(0.01)
 
         self.assertEqual(progresos[0][4], "Título conocido")
+
+
+class TestGestorUnico(unittest.TestCase):
+    def tearDown(self):
+        reiniciar_gestor()
+
+    def test_devuelve_el_mismo_objeto(self):
+        self.assertIs(gestor(), gestor())
+
+    def test_reiniciar_crea_otro_gestor(self):
+        anterior = gestor()
+        reiniciar_gestor()
+        self.assertIsNot(anterior, gestor())
+
+    def test_suscriptor_recibe_estado_final(self):
+        estados = []
+        gestor_prueba = GestorDescargas({"formato": "mp4"})
+        gestor_prueba.suscribir_fin(lambda estado, *_: estados.append(estado))
+        terminado = threading.Event()
+
+        def descarga_simulada(_url, _opciones, _progreso, estado, _cancelar):
+            estado("completado", "")
+            terminado.set()
+
+        with mock.patch.object(descargas, "analizar_url", return_value={}), \
+                mock.patch.object(descargas, "descargar", descarga_simulada):
+            gestor_prueba.encolar("https://youtu.be/abc", lambda *_: None,
+                                 lambda *_: None)
+            self.assertTrue(terminado.wait(1))
+        self.assertEqual(estados, ["completado"])
+
+    def test_suscriptor_con_error_no_impide_a_los_demas(self):
+        estados = []
+        gestor_prueba = GestorDescargas({"formato": "mp4"})
+
+        def suscriptor_roto(*_):
+            raise RuntimeError("suscriptor roto")
+
+        gestor_prueba.suscribir_fin(suscriptor_roto)
+        gestor_prueba.suscribir_fin(lambda estado, *_: estados.append(estado))
+        terminado = threading.Event()
+
+        def descarga_simulada(_url, _opciones, _progreso, estado, _cancelar):
+            estado("completado", "")
+            terminado.set()
+
+        with mock.patch.object(descargas, "analizar_url", return_value={}), \
+                mock.patch.object(descargas, "descargar", descarga_simulada):
+            gestor_prueba.encolar("https://youtu.be/abc", lambda *_: None,
+                                 lambda *_: None)
+            self.assertTrue(terminado.wait(1))
+        self.assertEqual(estados, ["completado"])
 
 
 class TestFfmpeg(unittest.TestCase):

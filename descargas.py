@@ -293,6 +293,7 @@ class GestorDescargas:
         self._items: dict[str, ItemDescarga] = {}
         self._eventos: dict[str, threading.Event] = {}
         self._orden: list[str] = []
+        self._suscriptores_fin: list[Callable] = []
         self._lock = threading.Lock()
 
     def set_opciones(self, op: dict) -> None:
@@ -300,7 +301,14 @@ class GestorDescargas:
         with self._lock:
             self._opciones = dict(op)
 
-    def encolar(self, url: str, progreso_cb: Callable, estado_cb: Callable) -> str:
+    def suscribir_fin(self, callback: Callable) -> None:
+        """Añade un aviso de estado sin duplicarlo."""
+        with self._lock:
+            if callback not in self._suscriptores_fin:
+                self._suscriptores_fin.append(callback)
+
+    def encolar(self, url: str, progreso_cb: Callable, estado_cb: Callable,
+                creado_cb: Optional[Callable] = None) -> str:
         """Crea un ItemDescarga, lo deja en 'en_cola' y lanza su hilo.
 
         `progreso_cb(item_id, pct, velocidad, eta, nombre)` y
@@ -315,6 +323,8 @@ class GestorDescargas:
             self._orden.append(item_id)
         logger.info("descarga encolada: %s, vídeo %s", item_id,
                     recortar_url_registro(url))
+        if creado_cb is not None:
+            creado_cb(item_id)
 
         def _cb_estado(estado: str, mensaje: str = "") -> None:
             it.estado = estado
@@ -324,6 +334,14 @@ class GestorDescargas:
                 estado_cb(item_id, estado, mensaje)
             except Exception as exc:
                 logger.debug("estado_cb lanzó: %s", exc)
+            nombre = it.nombre if it.nombre != it.url else ""
+            with self._lock:
+                suscriptores = list(self._suscriptores_fin)
+            for suscriptor in suscriptores:
+                try:
+                    suscriptor(estado, mensaje, nombre)
+                except Exception as exc:
+                    logger.warning("suscriptor de descarga lanzó: %s", exc)
             if estado in ("completado", "cancelado", "error"):
                 logger.info("descarga %s terminó: %s", item_id, estado)
 
@@ -367,3 +385,23 @@ class GestorDescargas:
     def lista(self) -> list[ItemDescarga]:
         with self._lock:
             return [self._items[i] for i in self._orden if i in self._items]
+
+
+_gestor_unico: Optional[GestorDescargas] = None
+_lock_gestor_unico = threading.Lock()
+
+
+def gestor() -> GestorDescargas:
+    """Devuelve el gestor de descargas compartido por la aplicación."""
+    global _gestor_unico
+    with _lock_gestor_unico:
+        if _gestor_unico is None:
+            _gestor_unico = GestorDescargas()
+        return _gestor_unico
+
+
+def reiniciar_gestor() -> None:
+    """Descarta el gestor compartido. Solo se usa en las pruebas."""
+    global _gestor_unico
+    with _lock_gestor_unico:
+        _gestor_unico = None
