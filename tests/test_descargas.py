@@ -17,6 +17,7 @@ from descargas import (
     descargar,
     formato_a_ydl,
     frase_aviso_descarga,
+    recortar_url_registro,
     tiene_ffmpeg,
     _vigilar_cancelacion,
 )
@@ -27,6 +28,12 @@ class TestDebeEmitirProgreso(unittest.TestCase):
     def test_aviso_final(self): self.assertTrue(debe_emitir_progreso(10, 10.01, 100))
     def test_aviso_al_intervalo(self): self.assertTrue(debe_emitir_progreso(10, 10.5, 40))
     def test_aviso_dentro_del_intervalo(self): self.assertFalse(debe_emitir_progreso(10, 10.01, 40))
+
+
+class TestRecortarUrlRegistro(unittest.TestCase):
+    def test_deja_identificador_y_quita_parametros(self):
+        url = "https://www.youtube.com/watch?v=abc123&list=secreta&token=oculto"
+        self.assertEqual(recortar_url_registro(url), "abc123")
 
 
 class TestFraseAvisoDescarga(unittest.TestCase):

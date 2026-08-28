@@ -26,6 +26,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import parse_qs, urlparse
 
 from config import app_dir, obtener_opciones_descarga
 import ytdlp_bin
@@ -62,6 +63,20 @@ def debe_emitir_progreso(ultimo_ts, ahora, pct):
     """Decide si toca avisar del progreso, para no inundar la interfaz."""
     return (ultimo_ts is None or pct >= 100.0 or
             ahora - ultimo_ts >= INTERVALO_PROGRESO_S)
+
+
+def recortar_url_registro(url: str) -> str:
+    """Devuelve el identificador de vídeo sin parámetros para el registro."""
+    partes = urlparse(url)
+    consulta = parse_qs(partes.query)
+    if consulta.get("v"):
+        return consulta["v"][0]
+    segmentos = [segmento for segmento in partes.path.split("/") if segmento]
+    if partes.netloc.lower().endswith("youtu.be") and segmentos:
+        return segmentos[0]
+    if len(segmentos) >= 2 and segmentos[0] in ("shorts", "embed", "live"):
+        return segmentos[1]
+    return segmentos[-1] if segmentos else "sin identificador"
 
 def formato_a_ydl(formato: str, bitrate: int) -> str:
     """Selector que se pasa a YoutubeDL como `format`.
@@ -298,14 +313,19 @@ class GestorDescargas:
             self._items[item_id] = it
             self._eventos[item_id] = ev
             self._orden.append(item_id)
+        logger.info("descarga encolada: %s, vídeo %s", item_id,
+                    recortar_url_registro(url))
 
         def _cb_estado(estado: str, mensaje: str = "") -> None:
             it.estado = estado
             it.mensaje = mensaje
+            logger.info("descarga %s: estado %s", item_id, estado)
             try:
                 estado_cb(item_id, estado, mensaje)
             except Exception as exc:
                 logger.debug("estado_cb lanzó: %s", exc)
+            if estado in ("completado", "cancelado", "error"):
+                logger.info("descarga %s terminó: %s", item_id, estado)
 
         def _cb_progreso(pct: float, vel, eta, nombre: str) -> None:
             it.progreso = max(0.0, min(100.0, float(pct)))
@@ -324,6 +344,7 @@ class GestorDescargas:
                 titulo = info.get("titulo") or ""
                 if titulo:
                     _cb_progreso(it.progreso, "", "", titulo)
+                logger.info("descarga %s: inicio", item_id)
                 descargar(url, self._opciones, _cb_progreso, _cb_estado, ev)
             except Exception as exc:
                 logger.warning("hilo descarga: %s", exc)
