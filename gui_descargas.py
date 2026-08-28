@@ -225,6 +225,13 @@ class GestorDescargasDialog(wx.Dialog):
         self.lista_historial.InsertColumn(1, "Fecha", width=180)
         self.lista_historial.InsertColumn(2, "Estado", width=140)
         vs_historial.Add(self.lista_historial, 1, wx.EXPAND | wx.ALL, 6)
+        self.btn_vaciar_historial = wx.Button(
+            pagina_historial, label="&Vaciar el historial",
+            name="Vaciar el historial")
+        self.btn_vaciar_historial.SetBackgroundColour(_T.btn)
+        self.btn_vaciar_historial.SetForegroundColour(_T.btn_t)
+        self.btn_vaciar_historial.Bind(wx.EVT_BUTTON, self._on_vaciar_historial)
+        vs_historial.Add(self.btn_vaciar_historial, 0, wx.ALL, 6)
         pagina_historial.SetSizer(vs_historial)
         self.pestanas.AddPage(cola, "Cola")
         self.pestanas.AddPage(pagina_historial, "Historial")
@@ -343,6 +350,21 @@ class GestorDescargasDialog(wx.Dialog):
         self.lista_historial.InsertItem(0, historial_descargas.formatear(entrada)[0])
         self.lista_historial.SetItem(0, 1, entrada["fecha"])
         self.lista_historial.SetItem(0, 2, estado)
+
+    def _on_vaciar_historial(self, _event) -> None:
+        cantidad = len(self._historial)
+        mensaje = ("Borra las entradas del historial. No borra ningún archivo "
+                   "descargado del disco, solo la lista. ¿Deseas continuar?")
+        if wx.MessageBox(mensaje, "Vaciar el historial",
+                         wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING, self) != wx.YES:
+            return
+        self._historial = []
+        historial_descargas.guardar(self._ruta_historial, self._historial)
+        self.lista_historial.DeleteAllItems()
+        if cantidad == 1:
+            anunciar("Se borró 1 entrada del historial")
+        else:
+            anunciar(f"Se borraron {cantidad} entradas del historial")
 
     def _on_cancelar(self, _event):
         idx = self.lista.GetFirstSelected()

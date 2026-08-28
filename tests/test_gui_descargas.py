@@ -157,6 +157,25 @@ class TestGruposGestorDescargas(unittest.TestCase):
             finally:
                 dialogo.Destroy()
 
+    def test_vaciar_historial_deja_la_lista_sin_filas(self):
+        with mock.patch.object(gui_descargas.historial_descargas, "cargar",
+                               return_value=[]), \
+                mock.patch.object(gui_descargas.historial_descargas, "guardar") as guardar, \
+                mock.patch.object(gui_descargas.wx, "MessageBox", return_value=wx.YES), \
+                mock.patch.object(gui_descargas, "anunciar") as anunciar:
+            dialogo = gui_descargas.GestorDescargasDialog(None)
+            try:
+                entrada = {"nombre": "video.mp4", "fecha": "2026-08-28T12:00:00",
+                           "estado": "completado"}
+                dialogo._historial = [entrada]
+                dialogo._agregar_fila_historial(entrada)
+                dialogo._on_vaciar_historial(None)
+                self.assertEqual(dialogo.lista_historial.GetItemCount(), 0)
+                guardar.assert_called_once_with(dialogo._ruta_historial, [])
+                anunciar.assert_called_once_with("Se borró 1 entrada del historial")
+            finally:
+                dialogo.Destroy()
+
 
 if __name__ == "__main__":
     unittest.main()
