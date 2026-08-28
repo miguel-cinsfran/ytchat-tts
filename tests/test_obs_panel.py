@@ -29,6 +29,9 @@ class DobleObs:
         self.conectado = True
         self.siguiente_id = 20
         self.silencios = dict(silencios or {})
+        self.transmitiendo = False
+        self.grabando = False
+        self.grabacion_en_pausa = False
 
     def conectar(self, parada=None):
         self.conectado = True
@@ -57,6 +60,24 @@ class DobleObs:
                 raise RuntimeError("No es una fuente de audio")
             self.silencios[nombre] = not self.silencios[nombre]
             return {"responseData": {"inputMuted": self.silencios[nombre]}}
+        if tipo == "GetStreamStatus":
+            return {"responseData": {"outputActive": self.transmitiendo,
+                                      "outputDuration": 61,
+                                      "outputSkippedFrames": 2,
+                                      "outputTotalFrames": 100}}
+        if tipo == "GetRecordStatus":
+            return {"responseData": {"outputActive": self.grabando,
+                                      "outputPaused": self.grabacion_en_pausa,
+                                      "outputTimecode": "00:01:02.000"}}
+        if tipo == "ToggleStream":
+            self.transmitiendo = not self.transmitiendo
+            return {"responseData": {"outputActive": self.transmitiendo}}
+        if tipo == "ToggleRecord":
+            self.grabando = not self.grabando
+            return {"responseData": {"outputActive": self.grabando}}
+        if tipo == "ToggleRecordPause":
+            self.grabacion_en_pausa = not self.grabacion_en_pausa
+            return {"responseData": {"outputPaused": self.grabacion_en_pausa}}
         if tipo == "GetCurrentProgramScene":
             return {"responseData": {"currentProgramSceneName": self.escena}}
         if tipo == "GetVideoSettings":
@@ -162,6 +183,25 @@ class GestorPanelObsTest(unittest.TestCase):
         doble = DobleObs(silencios={"Mic/Aux": False})
         self.assertTrue(self.gestor(doble).alternar_silencio("Mic/Aux"))
         self.assertTrue(doble.silencios["Mic/Aux"])
+
+    def test_lee_los_estados_de_transmision_y_grabacion(self):
+        doble = DobleObs()
+        gestor = self.gestor(doble)
+        self.assertEqual(gestor.estado_transmision(), {
+            "outputActive": False, "outputDuration": 61,
+            "outputSkippedFrames": 2, "outputTotalFrames": 100})
+        self.assertEqual(gestor.estado_grabacion(), {
+            "outputActive": False, "outputPaused": False,
+            "outputTimecode": "00:01:02.000"})
+
+    def test_las_alternancias_piden_a_obs_y_devuelven_el_estado_resultante(self):
+        doble = DobleObs()
+        gestor = self.gestor(doble)
+        self.assertTrue(gestor.alternar_transmision())
+        self.assertTrue(gestor.alternar_grabacion())
+        self.assertTrue(gestor.alternar_pausa_grabacion())
+        self.assertEqual([llamada[0] for llamada in doble.llamadas[-3:]],
+                         ["ToggleStream", "ToggleRecord", "ToggleRecordPause"])
 
     def test_instantanea_sin_solapes(self):
         snap = self.gestor(DobleObs([elemento(1, obs_panel.NOMBRE_FUENTE, 0)])).instantanea("Escena")

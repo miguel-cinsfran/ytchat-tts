@@ -62,6 +62,25 @@ class GestorPanelObs:
         datos = self._pedir("ToggleInputMute", {"inputName": fuente}, parada)
         return bool(datos.get("inputMuted", False))
 
+    def estado_transmision(self, parada=None) -> dict:
+        datos = self._pedir("GetStreamStatus", parada=parada)
+        return {clave: datos.get(clave, 0) for clave in (
+            "outputActive", "outputDuration", "outputSkippedFrames", "outputTotalFrames")}
+
+    def estado_grabacion(self, parada=None) -> dict:
+        datos = self._pedir("GetRecordStatus", parada=parada)
+        return {clave: datos.get(clave, False if clave != "outputTimecode" else "")
+                for clave in ("outputActive", "outputPaused", "outputTimecode")}
+
+    def alternar_transmision(self, parada=None) -> bool:
+        return bool(self._pedir("ToggleStream", parada=parada).get("outputActive", False))
+
+    def alternar_grabacion(self, parada=None) -> bool:
+        return bool(self._pedir("ToggleRecord", parada=parada).get("outputActive", False))
+
+    def alternar_pausa_grabacion(self, parada=None) -> bool:
+        return bool(self._pedir("ToggleRecordPause", parada=parada).get("outputPaused", False))
+
     def _elementos(self, escena, parada=None):
         datos = self._pedir("GetSceneItemList", {"sceneName": escena}, parada)
         return list(datos.get("sceneItems", ()))
