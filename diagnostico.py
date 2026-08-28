@@ -108,16 +108,34 @@ def vigilar_hilo_interfaz(obtener_marca, parada: threading.Event) -> None:
             logger.warning("%s", componer_bloqueo_interfaz(demora_ms, pila))
 
 
+_hilos_vivos: set[threading.Thread] = set()
+_bloqueo_hilos = threading.Lock()
+
+
+def hilos_vivos_de_la_aplicacion() -> tuple[str, ...]:
+    """Devuelve los nombres de los hilos vivos registrados, ordenados y sin repetir."""
+    with _bloqueo_hilos:
+        vivos = [hilo for hilo in list(_hilos_vivos) if hilo.is_alive()]
+    return tuple(sorted({hilo.name for hilo in vivos}))
+
+
 def crear_hilo(target, nombre: str, *, args=(), daemon=True) -> threading.Thread:
     """Crea un hilo que deja constancia de su vida completa."""
     logger = obtener_logger(__name__)
 
     def ejecutar():
+        # El alta va dentro de ejecutar y no en crear_hilo para que un hilo
+        # creado pero nunca arrancado no quede registrado para siempre.
+        hilo_actual = threading.current_thread()
+        with _bloqueo_hilos:
+            _hilos_vivos.add(hilo_actual)
         logger.info("HILO inicia nombre=%s", nombre)
         try:
             target(*args)
         finally:
             logger.info("HILO termina nombre=%s", nombre)
+            with _bloqueo_hilos:
+                _hilos_vivos.discard(hilo_actual)
 
     return threading.Thread(target=ejecutar, daemon=daemon, name=nombre)
 

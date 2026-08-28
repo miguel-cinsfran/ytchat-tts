@@ -254,3 +254,54 @@ class DiagnosticoTest(unittest.TestCase):
             if diagnostico._ARCHIVO_FALLOS is not None:
                 diagnostico._ARCHIVO_FALLOS.close()
             diagnostico._ARCHIVO_FALLOS = anterior
+
+    def test_hilo_creado_aparece_mientras_corre_y_desaparece_al_terminar(self):
+        inicio = threading.Event()
+        fin = threading.Event()
+
+        def tarea():
+            inicio.set()
+            fin.wait()
+
+        hilo = diagnostico.crear_hilo(tarea, "HiloPruebaVivo")
+        hilo.start()
+        self.assertTrue(inicio.wait(timeout=2))
+        self.assertIn("HiloPruebaVivo", diagnostico.hilos_vivos_de_la_aplicacion())
+        fin.set()
+        hilo.join(timeout=2)
+        self.assertNotIn("HiloPruebaVivo", diagnostico.hilos_vivos_de_la_aplicacion())
+
+    def test_hilo_creado_y_no_arrancado_no_aparece(self):
+        hilo = diagnostico.crear_hilo(lambda: None, "HiloNoArrancadoUnico")
+        self.assertNotIn("HiloNoArrancadoUnico", diagnostico.hilos_vivos_de_la_aplicacion())
+        self.assertNotIn(hilo, diagnostico._hilos_vivos)
+        # No se arranca a proposito: no debe quedar registrado.
+        del hilo
+
+    def test_dos_hilos_con_mismo_nombre_se_cuentan_por_separado(self):
+        inicio1 = threading.Event()
+        inicio2 = threading.Event()
+        fin1 = threading.Event()
+        fin2 = threading.Event()
+
+        def tarea1():
+            inicio1.set()
+            fin1.wait()
+
+        def tarea2():
+            inicio2.set()
+            fin2.wait()
+
+        hilo1 = diagnostico.crear_hilo(tarea1, "HiloDuplicado")
+        hilo2 = diagnostico.crear_hilo(tarea2, "HiloDuplicado")
+        hilo1.start()
+        hilo2.start()
+        self.assertTrue(inicio1.wait(timeout=2))
+        self.assertTrue(inicio2.wait(timeout=2))
+        self.assertIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
+        fin1.set()
+        hilo1.join(timeout=2)
+        self.assertIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
+        fin2.set()
+        hilo2.join(timeout=2)
+        self.assertNotIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
