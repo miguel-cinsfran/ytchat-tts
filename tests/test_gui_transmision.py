@@ -28,6 +28,7 @@ class GestorFalso:
             visible=True, bloqueada=False)
         self.snap_nuevo = self.snap
         self.transformacion_inicial = {"positionX": 32, "positionY": 18, "alignment": 5}
+        self.tiene_panel = True
 
     def conectar(self):
         if self.fallo:
@@ -40,9 +41,12 @@ class GestorFalso:
     def escenas(self): return ("Principal", "Juego")
     def escena_al_aire(self): return "Principal"
     def fuentes(self, escena):
-        return {"Principal": ("Cámara", "Chat YTChat", "Juego"),
+        return {"Principal": tuple(fuente for fuente in ("Cámara", "Chat YTChat", "Juego")
+                                    if fuente != "Chat YTChat" or self.tiene_panel),
                 "Juego": ("Captura",)}.get(escena, ())
-    def asegurar_fuente(self, *args): pass
+    def asegurar_fuente(self, *args):
+        self.llamadas.append(("asegurar_fuente",) + args)
+        self.tiene_panel = True
     def _llamar(self, nombre, args, kwargs):
         self.llamadas.append((nombre,) + args)
         self.fuentes_enviadas.append((nombre, kwargs.get("fuente")))
@@ -129,6 +133,38 @@ class TestTransmisionDialog(unittest.TestCase):
     def test_carga_las_fuentes_y_prefiere_el_panel_de_chat(self):
         self.assertEqual(self.dialogo.cho_fuente.GetStrings(), ["Cámara", "Chat YTChat", "Juego"])
         self.assertEqual(self.dialogo.cho_fuente.GetStringSelection(), "Chat YTChat")
+
+    def test_preparar_panel_enciende_y_crea_solo_lo_necesario(self):
+        for encendido, tiene_panel in ((False, False), (True, False),
+                                       (False, True), (True, True)):
+            with self.subTest(encendido=encendido, tiene_panel=tiene_panel):
+                self.gestor.tiene_panel = tiene_panel
+                self.gestor.llamadas.clear()
+                encender = mock.Mock()
+                with mock.patch.object(gui_transmision.overlay_servidor, "esta_encendido",
+                                       return_value=encendido), \
+                     mock.patch.object(gui_transmision.overlay_servidor, "puerto_actual",
+                                       return_value=8730), \
+                     mock.patch.object(gui_transmision.overlay_servidor, "encender", encender):
+                    self.dialogo._preparar(Evento())
+                self.assertEqual(encender.call_count, int(not encendido))
+                llamadas = [llamada for llamada in self.gestor.llamadas
+                            if llamada[0] == "asegurar_fuente"]
+                self.assertEqual(len(llamadas), int(not tiene_panel))
+                if llamadas:
+                    self.assertEqual(llamadas[0], ("asegurar_fuente", "Principal",
+                                                    "http://127.0.0.1:8730/chat", 460, 620))
+
+    def test_preparar_panel_anuncia_si_el_puerto_esta_ocupado(self):
+        with mock.patch.object(gui_transmision.overlay_servidor, "esta_encendido",
+                               return_value=False), \
+             mock.patch.object(gui_transmision.overlay_servidor, "puerto_actual",
+                               return_value=8765), \
+             mock.patch.object(gui_transmision.overlay_servidor, "encender",
+                               side_effect=gui_transmision.overlay_servidor.OverlayPuertoOcupadoError):
+            self.dialogo._preparar(Evento())
+        self.assertEqual(self.anuncios[-1],
+                         "No se pudo encender el panel, el puerto 8765 está ocupado")
 
     def test_cambiar_escena_rehace_las_fuentes(self):
         self.dialogo.cho_escena.SetStringSelection("Juego")

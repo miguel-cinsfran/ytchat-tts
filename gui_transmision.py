@@ -9,6 +9,7 @@ import wx
 import ajuste_fino
 import obs_cliente
 import obs_disposicion
+import overlay_servidor
 from gui import _T, anunciar, nombre_accesible
 from obs_panel import GestorPanelObs, NOMBRE_FUENTE
 import sound_player
@@ -23,6 +24,9 @@ _TEXTO_LIENZO = (
     "Que dos fuentes se superpongan no es necesariamente un problema. El\n"
     "fondo de este panel es transparente: solo se ven las tarjetas de los\n"
     "mensajes, y solo tapan lo que hay justo debajo de ellas.")
+
+_PUERTO_PANEL_DEFECTO = 8730
+_RUTA_PANEL_CHAT = "/chat"
 
 
 class TransmisionDialog(wx.Dialog):
@@ -68,6 +72,8 @@ class TransmisionDialog(wx.Dialog):
         caja.Add(self.txt_estado, 1, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
         self.btn_actualizar = self._boton(panel, "&Actualizar estado", "ActualizarEstado")
         caja.Add(self.btn_actualizar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+        self.btn_preparar = self._boton(panel, "&Preparar el panel", "Preparar el panel")
+        caja.Add(self.btn_preparar, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         self.cho_escena = wx.Choice(panel, name="Escena")
         nombre_accesible(self.cho_escena, "Escena")
@@ -107,11 +113,12 @@ class TransmisionDialog(wx.Dialog):
         self.btn_cerrar = self._boton(panel, "C&errar", "CerrarTransmision", wx.ID_CANCEL)
         caja.Add(self.btn_cerrar, 0, wx.ALIGN_RIGHT | wx.ALL, 10)
         panel.SetSizer(caja)
-        self._acciones = (self.btn_actualizar, self.cho_escena, self.cho_fuente, self.cho_posicion,
+        self._acciones = (self.btn_actualizar, self.btn_preparar, self.cho_escena, self.cho_fuente, self.cho_posicion,
                           self.sp_ancho, self.sp_alto, self.btn_tamano, self.chk_mostrar,
                           self.chk_fijar, self.btn_frente, self.btn_ajuste, self.btn_captura,
                           self.btn_restaurar)
         self.btn_actualizar.Bind(wx.EVT_BUTTON, self._actualizar)
+        self.btn_preparar.Bind(wx.EVT_BUTTON, self._preparar)
         self.cho_escena.Bind(wx.EVT_CHOICE, self._cambiar_escena)
         self.cho_fuente.Bind(wx.EVT_CHOICE, self._cambiar_fuente)
         self.cho_posicion.Bind(wx.EVT_CHOICE, self._colocar)
@@ -200,6 +207,9 @@ class TransmisionDialog(wx.Dialog):
             self.cho_escena.SetStringSelection(escena)
         self._cargar_fuentes(fuentes, fuente)
         self._mostrar_snap(snap)
+        anunciar(obs_disposicion.describir_preparacion(
+            snap.conectado, overlay_servidor.esta_encendido(),
+            overlay_servidor.puerto_actual(), NOMBRE_FUENTE in fuentes))
 
     def _mostrar_snap(self, snap):
         self._ultimo_snap = snap
@@ -245,6 +255,36 @@ class TransmisionDialog(wx.Dialog):
 
     def _actualizar(self, event):
         self._en_hilo(self._leer, self._anunciar_snap)
+
+    def _preparar(self, event):
+        self._en_hilo(self._preparar_panel, self._panel_preparado)
+
+    def _preparar_panel(self):
+        puerto = overlay_servidor.puerto_actual() or _PUERTO_PANEL_DEFECTO
+        if not overlay_servidor.esta_encendido():
+            try:
+                overlay_servidor.encender(puerto)
+            except overlay_servidor.OverlayPuertoOcupadoError:
+                return f"No se pudo encender el panel, el puerto {puerto} está ocupado", (), None
+        puerto = overlay_servidor.puerto_actual() or puerto
+        escena = self._escena()
+        fuentes = self._gestor.fuentes(escena)
+        if NOMBRE_FUENTE not in fuentes:
+            url = f"http://127.0.0.1:{puerto}{_RUTA_PANEL_CHAT}"
+            self._gestor.asegurar_fuente(escena, url, self.sp_ancho.GetValue(), self.sp_alto.GetValue())
+            fuentes = self._gestor.fuentes(escena)
+        snap = self._gestor.instantanea(escena, fuente=NOMBRE_FUENTE)
+        frase = obs_disposicion.describir_preparacion(
+            snap.conectado, overlay_servidor.esta_encendido(), puerto,
+            NOMBRE_FUENTE in fuentes)
+        return frase, fuentes, snap
+
+    def _panel_preparado(self, datos):
+        frase, fuentes, snap = datos
+        if snap is not None:
+            self._cargar_fuentes(fuentes, NOMBRE_FUENTE)
+            self._mostrar_snap(snap)
+        anunciar(frase)
 
     def _cambiar_escena(self, event):
         self._en_hilo(self._leer_escena, self._escena_cambiada)
