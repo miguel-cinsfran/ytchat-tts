@@ -115,36 +115,52 @@ def _texto_posicion(snap, largo):
     rect = (snap.izquierda, snap.arriba, snap.ancho, snap.alto)
     nombre = anclaje_de(rect, snap.lienzo_ancho, snap.lienzo_alto)
     if nombre:
-        texto = nombre.replace("-", " ")
-        if not largo:
-            texto = texto.capitalize()
+        lugares = {
+            "superior-izquierda": "esquina superior izquierda",
+            "superior-centro": "borde superior, centrado",
+            "superior-derecha": "esquina superior derecha",
+            "centro-izquierda": "borde izquierdo, centrado",
+            "centro": "centro",
+            "centro-derecha": "borde derecho, centrado",
+            "inferior-izquierda": "esquina inferior izquierda",
+            "inferior-centro": "borde inferior, centrado",
+            "inferior-derecha": "esquina inferior derecha",
+        }
+        texto = lugares[nombre]
     else:
         derecha = snap.izquierda + snap.ancho
         abajo = snap.arriba + snap.alto
         if snap.izquierda < 0:
-            lado_x = "fuera por la izquierda"
-            distancia_x = abs(snap.izquierda)
+            sale_x = "por la izquierda"
         elif derecha > snap.lienzo_ancho:
-            lado_x = "fuera por la derecha"
-            distancia_x = derecha - snap.lienzo_ancho
+            sale_x = "por la derecha"
         else:
-            horizontal = [(snap.izquierda, "izquierda"),
-                          (snap.lienzo_ancho - derecha, "derecha")]
-            distancia_x, lado_x = min(horizontal)
+            horizontal = [(snap.izquierda, "izquierdo"),
+                          (snap.lienzo_ancho - derecha, "derecho")]
+            distancia_x, borde_x = min(horizontal)
+            sale_x = ""
         if snap.arriba < 0:
-            lado_y = "fuera por arriba"
-            distancia_y = abs(snap.arriba)
+            sale_y = "por arriba"
         elif abajo > snap.lienzo_alto:
-            lado_y = "fuera por abajo"
-            distancia_y = abajo - snap.lienzo_alto
+            sale_y = "por abajo"
         else:
             vertical = [(snap.arriba, "superior"),
                         (snap.lienzo_alto - abajo, "inferior")]
-            distancia_y, lado_y = min(vertical)
-        texto = (f"{lado_x} {_porcentaje(distancia_x / snap.lienzo_ancho * 100)}%, "
-                 f"{lado_y} {_porcentaje(distancia_y / snap.lienzo_alto * 100)}%")
-        if not largo:
-            texto = texto.capitalize()
+            distancia_y, borde_y = min(vertical)
+            sale_y = ""
+        salidas = " y ".join(salida for salida in (sale_x, sale_y) if salida)
+        distancias = []
+        if not sale_x:
+            distancias.append(
+                f"a {_porcentaje(distancia_x / snap.lienzo_ancho * 100)}% del borde {borde_x}")
+        if not sale_y:
+            distancias.append(
+                f"a {_porcentaje(distancia_y / snap.lienzo_alto * 100)}% del borde {borde_y}")
+        texto = (f"se sale del lienzo {salidas}, y " if salidas and distancias
+                 else f"se sale del lienzo {salidas}" if salidas
+                 else "") + " y ".join(distancias)
+    if not largo:
+        texto = texto.capitalize()
     return f"Posición: {texto}" if largo else texto
 
 
@@ -168,14 +184,17 @@ def _render(nombre: str, s: SnapshotPanel, largo: bool) -> str:
                 if largo else f"{s.ancho} por {s.alto}, {porcentaje}% del ancho")
     if nombre == "capa":
         if not s.tapada_por:
-            return "Capa: al frente" if largo else ""
-        valor = f"tapada por {s.tapada_por}"
-        return f"Capa: {valor}" if largo else f"Tapada por {s.tapada_por}"
+            valor = "no lo tapa nada"
+        else:
+            valor = f"lo tapa {s.tapada_por}"
+        return f"Capa: {valor}" if largo else valor[0].upper() + valor[1:]
     if nombre == "solape":
         if not s.solapes:
-            return "Libre"
-        valor = ", ".join(f"{nombre} {_porcentaje(porcentaje)}%" for nombre, porcentaje in s.solapes)
-        return f"Superpuesto con: {valor}" if largo else valor
+            return "No se superpone con ninguna otra fuente"
+        # El porcentaje de superposición es de la otra fuente; el de recorte, del propio panel.
+        partes = [f"al {_porcentaje(porcentaje)}% de {nombre}"
+                  for nombre, porcentaje in s.solapes]
+        return "Superpone " + " y ".join(partes)
     if nombre == "visible":
         return f"Visible: {'sí' if s.visible else 'no'}" if largo else ("" if s.visible else "Oculto")
     if nombre == "bloqueada":
@@ -183,8 +202,8 @@ def _render(nombre: str, s: SnapshotPanel, largo: bool) -> str:
     if nombre == "fuera":
         if not s.fuera:
             return ""
-        # Este porcentaje es un área recortada, no la distancia de la posición.
-        return f"Recortado: {_porcentaje(s.fuera)}%" if largo else f"{_porcentaje(s.fuera)}% recortado"
+        valor = f"queda fuera del lienzo el {_porcentaje(s.fuera)}% del panel"
+        return f"Recorte: {valor}" if largo else valor.capitalize()
     if nombre == "aspecto":
         if not s.mensajes_visibles and not s.tamano_letra:
             return ""

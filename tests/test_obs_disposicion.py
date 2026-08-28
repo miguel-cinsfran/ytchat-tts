@@ -39,7 +39,8 @@ class GeometriaTest(unittest.TestCase):
     def test_posicion_libre_y_anclajes_personalizados(self):
         snap = obs.SnapshotPanel(conectado=True, izquierda=80, arriba=253, ancho=460, alto=620,
                                  lienzo_ancho=1600, lienzo_alto=900)
-        self.assertEqual(obs.describir(snap, ("posicion",)), "Izquierda 5%, inferior 3%.")
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "A 5% del borde izquierdo y a 3% del borde inferior.")
         """
                          "Posición: izquierda 5%, inferior 3%")
 
@@ -49,14 +50,14 @@ class GeometriaTest(unittest.TestCase):
                                  ancho=460, alto=620, lienzo_ancho=1600,
                                  lienzo_alto=900)
         self.assertEqual(obs.describir(snap, ("posicion",)),
-                         "Fuera por la izquierda 19%, inferior 2%.")
+                         "Se sale del lienzo por la izquierda, y a 2% del borde inferior.")
 
     def test_posicion_fuera_por_la_derecha(self):
         snap = obs.SnapshotPanel(conectado=True, izquierda=1500, arriba=262,
                                  ancho=460, alto=620, lienzo_ancho=1600,
                                  lienzo_alto=900)
         self.assertEqual(obs.describir(snap, ("posicion",)),
-                         "Fuera por la derecha 22%, inferior 2%.")
+                         "Se sale del lienzo por la derecha, y a 2% del borde inferior.")
         """
                          "Posición: izquierda 5%, inferior 3%")
 
@@ -67,14 +68,62 @@ class GeometriaTest(unittest.TestCase):
                                  ancho=460, alto=620, lienzo_ancho=1600,
                                  lienzo_alto=900)
         self.assertEqual(obs.describir(snap, ("posicion",)),
-                         "Izquierda 2%, fuera por arriba 22%.")
+                         "Se sale del lienzo por arriba, y a 2% del borde izquierdo.")
 
     def test_posicion_fuera_por_abajo(self):
         snap = obs.SnapshotPanel(conectado=True, izquierda=32, arriba=500,
                                  ancho=460, alto=620, lienzo_ancho=1600,
                                  lienzo_alto=900)
         self.assertEqual(obs.describir(snap, ("posicion",)),
-                         "Izquierda 2%, fuera por abajo 24%.")
+                         "Se sale del lienzo por abajo, y a 2% del borde izquierdo.")
+
+    def test_posicion_sale_por_la_derecha_y_mantiene_la_distancia_vertical(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=1500, arriba=45,
+                                 ancho=460, alto=300, lienzo_ancho=1600,
+                                 lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "Se sale del lienzo por la derecha, y a 5% del borde superior.")
+
+    def test_posicion_sale_por_dos_bordes(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=1500, arriba=800,
+                                 ancho=460, alto=300, lienzo_ancho=1600,
+                                 lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "Se sale del lienzo por la derecha y por abajo.")
+
+    def test_posicion_sin_anclaje_nombra_los_dos_bordes(self):
+        snap = obs.SnapshotPanel(conectado=True, izquierda=48, arriba=45,
+                                 ancho=460, alto=300, lienzo_ancho=1600,
+                                 lienzo_alto=900)
+        self.assertEqual(obs.describir(snap, ("posicion",)),
+                         "A 3% del borde izquierdo y a 5% del borde superior.")
+
+    def test_posicion_en_los_nueve_anclajes(self):
+        lugares = {
+            "superior-izquierda": "esquina superior izquierda",
+            "superior-centro": "borde superior, centrado",
+            "superior-derecha": "esquina superior derecha",
+            "centro-izquierda": "borde izquierdo, centrado",
+            "centro": "centro",
+            "centro-derecha": "borde derecho, centrado",
+            "inferior-izquierda": "esquina inferior izquierda",
+            "inferior-centro": "borde inferior, centrado",
+            "inferior-derecha": "esquina inferior derecha",
+        }
+        for anclaje, lugar in lugares.items():
+            x, y, alineacion = obs.coordenadas(anclaje, 1600, 900)
+            izquierda, arriba, ancho, alto = obs.rectangulo(x, y, 460, 300, alineacion)
+            snap = obs.SnapshotPanel(conectado=True, izquierda=izquierda, arriba=arriba,
+                                     ancho=ancho, alto=alto, lienzo_ancho=1600,
+                                     lienzo_alto=900)
+            with self.subTest(anclaje=anclaje):
+                self.assertEqual(obs.describir(snap, ("posicion",), "largo"),
+                                 f"Posición: {lugar}")
+
+    def test_superposicion_nombra_la_otra_fuente_y_su_porcentaje(self):
+        snap = obs.SnapshotPanel(conectado=True, solapes=(("Cámara", 30.4),))
+        self.assertEqual(obs.describir(snap, ("solape",), "largo"),
+                         "Superpone al 30% de Cámara")
 
     def test_coordenadas_con_margen_cero(self):
         self.assertEqual(obs.coordenadas("superior-derecha", 100, 50, 0), (100, 0, 6))
@@ -134,7 +183,7 @@ class GeometriaTest(unittest.TestCase):
         snap = obs.SnapshotPanel(conectado=True,
                                  solapes=(("C\u00c3\u00a1mara", 12.4), ("Juego", 4.1)))
         self.assertEqual(obs.describir(snap, ("solape",)),
-                         "C\u00c3\u00a1mara 12%, Juego 4%.")
+                         "Superpone al 12% de C\u00c3\u00a1mara y al 4% de Juego.")
 
     def test_aspecto_parcial(self):
         snap = obs.SnapshotPanel(conectado=True, tamano_letra=18)
@@ -204,20 +253,21 @@ class DescripcionTest(unittest.TestCase):
         """
         self.assertEqual(obs.describir(s, ("escena",)), "Juego.")
         self.assertEqual(obs.describir(s, ("tamano",)), "460 por 620, 29% del ancho.")
-        self.assertEqual(obs.describir(s, ("capa",)), "Tapada por Cámara.")
-        self.assertEqual(obs.describir(s, ("solape",)), "Cámara 12%.")
+        self.assertEqual(obs.describir(s, ("capa",)), "Lo tapa Cámara.")
+        self.assertEqual(obs.describir(s, ("solape",)), "Superpone al 12% de Cámara.")
         self.assertEqual(obs.describir(s, ("visible",)), "Oculto.")
         self.assertEqual(obs.describir(s, ("bloqueada",)), "Fijado.")
-        self.assertEqual(obs.describir(s, ("fuera",)), "12% recortado.")
+        self.assertEqual(obs.describir(s, ("fuera",)), "Queda fuera del lienzo el 12% del panel.")
         self.assertEqual(obs.describir(s, ("aspecto",)), "14 mensajes, letra 18.")
 
     def test_fuera_corto_indica_recorte(self):
         snap = obs.SnapshotPanel(conectado=True, fuera=22.4)
-        self.assertEqual(obs.describir(snap, ("fuera",)), "22% recortado.")
+        self.assertEqual(obs.describir(snap, ("fuera",)), "Queda fuera del lienzo el 22% del panel.")
 
     def test_fuera_largo_indica_recorte(self):
         snap = obs.SnapshotPanel(conectado=True, fuera=22.4)
-        self.assertEqual(obs.describir(snap, ("fuera",), "largo"), "Recortado: 22%")
+        self.assertEqual(obs.describir(snap, ("fuera",), "largo"),
+                         "Recorte: queda fuera del lienzo el 22% del panel")
 
     def test_fuera_cero_no_informa(self):
         snap = obs.SnapshotPanel(conectado=True)
@@ -229,7 +279,8 @@ class DescripcionTest(unittest.TestCase):
                                  ancho=460, alto=620, lienzo_ancho=1600,
                                  lienzo_alto=900, fuera=65.2)
         frase = obs.describir(snap, ("posicion", "fuera"))
-        self.assertEqual(frase, "Fuera por la izquierda 19%, inferior 2%; 65% recortado.")
+        self.assertEqual(frase, "Se sale del lienzo por la izquierda, y a 2% del borde inferior; "
+                                "Queda fuera del lienzo el 65% del panel.")
         self.assertEqual(frase.lower().count("fuera"), 1)
 
     def test_largo_y_union(self):
@@ -237,7 +288,8 @@ class DescripcionTest(unittest.TestCase):
                               ancho=460, alto=620, lienzo_ancho=1600,
                               mensajes_visibles=14, tamano_letra=18)
         esperado = ("OBS: conectado\nEscena: Juego, no al aire\nTamaño: 460 por 620 píxeles, "
-                    "29% del ancho de pantalla\nCapa: al frente\nLibre\nVisible: sí\n"
+                    "29% del ancho de pantalla\nCapa: no lo tapa nada\n"
+                    "No se superpone con ninguna otra fuente\nVisible: sí\n"
                     "Fijado: no\nAspecto: 14 mensajes visibles, tamaño de letra 18\n"
                     "El fondo del panel es transparente. Solo se ven las tarjetas de los mensajes, "
                     "apiladas contra el borde inferior.")
