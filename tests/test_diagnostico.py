@@ -15,8 +15,6 @@ import diagnostico
 MODULOS_OMITIDOS = {
     # Son herramientas ejecutables, no módulos de la aplicación.
     "generar_docs", "smoke_test", "sound_gen",
-    # main importa diagnostico solo al ejecutarse como programa.
-    "main",
 }
 
 
