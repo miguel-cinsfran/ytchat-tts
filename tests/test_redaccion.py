@@ -77,6 +77,7 @@ class TestRedaccion(unittest.TestCase):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
         frame._conectado, frame._es_tiktok = True, False
         frame._tipo_video, frame._live_chat_id = deteccion.LIVE, ""
+        frame._causa_sin_chat = ""
         frame._panel_redactar = panel
         with mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
                 mock.patch.object(gui.credenciales, "hay_sesion", return_value=False):
