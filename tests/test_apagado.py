@@ -1,9 +1,17 @@
 import unittest
+import logging
 
 import apagado
 
 
 class PruebasApagado(unittest.TestCase):
+    def test_cierre_limpio_se_registra_con_nivel_informativo(self):
+        self.assertEqual(apagado.nivel_registro_cierre(()), logging.INFO)
+
+    def test_cierre_con_hilo_vivo_se_registra_con_nivel_de_advertencia(self):
+        self.assertEqual(apagado.nivel_registro_cierre(("ReproductorStop",)),
+                         logging.WARNING)
+
     def test_filtra_y_ordena_los_hilos_de_captura(self):
         self.assertEqual(
             apagado.hilos_captura_vivos({"Otro", "TikTok", "Chat", "LiveChatId"}),

@@ -1740,7 +1740,7 @@ class YTChatFrame(wx.Frame):
             self._cierre_tope = apagado.TOPE_ESPERA_CIERRE
             wx.CallLater(200, self._comprobar_cierre)
         else:
-            diagnostico.logger.info(
+            diagnostico.logger.log(apagado.nivel_registro_cierre(()),
                 "%s", apagado.componer_resultado_cierre(
                     (), apagado.TOPE_ESPERA_CIERRE))
             self.Destroy()
@@ -1757,7 +1757,7 @@ class YTChatFrame(wx.Frame):
         if apagado.hay_que_seguir_esperando(nombres, transcurrido, self._cierre_tope):
             wx.CallLater(200, self._comprobar_cierre)
             return
-        diagnostico.logger.info(
+        diagnostico.logger.log(apagado.nivel_registro_cierre(nombres),
             "%s", apagado.componer_resultado_cierre(nombres, self._cierre_tope))
         self.Destroy()
 

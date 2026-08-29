@@ -1539,12 +1539,12 @@ class TestCierreVentana(unittest.TestCase):
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui.time, "monotonic", return_value=101.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
-                mock.patch.object(gui.diagnostico.logger, "info") as registrar:
+                mock.patch.object(gui.diagnostico.logger, "log") as registrar:
             frame._comprobar_cierre()
 
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
-        registrar.assert_called_once_with("%s", "CIERRE captura limpia")
+        registrar.assert_called_once_with(logging.INFO, "%s", "CIERRE captura limpia")
 
     def test_comprobar_cierre_con_tope_vencido_destruye_y_registra_hilos(self):
         frame = self._frame()
@@ -1557,13 +1557,13 @@ class TestCierreVentana(unittest.TestCase):
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("TikTok",)), \
                 mock.patch.object(gui.time, "monotonic", return_value=100.0 + tope + 1.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
-                mock.patch.object(gui.diagnostico.logger, "info") as registrar:
+                mock.patch.object(gui.diagnostico.logger, "log") as registrar:
             frame._comprobar_cierre()
 
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
         registrar.assert_called_once_with(
-            "%s", f"CIERRE por tope={tope:.1f}s hilos vivos=TikTok")
+            logging.WARNING, "%s", f"CIERRE por tope={tope:.1f}s hilos vivos=TikTok")
 
 
 if __name__ == "__main__":
