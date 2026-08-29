@@ -96,15 +96,18 @@ class PruebasHistorialDialog(unittest.TestCase):
         self.assertEqual([tiktok], historial.cargar(self.ruta))
         anunciar.assert_called_once_with("Entrada quitada del historial")
 
-    def test_controles_tienen_nombres_accesibles(self):
+    def test_controles_tienen_los_nombres_accesibles_esperados(self):
         dialogo = self._dialogo([])
-        controles = [*dialogo._listas.values(), dialogo.btn_conectar,
-                     dialogo.btn_quitar, dialogo.FindWindowByName("CerrarHistorial")]
+        controles = {
+            "lista de YouTube": (dialogo._listas["youtube"], "Historial de YouTube"),
+            "lista de TikTok": (dialogo._listas["tiktok"], "Historial de TikTok"),
+            "botón Conectar": (dialogo.btn_conectar, "ConectarHistorial"),
+            "botón Quitar": (dialogo.btn_quitar, "QuitarHistorial"),
+        }
 
-        for control in controles:
-            with self.subTest(control=control):
-                self.assertIsNotNone(control)
-                self.assertTrue(control.GetName())
+        for descripcion, (control, nombre) in controles.items():
+            with self.subTest(control=descripcion):
+                self.assertEqual(nombre, control.GetName())
 
 
 if __name__ == "__main__":
