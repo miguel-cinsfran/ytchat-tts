@@ -585,23 +585,25 @@ class ReproductorPanel(wx.Panel):
 
     def _build_aviso(self):
         box = wx.StaticBoxSizer(wx.HORIZONTAL, self, "Reproductor")
+        caja = box.GetStaticBox()
         if not vlc_disponible():
             txt = ("Reproductor no disponible: falta VLC. Instala VLC "
                    "(videolan.org) y la librería python-vlc.")
         else:
             txt = "Reproductor no disponible: falta yt-dlp (pip install yt-dlp)."
-        lbl = wx.StaticText(self, label=txt, name="AvisoReproductor")
+        lbl = wx.StaticText(caja, label=txt, name="AvisoReproductor")
         lbl.SetForegroundColour(_T.dim)
         box.Add(lbl, 1, wx.ALL, 8)
         self.SetSizer(box)
 
     def _build_ui(self):
         box = wx.StaticBoxSizer(wx.VERTICAL, self, "Reproductor")
+        caja = box.GetStaticBox()
 
         # Superficie de vídeo (VLC dibuja aquí vía set_hwnd). Es una ventana
         # genérica: sin nombre accesible reforzado, el lector no dice nada útil
         # al llegar aquí (p. ej. con doble clic para pantalla completa).
-        self._video = wx.Window(self, size=(-1, 160), name="Vídeo")
+        self._video = wx.Window(caja, size=(-1, 160), name="Vídeo")
         self._video.SetBackgroundColour(wx.BLACK)
         nombre_accesible(self._video, "Vídeo. Doble clic para pantalla completa.")
         box.Add(self._video, 1, wx.EXPAND | wx.ALL, 6)
