@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import subprocess
@@ -10,6 +11,8 @@ import tempfile
 from typing import NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from esclavo_audio import TAMANIO_MINIMO
 
 
 URL_API_RELEASES = (
@@ -20,6 +23,7 @@ NOMBRE_BINARIO = "yt-dlp.exe"
 NOMBRE_FIRMAS = "SHA2-256SUMS"
 SUBDIRECTORIO_DATOS = "YTChat TTS"
 TIEMPO_ESPERA = 30
+logger = logging.getLogger(__name__)
 
 
 class ResultadoDescarga(NamedTuple):
@@ -82,7 +86,7 @@ def version_ytdlp(ruta: str | os.PathLike) -> str:
             text=True,
             timeout=TIEMPO_ESPERA,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -113,6 +117,29 @@ def info_video(video_id: str) -> dict | None:
         return datos if isinstance(datos, dict) else None
     except (OSError, subprocess.SubprocessError, TypeError, ValueError):
         return None
+
+
+def descargar_audio(video_id: str, destino: Path,
+                    tope_segundos: int = 90) -> bool:
+    """Descarga la mejor pista de audio a la caché interna."""
+    ruta = ruta_ytdlp()
+    if ruta is None:
+        return False
+    destino = Path(destino)
+    try:
+        resultado = subprocess.run(
+            [ruta, "-f", "ba", "-o", str(destino), "--no-playlist", "--quiet",
+             "--no-warnings", f"https://www.youtube.com/watch?v={video_id}"],
+            capture_output=True, text=True, timeout=tope_segundos,
+            check=False,
+        )
+        if resultado.returncode:
+            logger.debug("descargar audio: yt-dlp terminó con %s", resultado.returncode)
+            return False
+        return destino.is_file() and destino.stat().st_size >= TAMANIO_MINIMO
+    except Exception as exc:
+        logger.debug("descargar audio: %s", exc)
+        return False
 
 
 def ultima_version_ytdlp() -> tuple[str, str, str] | None:
