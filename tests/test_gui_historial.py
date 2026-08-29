@@ -29,9 +29,10 @@ class PruebasHistorialDialog(unittest.TestCase):
         self.addCleanup(self.temporal.cleanup)
         self.ruta = Path(self.temporal.name) / "historial.json"
 
-    def _dialogo(self, entradas):
+    def _dialogo(self, entradas, on_conectar=None):
         self.ruta.write_text(json.dumps(entradas), encoding="utf-8")
-        dialogo = gui_historial.HistorialDialog(None, self.ruta, mock.Mock())
+        dialogo = gui_historial.HistorialDialog(None, self.ruta,
+                                                on_conectar or mock.Mock())
         self.addCleanup(dialogo.Destroy)
         return dialogo
 
@@ -60,6 +61,40 @@ class PruebasHistorialDialog(unittest.TestCase):
         self.assertEqual(segunda, dialogo._seleccionada())
         dialogo._listas["youtube"].SetSelection(gui_historial.wx.NOT_FOUND)
         self.assertIsNone(dialogo._seleccionada())
+
+    def test_pestana_tiktok_es_la_plataforma_actual(self):
+        youtube = entrada("youtube", "solo-youtube", "https://youtube.com/solo-youtube")
+        tiktok = entrada("tiktok", "solo-tiktok", "https://tiktok.com/solo-tiktok")
+        dialogo = self._dialogo([youtube, tiktok])
+
+        with mock.patch.object(gui_historial, "anunciar"):
+            dialogo.nb.SetSelection(1)
+
+        self.assertEqual("tiktok", dialogo._plat_actual())
+
+    def test_pestana_tiktok_devuelve_su_entrada_seleccionada(self):
+        youtube = entrada("youtube", "solo-youtube", "https://youtube.com/solo-youtube")
+        tiktok = entrada("tiktok", "solo-tiktok", "https://tiktok.com/solo-tiktok")
+        dialogo = self._dialogo([youtube, tiktok])
+
+        with mock.patch.object(gui_historial, "anunciar"):
+            dialogo.nb.SetSelection(1)
+
+        self.assertEqual(tiktok, dialogo._seleccionada())
+
+    def test_conectar_desde_pestana_tiktok_entrega_su_url(self):
+        youtube = entrada("youtube", "solo-youtube", "https://youtube.com/solo-youtube")
+        url_tiktok = "https://tiktok.com/solo-tiktok"
+        tiktok = entrada("tiktok", "solo-tiktok", url_tiktok)
+        on_conectar = mock.Mock()
+        dialogo = self._dialogo([youtube, tiktok], on_conectar)
+
+        with mock.patch.object(gui_historial, "anunciar"):
+            dialogo.nb.SetSelection(1)
+        with mock.patch.object(dialogo, "EndModal"):
+            dialogo._conectar()
+
+        on_conectar.assert_called_once_with(url_tiktok)
 
     def test_conectar_entrega_la_url_de_la_entrada_elegida(self):
         on_conectar = mock.Mock()
