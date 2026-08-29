@@ -18,6 +18,41 @@ class ConexionFalsa:
 
 
 class PruebasCableadoMain(unittest.TestCase):
+    def test_main_registra_el_entorno_en_un_hilo(self):
+        message_box = Mock()
+        ctypes_falso = types.SimpleNamespace(
+            windll=types.SimpleNamespace(
+                user32=types.SimpleNamespace(MessageBoxW=message_box)))
+        with patch.object(main, "_verificar_instancia_unica", return_value=False), \
+                patch.object(main, "configurar_logging"), \
+                patch.object(main.diagnostico, "instalar_capturadores"), \
+                patch.object(main.diagnostico, "registrar_entorno_en_hilo") as registrar, \
+                patch.object(main.diagnostico, "registrar_entorno") as bloquear, \
+                patch.dict(sys.modules, {"ctypes": ctypes_falso}), \
+                patch.object(sys, "exit", side_effect=SystemExit(0)):
+            with self.assertRaises(SystemExit):
+                main.main()
+
+        registrar.assert_called_once_with(main.APP_VERSION)
+        bloquear.assert_not_called()
+
+    def test_main_no_registra_el_entorno_de_forma_bloqueante(self):
+        message_box = Mock()
+        ctypes_falso = types.SimpleNamespace(
+            windll=types.SimpleNamespace(
+                user32=types.SimpleNamespace(MessageBoxW=message_box)))
+        with patch.object(main, "_verificar_instancia_unica", return_value=False), \
+                patch.object(main, "configurar_logging"), \
+                patch.object(main.diagnostico, "instalar_capturadores"), \
+                patch.object(main.diagnostico, "registrar_entorno_en_hilo"), \
+                patch.object(main.diagnostico, "registrar_entorno") as bloquear, \
+                patch.dict(sys.modules, {"ctypes": ctypes_falso}), \
+                patch.object(sys, "exit", side_effect=SystemExit(0)):
+            with self.assertRaises(SystemExit):
+                main.main()
+
+        bloquear.assert_not_called()
+
     def test_aviso_de_instancia_usa_banderas_de_primer_plano(self):
         message_box = Mock()
         ctypes_falso = types.SimpleNamespace(
