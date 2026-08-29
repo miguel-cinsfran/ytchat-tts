@@ -278,7 +278,7 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertEqual(self.dialogo.btn_poner_al_aire.GetName(), "Poner al aire")
 
     def test_boton_como_se_coloca_tiene_nombre_y_es_una_accion(self):
-        self.assertEqual(self.dialogo.btn_como_se_coloca.GetName(), "Como se coloca el panel")
+        self.assertEqual(self.dialogo.btn_como_se_coloca.GetName(), "Cómo se coloca el panel")
         self.assertIn(self.dialogo.btn_como_se_coloca, self.dialogo._acciones)
 
     def test_boton_como_se_coloca_muestra_la_guia(self):
@@ -468,10 +468,10 @@ class TestTransmisionDialog(unittest.TestCase):
         self.gestor.transmitiendo = True
         self.gestor.grabando = True
         self.dialogo._actualizar(Evento())
-        self.assertEqual(self.dialogo.btn_transmitir.GetLabel(), "&Detener la transmision")
-        self.assertEqual(self.dialogo.btn_transmitir.GetName(), "Detener la transmision")
-        self.assertEqual(self.dialogo.btn_grabar.GetLabel(), "&Detener la grabacion")
-        self.assertEqual(self.dialogo.btn_grabar.GetName(), "Detener la grabacion")
+        self.assertEqual(self.dialogo.btn_transmitir.GetLabel(), "&Detener la transmisión")
+        self.assertEqual(self.dialogo.btn_transmitir.GetName(), "Detener la transmisión")
+        self.assertEqual(self.dialogo.btn_grabar.GetLabel(), "&Detener la grabación")
+        self.assertEqual(self.dialogo.btn_grabar.GetName(), "Detener la grabación")
         self.assertTrue(self.dialogo.btn_pausar_grabacion.IsEnabled())
         self.assertIn("Transmitiendo desde hace 1 min", self.anuncios)
         self.assertIn("Grabando, 00:01:02", self.anuncios)

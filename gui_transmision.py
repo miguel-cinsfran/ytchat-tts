@@ -142,13 +142,13 @@ class TransmisionDialog(wx.Dialog):
         self.btn_ajuste = self._boton(panel, self._etiqueta_ajuste, "AjusteFino")
         self.btn_captura = self._boton(panel, "&Guardar una captura de la escena…", "GuardarCaptura")
         self.btn_como_se_coloca = self._boton(
-            panel, "C&ómo se coloca el panel", "Como se coloca el panel")
+            panel, "C&ómo se coloca el panel", "Cómo se coloca el panel")
         self.btn_lienzo = self._boton(panel, "&Qué es el lienzo", "QueEsElLienzo")
         self.btn_restaurar = self._boton(panel, "&Restablecer", "RestablecerTransmision")
         self.btn_transmitir = self._boton(panel, "&Transmitir", "Transmitir")
         self.btn_grabar = self._boton(panel, "&Grabar", "Grabar")
         self.btn_pausar_grabacion = self._boton(
-            panel, "Pausar la gra&bacion", "Pausar la grabacion")
+            panel, "Pausar la gra&bación", "Pausar la grabación")
         for boton in (self.btn_frente, self.btn_ajuste, self.btn_captura,
                       self.btn_como_se_coloca, self.btn_lienzo, self.btn_restaurar, self.btn_transmitir,
                       self.btn_grabar, self.btn_pausar_grabacion):
@@ -332,13 +332,13 @@ class TransmisionDialog(wx.Dialog):
         activa = bool(transmision.get("outputActive", False))
         self._actualizar_boton(
             self.btn_transmitir,
-            "&Detener la transmision" if activa else "&Transmitir",
-            "Detener la transmision" if activa else "Transmitir")
+            "&Detener la transmisión" if activa else "&Transmitir",
+            "Detener la transmisión" if activa else "Transmitir")
         grabando = bool(grabacion.get("outputActive", False))
         self._actualizar_boton(
             self.btn_grabar,
-            "&Detener la grabacion" if grabando else "&Grabar",
-            "Detener la grabacion" if grabando else "Grabar")
+            "&Detener la grabación" if grabando else "&Grabar",
+            "Detener la grabación" if grabando else "Grabar")
         self.btn_pausar_grabacion.Enable(grabando)
         self.txt_estado.AppendText(f"\n{self._frase_escena_al_aire(al_aire)}")
 
@@ -390,8 +390,8 @@ class TransmisionDialog(wx.Dialog):
     def _transmision_alternada(self, activa):
         self._actualizar_boton(
             self.btn_transmitir,
-            "&Detener la transmision" if activa else "&Transmitir",
-            "Detener la transmision" if activa else "Transmitir")
+            "&Detener la transmisión" if activa else "&Transmitir",
+            "Detener la transmisión" if activa else "Transmitir")
         accion = "transmision_iniciada" if activa else "transmision_detenida"
         anunciar(obs_estado.frase_resultado(accion))
 
@@ -401,8 +401,8 @@ class TransmisionDialog(wx.Dialog):
     def _grabacion_alternada(self, activa):
         self._actualizar_boton(
             self.btn_grabar,
-            "&Detener la grabacion" if activa else "&Grabar",
-            "Detener la grabacion" if activa else "Grabar")
+            "&Detener la grabación" if activa else "&Grabar",
+            "Detener la grabación" if activa else "Grabar")
         self.btn_pausar_grabacion.Enable(activa)
         accion = "grabacion_iniciada" if activa else "grabacion_detenida"
         anunciar(obs_estado.frase_resultado(accion))
