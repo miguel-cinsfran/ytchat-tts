@@ -38,7 +38,8 @@ logger = obtener_logger(__name__)
 def componer_cabecera_fallos(version: str, momento: datetime) -> str:
     """Compone la separación visible de una sesión de fallos."""
     marca = momento.isoformat(timespec="seconds")
-    return f"=== INICIO YTChat TTS v{version} {marca} ==="
+    return (f"=== INICIO YTChat TTS v{version} {marca} ===\n"
+            "Este archivo anota sucesos internos de Windows; muchos son inofensivos y la aplicación sigue funcionando. Si ves «CIERRE LIMPIO», la sesión terminó bien.")
 
 
 def componer_cierre_fallos(momento: datetime) -> str:

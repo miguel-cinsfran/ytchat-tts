@@ -42,7 +42,8 @@ class DiagnosticoTest(unittest.TestCase):
         inicio = diagnostico.componer_cabecera_fallos("2.0.1", momento)
         cierre = diagnostico.componer_cierre_fallos(momento)
         self.assertEqual(inicio,
-                         "=== INICIO YTChat TTS v2.0.1 2026-08-25T21:52:09-04:00 ===")
+                         "=== INICIO YTChat TTS v2.0.1 2026-08-25T21:52:09-04:00 ===\n"
+                         "Este archivo anota sucesos internos de Windows; muchos son inofensivos y la aplicación sigue funcionando. Si ves «CIERRE LIMPIO», la sesión terminó bien.")
         self.assertEqual(cierre, "=== CIERRE LIMPIO 2026-08-25T21:52:09-04:00 ===")
         self.assertNotEqual(inicio, cierre)
 
