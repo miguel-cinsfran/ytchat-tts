@@ -72,6 +72,14 @@ class TestAreasAtajo(unittest.TestCase):
         with mock.patch.dict(config.ATAJOS_AREA, {"accion": "ctrl+shift"}):
             self.assertTrue(atajo_valido_para_area("accion", "ctrl+shift+p"))
 
+    def test_rechaza_el_modificador_de_la_otra_area(self):
+        modificador_equivocado = {"ctrl": "alt+p", "alt": "ctrl+c"}
+        for accion, area in ATAJOS_AREA.items():
+            if area in modificador_equivocado:
+                with self.subTest(accion=accion):
+                    self.assertFalse(atajo_valido_para_area(
+                        accion, modificador_equivocado[area]))
+
 
 class TestParsearAtajos(unittest.TestCase):
 
