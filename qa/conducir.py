@@ -2067,10 +2067,7 @@ def escenario_dos_conexiones(app: Aplicacion, args, res: Resultado):
 def escenario_overlay(app: Aplicacion, args, res: Resultado):
     """El panel de chat para transmitir: interruptor, servicio y estado.
 
-    La fase 3 de `smoke_test.py` no lo cubre: solo mira Button, Edit, ComboBox,
-    List, CheckBox y RadioButton, así que un ítem de menú le pasa invisible.
-    Y las pruebas unitarias no arrancan la aplicación entera, que es donde se
-    ve si el interruptor está cableado de verdad.
+    La fase 3 de `smoke_test.py` no llega a este diálogo, y las pruebas unitarias no arrancan la aplicación entera, que es donde se ve si el interruptor está cableado de verdad.
 
     Comprueba lo único que el dueño no puede mirar: que cuando dice que está
     activo, esté sirviendo la página de verdad.
@@ -2088,24 +2085,44 @@ def escenario_overlay(app: Aplicacion, args, res: Resultado):
         except Exception:
             return False
 
-    items = [m for m in app.menus()
-             if etiqueta in (m.get("etiqueta") or "") and not m.get("submenu")]
-    if not items:
-        res.fallo(f"no existe el ítem de menú «{etiqueta}»")
-        return
-    if not items[0].get("marcable"):
-        res.fallo("el ítem del panel no es una casilla marcable")
-    res.nota(f"ítem encontrado: {items[0].get('etiqueta')!r}")
+    def alternar_panel():
+        try:
+            app.abrir_por_menu("Transmisión")
+        except Exception as exc:
+            res.fallo(f"Transmisión: no se pudo abrir el diálogo, {exc}")
+            return False
+        if app.esperar_ventana("Transmisión", segundos=15) is None:
+            res.fallo("Transmisión: el menú no abrió el diálogo")
+            return False
+        controles = app.arbol("Transmisión")
+        casilla = next((c for c in controles
+                        if c.get("clase") == "CheckBox" and c.get("nombre") == etiqueta), None)
+        if casilla is None or not casilla.get("habilitado"):
+            motivo = "no existe" if casilla is None else "está deshabilitada"
+            res.fallo(f"Transmisión: la casilla «{etiqueta}» {motivo}")
+            app.pedir("cerrar_ventana", ventana="Transmisión")
+            return False
+        try:
+            app.pedir("foco", ventana="Transmisión", nombre=etiqueta)
+            app.teclas("space")
+        except Exception as exc:
+            res.fallo(f"Transmisión: no se pudo alternar «{etiqueta}», {exc}")
+            app.pedir("cerrar_ventana", ventana="Transmisión")
+            return False
+        app.pedir("cerrar_ventana", ventana="Transmisión")
+        return True
 
     encendido_al_entrar = responde(2.0)
     if encendido_al_entrar:
         res.nota("el panel ya venía encendido; se apaga para probar el ciclo")
-        app.abrir_por_menu(etiqueta)
+        if not alternar_panel():
+            return
         app.esperar_dicho("panel de chat apagado", 8)
 
     # Encender
     antes = len(app.anuncios)
-    app.abrir_por_menu(etiqueta)
+    if not alternar_panel():
+        return
     if not app.esperar_dicho("panel de chat activo en el puerto", 10, desde=antes):
         dichos = [a["texto"][:60] for a in app.anuncios[antes:]]
         res.fallo(f"al encender no anunció el puerto; dijo: {dichos}")
@@ -2128,7 +2145,8 @@ def escenario_overlay(app: Aplicacion, args, res: Resultado):
 
     # Apagar
     antes = len(app.anuncios)
-    app.abrir_por_menu(etiqueta)
+    if not alternar_panel():
+        return
     if not app.esperar_dicho("panel de chat apagado", 10, desde=antes):
         res.fallo("al apagar no lo anunció")
     if responde(3.0):
@@ -2137,7 +2155,7 @@ def escenario_overlay(app: Aplicacion, args, res: Resultado):
         res.nota("apagado, el puerto deja de responder")
 
     if encendido_al_entrar:
-        app.abrir_por_menu(etiqueta)   # se deja como estaba
+        alternar_panel()   # se deja como estaba
 
 
 def escenario_programados(app: Aplicacion, args, res: Resultado):
