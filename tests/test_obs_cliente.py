@@ -65,6 +65,25 @@ class AutenticacionTest(unittest.TestCase):
 
 
 class MensajesDeFalloTest(unittest.TestCase):
+    def test_error_de_obs_conserva_su_texto(self):
+        texto = ("No se pudo conectar con OBS. Comprueba que OBS esté abierto y "
+                 "que su servidor websocket esté activado.")
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs(obs_cliente.ObsError(texto)), texto)
+
+    def test_traducir_dos_veces_conserva_el_mismo_texto(self):
+        una_vez = obs_cliente.mensaje_de_fallo_obs("Connection refused")
+        dos_veces = obs_cliente.mensaje_de_fallo_obs(obs_cliente.ObsError(una_vez))
+        self.assertEqual(dos_veces, una_vez)
+
+    def test_error_crudo_de_conexion_rechazada(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("Connection refused"),
+                         "No se pudo conectar con OBS. Comprueba que OBS esté abierto y "
+                         "que su servidor websocket esté activado.")
+
+    def test_error_crudo_desconocido_conserva_el_generico(self):
+        self.assertEqual(obs_cliente.mensaje_de_fallo_obs("fallo extraño"),
+                         "OBS no pudo completar la operación. Inténtalo de nuevo.")
+
     def test_fallo_de_conexion(self):
         self.assertIn("No se pudo conectar", obs_cliente.mensaje_de_fallo_obs("Connection refused"))
 

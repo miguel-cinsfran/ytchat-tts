@@ -177,6 +177,31 @@ class TestTransmisionDialog(unittest.TestCase):
         self.assertIsNotNone(self.dialogo.chk_panel_chat)
         self.assertFalse(self.dialogo.chk_panel_chat.IsEnabled())
 
+    def test_activar_fallo_mantiene_habilitada_la_casilla_con_callback(self):
+        self.dialogo.Destroy()
+        self.dialogo = gui_transmision.TransmisionDialog(
+            None, self.gestor, alternar_panel=mock.Mock())
+
+        self.dialogo._activar(False)
+
+        self.assertTrue(self.dialogo.chk_panel_chat.IsEnabled())
+        self.assertFalse(self.dialogo.btn_actualizar.IsEnabled())
+
+    def test_activar_exito_habilita_la_casilla_con_callback(self):
+        self.dialogo.Destroy()
+        self.dialogo = gui_transmision.TransmisionDialog(
+            None, self.gestor, alternar_panel=mock.Mock())
+
+        self.dialogo._activar(True)
+
+        self.assertTrue(self.dialogo.chk_panel_chat.IsEnabled())
+
+    def test_activar_sin_callback_mantiene_deshabilitada_la_casilla(self):
+        self.dialogo._activar(False)
+        self.assertFalse(self.dialogo.chk_panel_chat.IsEnabled())
+        self.dialogo._activar(True)
+        self.assertFalse(self.dialogo.chk_panel_chat.IsEnabled())
+
     def test_elegir_una_posicion_no_coloca_el_panel(self):
         self.gestor.colocar = mock.Mock()
         evento = wx.CommandEvent(wx.EVT_CHOICE.typeId, self.dialogo.cho_posicion.GetId())

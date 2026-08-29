@@ -215,7 +215,8 @@ class TransmisionDialog(wx.Dialog):
 
     def _activar(self, activo):
         for control in self._acciones:
-            if control is self.chk_panel_chat and self._alternar_panel is None:
+            if control is self.chk_panel_chat:
+                control.Enable(self._alternar_panel is not None)
                 continue
             control.Enable(activo)
 

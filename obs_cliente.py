@@ -57,6 +57,8 @@ class ObsError(RuntimeError):
 
 def mensaje_de_fallo_obs(motivo):
     """Traduce un motivo técnico a un mensaje breve para el usuario."""
+    if isinstance(motivo, ObsError):
+        return str(motivo)
     texto = str(motivo or "").lower()
     if any(clave in texto for clave in
            ("refused", "no connection", "10061", "unreachable", "timed out")):
