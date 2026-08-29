@@ -20,6 +20,7 @@ import config as cfg
 import atajos_captura
 import estado_sesion
 import obs_cliente
+import obs_activacion
 import programados
 import sound_player as _snd
 import credenciales
@@ -284,6 +285,13 @@ class PreferenciasDialog(wx.Dialog):
         vs.Add(self.btn_buscar_microfonos, 0, wx.ALL, 10)
         self.btn_buscar_microfonos.Bind(wx.EVT_BUTTON, self._buscar_microfonos)
 
+        self.btn_activar_websocket_obs = wx.Button(
+            p, label="&Activar el servidor websocket de OBS",
+            name="Activar el servidor websocket de OBS")
+        vs.Add(self.btn_activar_websocket_obs, 0, wx.ALL, 10)
+        self.btn_activar_websocket_obs.Bind(
+            wx.EVT_BUTTON, self._activar_servidor_websocket_obs)
+
         p.SetSizer(vs)
         return p
 
@@ -328,6 +336,22 @@ class PreferenciasDialog(wx.Dialog):
         self.cho_microfono_obs.Set(opciones)
         self.cho_microfono_obs.SetStringSelection(elegido or opciones[0])
         anunciar(f"Se encontraron {len(fuentes)} micrófonos en OBS")
+
+    def _activar_servidor_websocket_obs(self, event):
+        def activar():
+            try:
+                accion, mensaje = obs_activacion.decidir_activacion(
+                    obs_activacion.obs_esta_en_ejecucion(),
+                    obs_cliente.leer_ajustes())
+                if accion == obs_activacion.ACTIVAR:
+                    mensaje = obs_activacion.activar_servidor(
+                        obs_cliente.RUTA_CONFIG_OBS)
+            except Exception as exc:
+                logger.warning("No se pudo activar el servidor websocket de OBS: %s", exc)
+                mensaje = f"No se pudo activar el servidor websocket de OBS: {exc}"
+            wx.CallAfter(anunciar, mensaje)
+
+        diagnostico.crear_hilo(activar, "ActivarWebsocketObs").start()
 
     def _pag_reproductor(self, parent):
         p = self._make_panel(parent, "PagReproductor")
