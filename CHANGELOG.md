@@ -12,7 +12,8 @@ personalización de los atajos.
 - **Un panel de chat para que lo vean los espectadores.** Los mensajes aparecen
   en una página con fondo transparente que puede añadirse a la emisión, de modo
   que quien mira el directo lee el chat sin salir del vídeo. El panel se
-  enciende desde el menú Herramientas.
+  enciende en la ventana de *Transmisión*, menú Transmisión → *Panel de
+  transmisión*, o `Ctrl+Mayúsculas+T`.
 - **Componer la escena sin ver la pantalla.** Menú Herramientas →
   *Transmisión*, o `Ctrl+Mayúsculas+T`. La ventana se comunica con OBS y permite
   elegir la escena, elegir **cualquiera de sus fuentes** (el panel de chat, la
