@@ -201,18 +201,18 @@ class PreferenciasDialog(wx.Dialog):
         self.rb_estrategia = wx.RadioBox(
             p, label="&Estrategia de la cola", majorDimension=1,
             choices=["Leer todos los mensajes",
-                     "Descartar los mas viejos si se acumulan"],
+                     "Descartar los más viejos si se acumulan"],
             style=wx.RA_SPECIFY_COLS, name="Estrategia de la cola")
         self.rb_estrategia.SetSelection(
             0 if self._config.get("estrategia", "limite") == "todas" else 1)
         vs.Add(self.rb_estrategia, 0, wx.ALL, 10)
 
-        vs.Add(self._fila_label(p, "Tamaño &maximo de la cola"),
+        vs.Add(self._fila_label(p, "Tamaño &máximo de la cola"),
                0, wx.LEFT | wx.RIGHT, 10)
         self.sp_cola_maxima = ContadorAccesible(
             p, min=1, max=500,
             initial=int(self._config.get("tamanio_maximo", 15)),
-            name="Tamaño maximo de la cola")
+            name="Tamaño máximo de la cola")
         vs.Add(self.sp_cola_maxima, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         vs.Add(self._fila_label(p, "Leer solo el &nombre a partir de"),
@@ -233,8 +233,8 @@ class PreferenciasDialog(wx.Dialog):
         vs = wx.BoxSizer(wx.VERTICAL)
 
         self.chk_reconectar = wx.CheckBox(
-            p, label="&Reconectar automaticamente si se corta",
-            name="Reconectar automaticamente si se corta")
+            p, label="&Reconectar automáticamente si se corta",
+            name="Reconectar automáticamente si se corta")
         self.chk_reconectar.SetValue(bool(self._config.get("reconectar", True)))
         vs.Add(self.chk_reconectar, 0, wx.ALL, 10)
 
@@ -246,12 +246,12 @@ class PreferenciasDialog(wx.Dialog):
             name="Espera entre intentos, en segundos")
         vs.Add(self.sp_espera_reconexion, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        vs.Add(self._fila_label(p, "Numero maximo de &intentos"),
+        vs.Add(self._fila_label(p, "Número máximo de &intentos"),
                0, wx.LEFT | wx.RIGHT, 10)
         self.sp_max_intentos = ContadorAccesible(
             p, min=0, max=100,
             initial=int(self._config.get("max_intentos", 5)),
-            name="Numero maximo de intentos")
+            name="Número máximo de intentos")
         vs.Add(self.sp_max_intentos, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         p.SetSizer(vs)
@@ -269,18 +269,18 @@ class PreferenciasDialog(wx.Dialog):
             name="Puerto del panel de chat")
         vs.Add(self.sp_puerto_overlay, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
-        vs.Add(self._fila_label(p, "&Microfono de OBS"),
+        vs.Add(self._fila_label(p, "&Micrófono de OBS"),
                0, wx.LEFT | wx.RIGHT, 10)
         guardado = str(self._config.get("obs_microfono", ""))
         opciones = ["Elegir automáticamente"] + ([guardado] if guardado else [])
         self.cho_microfono_obs = wx.Choice(
-            p, choices=opciones, name="Microfono de OBS")
+            p, choices=opciones, name="Micrófono de OBS")
         self.cho_microfono_obs.SetSelection(1 if guardado else 0)
         vs.Add(self.cho_microfono_obs, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
         self.btn_buscar_microfonos = wx.Button(
-            p, label="&Buscar los microfonos en OBS",
-            name="Buscar los microfonos en OBS")
+            p, label="&Buscar los micrófonos en OBS",
+            name="Buscar los micrófonos en OBS")
         vs.Add(self.btn_buscar_microfonos, 0, wx.ALL, 10)
         self.btn_buscar_microfonos.Bind(wx.EVT_BUTTON, self._buscar_microfonos)
 
@@ -327,7 +327,7 @@ class PreferenciasDialog(wx.Dialog):
                 opciones.append(fuente)
         self.cho_microfono_obs.Set(opciones)
         self.cho_microfono_obs.SetStringSelection(elegido or opciones[0])
-        anunciar(f"Se encontraron {len(fuentes)} microfonos en OBS")
+        anunciar(f"Se encontraron {len(fuentes)} micrófonos en OBS")
 
     def _pag_reproductor(self, parent):
         p = self._make_panel(parent, "PagReproductor")

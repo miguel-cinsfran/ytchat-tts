@@ -636,13 +636,13 @@ class TestCategoriasDePreferencias(unittest.TestCase):
         dialogo = self._dialogo()
         for nombre, pagina in (
                 ("Estrategia de la cola", "PagCola"),
-                ("Tamaño maximo de la cola", "PagCola"),
+                ("Tamaño máximo de la cola", "PagCola"),
                 ("Leer solo el nombre a partir de", "PagCola"),
-                ("Reconectar automaticamente si se corta", "PagConexion"),
+                ("Reconectar automáticamente si se corta", "PagConexion"),
                 ("Espera entre intentos, en segundos", "PagConexion"),
-                ("Numero maximo de intentos", "PagConexion"),
+                ("Número máximo de intentos", "PagConexion"),
                 ("Puerto del panel de chat", "PagTransmision"),
-                ("Microfono de OBS", "PagTransmision"),
+                ("Micrófono de OBS", "PagTransmision"),
                 ("Guardar un registro detallado para diagnosticar fallos",
                  "PagDiagnostico")):
             control = self._buscar(dialogo, nombre)
@@ -800,7 +800,7 @@ class TestGuardadoDeNuevasPreferencias(unittest.TestCase):
     def test_estrategia_guarda_la_clave_y_no_la_etiqueta(self):
         for seleccion, clave, etiqueta in (
                 (0, "todas", "Leer todos los mensajes"),
-                (1, "limite", "Descartar los mas viejos si se acumulan")):
+                (1, "limite", "Descartar los más viejos si se acumulan")):
             with self.subTest(clave=clave):
                 dialogo = self._dialogo()
                 dialogo.rb_estrategia.SetSelection(seleccion)
