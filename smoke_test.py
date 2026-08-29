@@ -51,6 +51,12 @@ def ventana_es_de_la_aplicacion(titulo: str, nombre_proceso: str) -> bool:
             and nombre_proceso.lower() in _PROCESOS_APLICACION)
 
 
+def interactivos_sin_nombre(controles) -> list[str]:
+    """Tipos de control interactivo que no tienen nombre accesible."""
+    return [tipo for tipo, nombre in controles
+            if tipo in _INTERACTIVOS and not nombre]
+
+
 def _nombre_proceso(pid: int) -> str:
     """Devuelve el nombre de imagen del proceso indicado en Windows."""
     resultado = subprocess.run(
@@ -186,12 +192,10 @@ def fase3_accesibilidad() -> bool:
         print("  Ventana visible. Recorriendo controles...\n")
 
         controles = _recorrer(win)
-        sin_nombre = []
         for tipo, nombre in controles:
             etiqueta = nombre if nombre else "(SIN NOMBRE)"
             print(f"    {tipo:12s}  {etiqueta}")
-            if tipo in _INTERACTIVOS and not nombre:
-                sin_nombre.append(tipo)
+        sin_nombre = interactivos_sin_nombre(controles)
 
         print(f"\n  Total de controles: {len(controles)}")
         if sin_nombre:
