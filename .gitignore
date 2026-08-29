@@ -8,6 +8,10 @@ YTChat TTS.zip
 YTChat TTS v*.zip
 yt-dlp.exe
 
+# Cache del audio esclavo: la crea el reproductor al lado del ejecutable, y
+# corriendo desde el repositorio cae en la raiz. Son megas por video.
+cache-audio/
+
 # Python
 __pycache__/
 *.py[cod]
