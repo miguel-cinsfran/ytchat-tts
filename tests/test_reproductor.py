@@ -170,7 +170,8 @@ class TestReproducirDirecto(unittest.TestCase):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
         panel._info = info
         panel._inst = mock.Mock()
-        panel._player = mock.Mock()
+        player = mock.Mock()
+        panel._player = player
         panel._vol = 75
         panel._muted = False
         panel._timer = mock.Mock()
@@ -403,6 +404,12 @@ class TestPrecalentamiento(unittest.TestCase):
 
 class TestEventosVlc(unittest.TestCase):
 
+    def _panel_con_eventos(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._gestor_eventos_vlc = None
+        return panel
+
     def test_engancha_eventos_solo_con_registro_detallado(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
         panel._player = None
@@ -420,6 +427,61 @@ class TestEventosVlc(unittest.TestCase):
                                return_value=True):
             self.assertTrue(panel._asegurar_player())
         panel._enganchar_eventos_vlc.assert_called_once()
+
+    def test_enganchar_eventos_conserva_el_gestor(self):
+        panel = self._panel_con_eventos()
+        gestor = mock.Mock()
+        panel._player.event_manager.return_value = gestor
+        tipos = types.SimpleNamespace(**{
+            nombre: object() for nombre in (
+                "MediaPlayerPlaying", "MediaPlayerPaused", "MediaPlayerStopped",
+                "MediaPlayerEndReached", "MediaPlayerEncounteredError",
+                "MediaPlayerBuffering")})
+
+        with mock.patch.object(reproductor, "_vlc", EventType=tipos):
+            panel._enganchar_eventos_vlc()
+
+        self.assertIs(panel._gestor_eventos_vlc, gestor)
+
+    def test_enganchar_eventos_usa_el_mismo_gestor_para_los_seis_tipos(self):
+        panel = self._panel_con_eventos()
+        gestor = mock.Mock()
+        panel._player.event_manager.return_value = gestor
+        tipos = types.SimpleNamespace(**{
+            nombre: object() for nombre in (
+                "MediaPlayerPlaying", "MediaPlayerPaused", "MediaPlayerStopped",
+                "MediaPlayerEndReached", "MediaPlayerEncounteredError",
+                "MediaPlayerBuffering")})
+
+        with mock.patch.object(reproductor, "_vlc", EventType=tipos):
+            panel._enganchar_eventos_vlc()
+
+        self.assertEqual(gestor.event_attach.call_count, 6)
+
+    def test_detener_en_segundo_plano_conserva_el_gestor_hasta_liberar(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._gen = 0
+        panel._cargando = True
+        panel._destino_pendiente = object()
+        panel._intencion_reproducir = True
+        panel._timer_progreso = mock.Mock()
+        player = mock.Mock()
+        panel._player = player
+        gestor = object()
+        panel._gestor_eventos_vlc = gestor
+        hilo = mock.Mock()
+        hilo.start = mock.Mock()
+
+        with mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                               return_value=hilo) as crear_hilo:
+            panel._detener(silencioso=True, en_segundo_plano=True)
+
+        cierre = crear_hilo.call_args.args[0]
+        self.assertIsNone(panel._gestor_eventos_vlc)
+        self.assertIn(gestor, cierre.__defaults__)
+        player.release.side_effect = lambda: self.assertIn(gestor, cierre.__defaults__)
+        cierre()
+        player.release.assert_called_once_with()
 
     def test_crear_instancia_registra_su_tramo(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)

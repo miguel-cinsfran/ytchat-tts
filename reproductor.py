@@ -459,6 +459,7 @@ class ReproductorPanel(wx.Panel):
         self._inst = None
         self._inst_lock = threading.Lock()  # crear la instancia VLC sin carreras
         self._player = None
+        self._gestor_eventos_vlc = None
         self._info = None
         self._marca_reproduccion = None
         self._marca_extraccion = None
@@ -569,9 +570,9 @@ class ReproductorPanel(wx.Panel):
         )
         self._callbacks_vlc = callbacks
         try:
-            gestor = self._player.event_manager()
+            self._gestor_eventos_vlc = self._player.event_manager()
             for tipo, callback in callbacks:
-                gestor.event_attach(tipo, callback)
+                self._gestor_eventos_vlc.event_attach(tipo, callback)
         except Exception as exc:
             logger.debug("No se pudieron enganchar los eventos de VLC: %s", exc)
 
@@ -1082,12 +1083,17 @@ class ReproductorPanel(wx.Panel):
                 # vivo puede bloquear segundos. Lo dejamos en None para que el
                 # siguiente uso cree uno nuevo (sin carreras con el que se cierra).
                 player = self._player
+                gestor_eventos = self._gestor_eventos_vlc
                 self._player = None
-                def _cerrar():
+                self._gestor_eventos_vlc = None
+                def _cerrar(gestor=gestor_eventos):
                     try:    player.stop()
                     except Exception: pass
                     try:    player.release()
                     except Exception: pass
+                    # Mientras libVLC pueda llamar callbacks, el gestor conserva
+                    # vivo el trampolín de ctypes que usa python-vlc.
+                    _ = gestor
                 diagnostico.crear_hilo(_cerrar, "ReproductorStop").start()
             else:
                 try:    self._player.stop()
