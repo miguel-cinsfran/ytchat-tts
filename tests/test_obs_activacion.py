@@ -1,7 +1,10 @@
 """Pruebas de la activación del servidor websocket de OBS."""
 
 import subprocess
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -57,6 +60,48 @@ class TestActivacionObs(unittest.TestCase):
         self.assertEqual(
             ejecutar.call_args.kwargs["creationflags"],
             getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+    def test_activar_servidor_lo_deja_activo_en_el_archivo(self):
+        ajustes = self._ajustes_de_prueba()
+        with tempfile.TemporaryDirectory() as directorio:
+            ruta = Path(directorio) / "global.ini"
+            ruta.write_text(json.dumps(ajustes), encoding="utf-8")
+
+            obs_activacion.activar_servidor(ruta)
+
+            self.assertTrue(json.loads(ruta.read_text(encoding="utf-8"))["server_enabled"])
+
+    def test_activar_servidor_conserva_las_otras_claves_del_archivo(self):
+        ajustes = self._ajustes_de_prueba()
+        with tempfile.TemporaryDirectory() as directorio:
+            ruta = Path(directorio) / "global.ini"
+            ruta.write_text(json.dumps(ajustes), encoding="utf-8")
+
+            obs_activacion.activar_servidor(ruta)
+
+            resultado = json.loads(ruta.read_text(encoding="utf-8"))
+        for clave in ("alerts_enabled", "auth_required", "first_load",
+                      "server_password", "server_port"):
+            self.assertEqual(resultado[clave], ajustes[clave])
+
+    def test_activar_servidor_informa_el_error_si_no_existe_el_archivo(self):
+        with tempfile.TemporaryDirectory() as directorio:
+            ruta = Path(directorio) / "inexistente.json"
+
+            frase = obs_activacion.activar_servidor(ruta)
+
+        self.assertIn("No se pudo activar el servidor websocket de OBS", frase)
+
+    @staticmethod
+    def _ajustes_de_prueba():
+        return {
+            "alerts_enabled": False,
+            "auth_required": True,
+            "first_load": False,
+            "server_enabled": False,
+            "server_password": "secreto",
+            "server_port": 4455,
+        }
 
 
 if __name__ == "__main__":

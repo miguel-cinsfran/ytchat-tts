@@ -186,6 +186,34 @@ class TestInicioGui(unittest.TestCase):
         diferir.assert_called_once_with(frame._on_about, None)
         frame._on_about.assert_not_called()
 
+    def test_bind_menu_difiere_el_manejador(self):
+        frame = mock.Mock()
+        item = mock.Mock()
+        manejador = mock.Mock()
+        gui.YTChatFrame._bind_menu(frame, item, manejador)
+        evento = frame.Bind.call_args.args[1]
+        diferidos = []
+
+        with mock.patch.object(gui.wx, "CallAfter",
+                               side_effect=lambda fn, *args: diferidos.append((fn, args))):
+            evento(mock.Mock())
+
+        manejador.assert_not_called()
+        diferidos[0][0](*diferidos[0][1])
+        manejador.assert_called_once_with()
+
+    def test_bind_menu_pasa_los_argumentos_en_orden(self):
+        frame = mock.Mock()
+        item = mock.Mock()
+        manejador = mock.Mock()
+        gui.YTChatFrame._bind_menu(frame, item, manejador, "primero", 2, True)
+        evento = frame.Bind.call_args.args[1]
+
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            evento(mock.Mock())
+
+        diferir.assert_called_once_with(manejador, "primero", 2, True)
+
     def test_contador_accesible_selecciona_todo_al_recibir_el_foco(self):
         contador = mock.Mock()
         contador.GetTextValue.return_value = "123"
@@ -608,10 +636,12 @@ class TestAliasDesdeElChat(unittest.TestCase):
                                  if texto.startswith("Banear"))
         identificador_silenciar = next(i for i, texto in menu.etiquetas.items()
                                        if texto.startswith("Silenciar"))
-        menu.handlers[identificador_ban](None)
-        menu.handlers[identificador_silenciar](None)
+        with mock.patch.object(gui.wx, "CallAfter",
+                               side_effect=lambda funcion, *args: funcion(*args)):
+            menu.handlers[identificador_ban](None)
+            menu.handlers[identificador_silenciar](None)
         frame._moderar.assert_called_once_with(self.autor, "canal-real", None)
-        frame._silenciar_autor.assert_called_once_with(self.autor, ocultar=False)
+        frame._silenciar_autor.assert_called_once_with(self.autor, False)
         alias.usar({})
 
 

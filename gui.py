@@ -470,6 +470,14 @@ class YTChatFrame(wx.Frame):
         at = self._atajos.get(accion)
         return ("\t" + _fmt_accel(at.texto)) if at else ""
 
+    def _bind_menu(self, item, fn, *args):
+        """Difiere el anuncio hasta que el menú se cerró y volvió el foco."""
+        if isinstance(item, tuple):
+            menu, identificador = item
+            menu.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(fn, *args), id=identificador)
+        else:
+            self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(fn, *args), item)
+
     def _build_menubar(self):
         mb = wx.MenuBar()
 
@@ -508,7 +516,7 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_CHAT), mi_chat)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_pestana(PAG_COMENTARIOS), mi_com)
         self.Bind(wx.EVT_MENU, lambda e: self._ir_region(REG_REPRODUCTOR), mi_rep)
-        self.Bind(wx.EVT_MENU, lambda e: self._anunciar_estado(), mi_estado)
+        self._bind_menu(mi_estado, self._anunciar_estado)
         # De «Ver», solo tiene sentido con conexión la navegación por paneles;
         # «Ir a conexión (URL)» y «Anunciar estado» quedan siempre disponibles.
         self._mi_ver_conexion = [mi_sig, mi_ant, mi_lista, mi_chat, mi_com, mi_rep]
@@ -524,7 +532,7 @@ class YTChatFrame(wx.Frame):
         for i, (nombre, _) in enumerate(FILTROS):
             it = sub_f.AppendRadioItem(wx.ID_ANY, nombre)
             self.fi_items.append(it)
-            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_filtro(idx), it)
+            self._bind_menu(it, self._aplicar_filtro, i)
         self._mi_filtro_sub = m.AppendSubMenu(sub_f, "&Filtro de mensajes")
         mb.Append(m, "&Chat")
         self.Bind(wx.EVT_MENU, self._on_enviar_live, self.mi_enviar_live)
@@ -551,15 +559,15 @@ class YTChatFrame(wx.Frame):
         self.voz_submenu = wx.Menu()
         m.AppendSubMenu(self.voz_submenu, "Seleccionar vo&z")
         mb.Append(m, "Vo&z")
-        self.Bind(wx.EVT_MENU, self._on_pausa, self.mi_pausa)
-        self.Bind(wx.EVT_MENU, self._on_detener_tts, mi_det)
-        self.Bind(wx.EVT_MENU, self._on_vaciar, mi_vac)
-        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_rate(-1), mi_vmenos)
-        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_rate(+1), mi_vmas)
-        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_volume(-5), mi_volm)
-        self.Bind(wx.EVT_MENU, lambda e: self._ajustar_volume(+5), mi_volM)
-        self.Bind(wx.EVT_MENU, lambda e: self._toggle_silenciar_lectura(), self.mi_sil_lectura)
-        self.Bind(wx.EVT_MENU, lambda e: self._toggle_silenciar_sonidos(), self.mi_sil_sonidos)
+        self._bind_menu(self.mi_pausa, self._on_pausa, None)
+        self._bind_menu(mi_det, self._on_detener_tts, None)
+        self._bind_menu(mi_vac, self._on_vaciar, None)
+        self._bind_menu(mi_vmenos, self._ajustar_rate, -1)
+        self._bind_menu(mi_vmas, self._ajustar_rate, +1)
+        self._bind_menu(mi_volm, self._ajustar_volume, -5)
+        self._bind_menu(mi_volM, self._ajustar_volume, +5)
+        self._bind_menu(self.mi_sil_lectura, self._toggle_silenciar_lectura)
+        self._bind_menu(self.mi_sil_sonidos, self._toggle_silenciar_sonidos)
 
         # Reproductor
         m = wx.Menu()
@@ -574,7 +582,7 @@ class YTChatFrame(wx.Frame):
         for etiqueta, altura in (("Automática", None), ("1080p", 1080), ("720p", 720),
                                  ("480p", 480), ("360p", 360), ("240p", 240), ("144p", 144)):
             it = sub_cal.AppendRadioItem(wx.ID_ANY, etiqueta)
-            self.Bind(wx.EVT_MENU, lambda e, a=altura: self._rep_accion("set_calidad", a), it)
+            self._bind_menu(it, self._rep_accion, "set_calidad", altura)
         m.AppendSubMenu(sub_cal, "Ca&lidad del vídeo")
         m.AppendSeparator()
         # Descargar este vídeo (solo YouTube, no live). Se habilita en
@@ -587,20 +595,20 @@ class YTChatFrame(wx.Frame):
         m.AppendSeparator()
         self.mi_rep_botones = m.AppendCheckItem(wx.ID_ANY, "Mostrar botones en &pantalla")
         self.mi_rep_botones.Check(bool(self._config.get("mostrar_botones_reproductor", False)))
-        self.Bind(wx.EVT_MENU, lambda e: self._toggle_botones_rep(), self.mi_rep_botones)
+        self._bind_menu(self.mi_rep_botones, self._toggle_botones_rep)
         mb.Append(m, "&Reproductor")
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_play"), mi_rep_play)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", -60_000), mi_rep_retro)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_buscar_rel", +60_000), mi_rep_avanz)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), mi_rep_stop)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_mute"), mi_rep_mute)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("alternar_pantalla_completa"), mi_rep_fs)
+        self._bind_menu(mi_rep_play, self._rep_accion, "_toggle_play")
+        self._bind_menu(mi_rep_retro, self._rep_accion, "_buscar_rel", -60_000)
+        self._bind_menu(mi_rep_avanz, self._rep_accion, "_buscar_rel", +60_000)
+        self._bind_menu(mi_rep_stop, self._rep_accion, "_detener")
+        self._bind_menu(mi_rep_mute, self._rep_accion, "_toggle_mute")
+        self._bind_menu(mi_rep_fs, self._rep_accion, "alternar_pantalla_completa")
         self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(
             self._abrir_descargas,
             url=self._rep_panel.get_url_para_descarga() if self._rep_panel else None),
             self.mi_descargar_este)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", -20), mi_rep_volm)
-        self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", +20), mi_rep_volM)
+        self._bind_menu(mi_rep_volm, self._rep_accion, "ajustar_volumen", -20)
+        self._bind_menu(mi_rep_volM, self._rep_accion, "ajustar_volumen", +20)
 
         # Transmisión
         m = wx.Menu()
@@ -1579,14 +1587,14 @@ class YTChatFrame(wx.Frame):
 
         # Los handlers van sobre el propio menú (no sobre la ventana): así mueren
         # con él y no se acumulan bindings en cada apertura del menú contextual.
-        menu.Bind(wx.EVT_MENU, lambda e: self._copiar_mensaje(), id=id_copiar)
-        menu.Bind(wx.EVT_MENU, lambda e: self._copiar_todo(),    id=id_copiar2)
-        menu.Bind(wx.EVT_MENU, lambda e: self._releer_mensaje(), id=id_releer)
-        menu.Bind(wx.EVT_MENU, lambda e: self._abrir_enlace(),   id=id_link)
-        menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=False), id=id_sil_tts)
-        menu.Bind(wx.EVT_MENU, lambda e: self._silenciar_autor(autor, ocultar=True),  id=id_sil_full)
-        menu.Bind(wx.EVT_MENU, lambda e: self._rehabilitar_autor(autor),              id=id_rehab)
-        menu.Bind(wx.EVT_MENU, lambda e: self._editar_alias_autor(autor),             id=id_alias)
+        self._bind_menu((menu, id_copiar), self._copiar_mensaje)
+        self._bind_menu((menu, id_copiar2), self._copiar_todo)
+        self._bind_menu((menu, id_releer), self._releer_mensaje)
+        self._bind_menu((menu, id_link), self._abrir_enlace)
+        self._bind_menu((menu, id_sil_tts), self._silenciar_autor, autor, False)
+        self._bind_menu((menu, id_sil_full), self._silenciar_autor, autor, True)
+        self._bind_menu((menu, id_rehab), self._rehabilitar_autor, autor)
+        self._bind_menu((menu, id_alias), self._editar_alias_autor, autor)
 
         self.lb_chat.PopupMenu(menu)
         menu.Destroy()
@@ -2104,7 +2112,7 @@ class YTChatFrame(wx.Frame):
             return
         for i, nombre in enumerate(voces):
             it = self.voz_submenu.AppendRadioItem(wx.ID_ANY, nombre)
-            self.Bind(wx.EVT_MENU, lambda e, idx=i: self._aplicar_voz(idx), it)
+            self._bind_menu(it, self._aplicar_voz, i)
         idx_actual = idx_actual if 0 <= idx_actual < len(voces) else 0
         self.voz_submenu.FindItemByPosition(idx_actual).Check(True)
         self._voz_idx = idx_actual
