@@ -83,6 +83,29 @@ class TestInicioGui(unittest.TestCase):
 
         ventana._on_close.assert_called_once_with(evento)
 
+    def test_menu_conectar_difiere_la_conexion(self):
+        frame = mock.Mock()
+        frame._accel.return_value = ""
+
+        def crear_menu():
+            menu = mock.MagicMock()
+            menu.Append.side_effect = lambda *args: mock.Mock()
+            menu.AppendRadioItem.side_effect = lambda *args: mock.Mock()
+            menu.AppendCheckItem.side_effect = lambda *args: mock.Mock()
+            return menu
+
+        with mock.patch.object(gui.wx, "Menu", side_effect=crear_menu), \
+                mock.patch.object(gui.wx, "MenuBar"):
+            gui.YTChatFrame._build_menubar(frame)
+
+        conexion = next(llamada.args[1] for llamada in frame.Bind.call_args_list
+                         if llamada.args[2] is frame.mi_conectar)
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            conexion(mock.Mock())
+
+        diferir.assert_called_once_with(frame._conectar_si_procede)
+        frame._conectar_si_procede.assert_not_called()
+
     def test_contador_accesible_selecciona_todo_al_recibir_el_foco(self):
         contador = mock.Mock()
         contador.GetTextValue.return_value = "123"

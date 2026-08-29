@@ -483,7 +483,7 @@ class YTChatFrame(wx.Frame):
         m.AppendSeparator()
         mi_salir = m.Append(wx.ID_EXIT, "&Salir\tAlt+F4")
         mb.Append(m, "&Archivo")
-        self.Bind(wx.EVT_MENU, lambda e: self._conectar_si_procede(), self.mi_conectar)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._conectar_si_procede), self.mi_conectar)
         self.Bind(wx.EVT_MENU, lambda e: self._desconectar_si_procede(), self.mi_desconectar)
         self.Bind(wx.EVT_MENU, lambda e: self._on_historial(), mi_historial)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
