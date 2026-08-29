@@ -2,6 +2,7 @@
 
 import unittest
 
+import descartes
 from estado_sesion import (SnapshotSesion, formatear_estado, COMPONENTES,
                            ACTIVOS_DEFECTO, _duracion)
 
@@ -164,6 +165,16 @@ class TestCoherencia(unittest.TestCase):
 
     def test_mensajes_programados_vacios_se_omiten(self):
         self.assertEqual(formatear_estado(SnapshotSesion(), {"programados"}), "")
+
+    def test_descartados_se_anuncian_si_hay_dato(self):
+        s = SnapshotSesion(descartados="Mensajes descartados: 3")
+        self.assertEqual(formatear_estado(s, {"descartados"}),
+                         "Mensajes descartados: 3.")
+
+    def test_descartados_vacios_se_omiten_y_no_son_predeterminados(self):
+        s = SnapshotSesion(descartados=descartes.frase_estado(0))
+        self.assertEqual(formatear_estado(s, {"descartados"}), "")
+        self.assertNotIn("descartados", ACTIVOS_DEFECTO)
 
     def test_activos_defecto_son_componentes_validos(self):
         for nombre in ACTIVOS_DEFECTO:
