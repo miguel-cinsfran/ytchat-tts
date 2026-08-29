@@ -48,6 +48,16 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertFalse(
             logging.getLogger("websockets.client").isEnabledFor(logging.DEBUG))
 
+    def test_configurar_logging_conserva_warning_en_ytchat_log(self):
+        """Si este nivel sube, el cierre por tope deja de llegar al archivo y se
+        pierde la única pista disponible sobre la corrupción de heap al cerrar."""
+        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+            config.configurar_logging()
+        manejador = next(manejador for manejador in self._root.handlers
+                         if getattr(manejador, "baseFilename", "").endswith("ytchat.log"))
+        self.addCleanup(manejador.close)
+        self.assertEqual(manejador.level, logging.WARNING)
+
     def test_regenera_si_falta(self):
         tmp = Path(self._tmp.name)
         with mock.patch.object(config, "app_dir", return_value=tmp):
