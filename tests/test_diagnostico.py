@@ -119,6 +119,45 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertEqual(
             diagnostico.decidir_bloqueo_interfaz(10.0, 10.4, False), (False, False))
 
+    def test_latido_sin_cambio_no_esta_vivo(self):
+        self.assertFalse(diagnostico.esta_vivo_el_latido(1.0, 1.0, False))
+
+    def test_latido_con_cambio_esta_vivo(self):
+        self.assertTrue(diagnostico.esta_vivo_el_latido(1.0, 1.1, False))
+
+    def test_latido_vivo_no_muere_si_deja_de_cambiar(self):
+        self.assertTrue(diagnostico.esta_vivo_el_latido(1.0, 1.0, True))
+
+    def test_vigilante_ignora_latido_que_nunca_cambia(self):
+        class Parada:
+            def __init__(self):
+                self.llamadas = 0
+
+            def wait(self, _intervalo):
+                self.llamadas += 1
+                return self.llamadas > 2
+
+        with patch.object(diagnostico.time, "monotonic", side_effect=[1.0, 2.0]), \
+                patch.object(diagnostico.logger, "warning") as registrar:
+            diagnostico.vigilar_hilo_interfaz(lambda: 0.0, Parada())
+        registrar.assert_not_called()
+
+    def test_vigilante_informa_latido_atrasado_despues_de_moverse(self):
+        class Parada:
+            def __init__(self):
+                self.llamadas = 0
+
+            def wait(self, _intervalo):
+                self.llamadas += 1
+                return self.llamadas > 2
+
+        marcas = iter((0.0, 0.1))
+        with patch.object(diagnostico.time, "monotonic", side_effect=[1.0, 1.1]), \
+                patch.object(diagnostico.sys, "_current_frames", return_value={}), \
+                patch.object(diagnostico.logger, "warning") as registrar:
+            diagnostico.vigilar_hilo_interfaz(lambda: next(marcas), Parada())
+        registrar.assert_called_once()
+
     def test_vigilante_registra_un_solo_bloqueo_largo(self):
         self.assertEqual(
             diagnostico.decidir_bloqueo_interfaz(10.0, 11.0, False), (True, True))
@@ -151,7 +190,8 @@ class DiagnosticoTest(unittest.TestCase):
         with patch.object(diagnostico.time, "monotonic", side_effect=[1.0, 1.1]), \
                 patch.object(diagnostico.sys, "_current_frames", return_value={}), \
                 patch.object(diagnostico.logger, "warning") as registrar:
-            diagnostico.vigilar_hilo_interfaz(lambda: 0.0, Parada())
+            marcas = iter((0.0, 0.1))
+            diagnostico.vigilar_hilo_interfaz(lambda: next(marcas), Parada())
         registrar.assert_called_once()
 
     def test_vigilante_retrata_el_hilo_principal_desde_otro_hilo(self):
@@ -164,19 +204,20 @@ class DiagnosticoTest(unittest.TestCase):
 
             def wait(self, _intervalo):
                 self.llamadas += 1
-                return self.llamadas > 1
+                return self.llamadas > 2
 
         def recordar(_marcos, identificador):
             identificadores.append(identificador)
             return "pila"
 
+        marcas = iter((0.0, 0.1))
         with patch.object(diagnostico.time, "monotonic", return_value=1.0), \
                 patch.object(diagnostico.sys, "_current_frames", return_value={}), \
                 patch.object(diagnostico, "pila_hilo_interfaz", side_effect=recordar), \
                 patch.object(diagnostico.logger, "warning"):
             hilo = threading.Thread(
                 target=diagnostico.vigilar_hilo_interfaz,
-                args=(lambda: 0.0, Parada()))
+                args=(lambda: next(marcas), Parada()))
             hilo.start()
             hilo.join()
 

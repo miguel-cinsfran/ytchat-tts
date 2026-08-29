@@ -89,6 +89,12 @@ def componer_bloqueo_interfaz(demora_ms: float, pila: str) -> str:
     return f"INTERFAZ bloqueada_ms={demora_ms:.0f}\n{pila.rstrip()}"
 
 
+def esta_vivo_el_latido(marca_inicial: float, marca_actual: float,
+                        ya_vivo: bool) -> bool:
+    """Indica si el latido ya cambió al menos una vez."""
+    return ya_vivo or marca_actual != marca_inicial
+
+
 def pila_hilo_interfaz(marcos: dict[int, object], identificador: int | None) -> str:
     marco = marcos.get(identificador)
     return "".join(traceback.format_stack(marco)).rstrip() if marco else "no disponible"
@@ -97,9 +103,17 @@ def pila_hilo_interfaz(marcos: dict[int, object], identificador: int | None) -> 
 def vigilar_hilo_interfaz(obtener_marca, parada: threading.Event) -> None:
     """Registra una pila del hilo principal mientras su latido está atrasado."""
     ya_registrado = False
+    marca_inicial = None
+    latido_vivo = False
     while not parada.wait(0.1):
         ahora = time.monotonic()
         marca_latido = obtener_marca()
+        if marca_inicial is None:
+            marca_inicial = marca_latido
+        latido_vivo = esta_vivo_el_latido(
+            marca_inicial, marca_latido, latido_vivo)
+        if not latido_vivo:
+            continue
         registrar, ya_registrado = decidir_bloqueo_interfaz(
             marca_latido, ahora, ya_registrado)
         if registrar:
