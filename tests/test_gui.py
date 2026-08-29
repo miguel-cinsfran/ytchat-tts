@@ -41,6 +41,23 @@ class TestInicioGui(unittest.TestCase):
 
         self.assertEqual(orden, ["muestra", "frente", "foco"])
 
+    def test_inicio_programa_el_precalentamiento(self):
+        aplicacion = mock.Mock()
+        frame = mock.Mock()
+        configuracion = mock.Mock()
+        configuracion.get.return_value = ""
+
+        with mock.patch.object(gui, "AplicacionYTChat", return_value=aplicacion), \
+                mock.patch.object(gui, "YTChatFrame", return_value=frame), \
+                mock.patch.object(gui, "app_dir", return_value=Path(".")), \
+                mock.patch.object(gui, "_ao2_init"), \
+                mock.patch.object(gui, "_listar_voces_sapi5", return_value=[]), \
+                mock.patch.object(gui._snd, "reproducir"), \
+                mock.patch.object(gui.wx, "CallAfter") as call_after:
+            gui.iniciar_gui(configuracion, object(), object(), object(), object())
+
+        call_after.assert_any_call(frame._arrancar_precalentamiento)
+
     def test_asercion_de_wx_se_registra_sin_anunciarse(self):
         aplicacion = mock.Mock()
         with mock.patch.object(gui.logger, "warning") as registrar, \
