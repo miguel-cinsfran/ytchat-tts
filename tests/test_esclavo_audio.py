@@ -9,7 +9,8 @@ import esclavo_audio
 class PruebasEsclavoAudio(unittest.TestCase):
 
     def setUp(self):
-        self.temporal = tempfile.TemporaryDirectory()
+        self.temporal = tempfile.TemporaryDirectory(
+            dir=Path(__file__).resolve().parents[1])
         self.carpeta = Path(self.temporal.name)
         self.url = "https://audio.ejemplo/flujo"
 

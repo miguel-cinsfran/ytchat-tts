@@ -33,6 +33,7 @@ import diagnostico
 import progreso
 from traza_transporte import traza_salto, traza_sin_barra, traza_transporte
 import ytdlp_bin
+import esclavo_audio
 from gui import anunciar, nombre_accesible, _T, _tc
 
 logger = diagnostico.obtener_logger(__name__)
@@ -189,6 +190,27 @@ def _info_video(video_id: str) -> dict:
     url = f"https://www.youtube.com/watch?v={video_id}"
     with yt_dlp.YoutubeDL(opts) as ydl:
         return ydl.extract_info(url, download=False)
+
+
+def _preparar_audio_local(info: dict, video_id: str):
+    """Actualiza la caché de audio fuera del hilo de interfaz."""
+    if info.get("is_live"):
+        return None
+    try:
+        carpeta = _cfg.app_dir() / "cache-audio"
+        carpeta.mkdir(parents=True, exist_ok=True)
+        entradas = tuple((ruta, ruta.stat().st_mtime) for ruta in carpeta.iterdir()
+                         if ruta.is_file())
+        for ruta in esclavo_audio.sobrantes_de_cache(entradas, 3):
+            ruta.unlink()
+        destino = esclavo_audio.ruta_de_cache(carpeta, video_id)
+        if esclavo_audio.esclavo_a_usar(destino, ""):
+            return destino
+        if ytdlp_bin.descargar_audio(video_id, destino):
+            return destino
+    except Exception as exc:
+        logger.debug("caché de audio: %s", exc)
+    return None
 
 
 def _alturas_disponibles(info: dict) -> list[int]:
@@ -462,6 +484,7 @@ class ReproductorPanel(wx.Panel):
         self._player = None
         self._gestor_eventos_vlc = None
         self._info = None
+        self._audio_local = None
         self._marca_reproduccion = None
         self._marca_extraccion = None
         self._marca_url = None
@@ -897,17 +920,19 @@ class ReproductorPanel(wx.Panel):
                 logger.warning("info vídeo: %s", exc)
                 wx.CallAfter(self._error_carga, gen)
                 return
+            audio_local = _preparar_audio_local(info, vid)
             wx.CallAfter(self._info_listo, info, reproducir, vid, gen,
-                         marca_inicio, marca_extraccion)
+                         marca_inicio, marca_extraccion, audio_local)
 
         diagnostico.crear_hilo(_run, "ReproductorInfo").start()
 
     def _info_listo(self, info, reproducir, vid, gen, marca_inicio=None,
-                    marca_extraccion=None):
+                    marca_extraccion=None, audio_local=None):
         if gen != self._gen or vid != self._video_id:
             self._timer_progreso.Stop()
             return  # se detuvo/desconectó o cambió de vídeo mientras cargaba
         self._info = info
+        self._audio_local = audio_local
         self._alturas = [a for a in _CALIDADES if a in _alturas_disponibles(info)]
         self._cargando = False
         self._timer_progreso.Stop()
@@ -940,6 +965,7 @@ class ReproductorPanel(wx.Panel):
             for opt in opciones_medio(es_directo):
                 media.add_option(opt)
             if slave:
+                slave = esclavo_audio.esclavo_a_usar(self._audio_local, slave)
                 media.add_option(f":input-slave={slave}")
             self._player.set_media(media)
             self._marca_url = time.monotonic()

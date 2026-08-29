@@ -86,7 +86,7 @@ def version_ytdlp(ruta: str | os.PathLike) -> str:
             text=True,
             timeout=TIEMPO_ESPERA,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return ""
@@ -131,7 +131,7 @@ def descargar_audio(video_id: str, destino: Path,
             [ruta, "-f", "ba", "-o", str(destino), "--no-playlist", "--quiet",
              "--no-warnings", f"https://www.youtube.com/watch?v={video_id}"],
             capture_output=True, text=True, timeout=tope_segundos,
-            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
         )
         if resultado.returncode:
             logger.debug("descargar audio: yt-dlp terminó con %s", resultado.returncode)
