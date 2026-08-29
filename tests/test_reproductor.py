@@ -404,6 +404,17 @@ class TestPrecalentamiento(unittest.TestCase):
 
 class TestEventosVlc(unittest.TestCase):
 
+    def _panel_para_detener(self, gestor=None):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._gen = 0
+        panel._cargando = True
+        panel._destino_pendiente = object()
+        panel._intencion_reproducir = True
+        panel._timer_progreso = mock.Mock()
+        panel._player = mock.Mock()
+        panel._gestor_eventos_vlc = gestor
+        return panel
+
     def _panel_con_eventos(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
         panel._player = mock.Mock()
@@ -482,6 +493,62 @@ class TestEventosVlc(unittest.TestCase):
         player.release.side_effect = lambda: self.assertIn(gestor, cierre.__defaults__)
         cierre()
         player.release.assert_called_once_with()
+
+    def test_detener_en_segundo_plano_suelta_la_ventana_de_video(self):
+        panel = self._panel_para_detener()
+        player = panel._player
+        hilo = mock.Mock()
+        with mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                               return_value=hilo):
+            panel._detener(silencioso=True, en_segundo_plano=True)
+        player.set_hwnd.assert_called_once_with(0)
+        hilo.start.assert_called_once_with()
+
+    def test_detener_suelta_la_ventana_antes_de_crear_el_hilo(self):
+        panel = self._panel_para_detener()
+        player = panel._player
+        hilo = mock.Mock()
+
+        def crear_hilo(_cerrar, _nombre):
+            self.assertTrue(player.set_hwnd.called)
+            return hilo
+
+        with mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                               side_effect=crear_hilo):
+            panel._detener(silencioso=True, en_segundo_plano=True)
+
+        player.set_hwnd.assert_called_once_with(0)
+
+    def test_detener_normal_no_suelta_la_ventana_de_video(self):
+        panel = self._panel_para_detener()
+        player = panel._player
+        panel._detener(silencioso=True, en_segundo_plano=False)
+        player.set_hwnd.assert_not_called()
+        self.assertIs(panel._player, player)
+
+    def test_detener_continua_si_no_puede_soltar_la_ventana(self):
+        panel = self._panel_para_detener()
+        panel._player.set_hwnd.side_effect = RuntimeError("sin salida")
+        hilo = mock.Mock()
+        with mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                               return_value=hilo) as crear_hilo:
+            panel._detener(silencioso=True, en_segundo_plano=True)
+        crear_hilo.assert_called_once()
+        hilo.start.assert_called_once_with()
+
+    def test_detener_en_segundo_plano_sin_gestor_de_eventos(self):
+        panel = self._panel_para_detener(gestor=None)
+        hilo = mock.Mock()
+        with mock.patch.object(reproductor.diagnostico, "crear_hilo",
+                               return_value=hilo):
+            panel._detener(silencioso=True, en_segundo_plano=True)
+        self.assertIsNone(panel._player)
+        hilo.start.assert_called_once_with()
+
+    def test_constructor_inicializa_el_gestor_de_eventos(self):
+        """Evita AttributeError al cerrar por detrás sin registro detallado."""
+        self.assertIn("_gestor_eventos_vlc",
+                      reproductor.ReproductorPanel.__init__.__code__.co_names)
 
     def test_crear_instancia_registra_su_tramo(self):
         panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)

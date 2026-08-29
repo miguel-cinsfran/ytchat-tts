@@ -1084,6 +1084,11 @@ class ReproductorPanel(wx.Panel):
                 # siguiente uso cree uno nuevo (sin carreras con el que se cierra).
                 player = self._player
                 gestor_eventos = self._gestor_eventos_vlc
+                # El hilo de cierre no debe tocar la ventana de wx.
+                try:
+                    player.set_hwnd(0)
+                except Exception as exc:
+                    logger.debug("set_hwnd al cerrar: %s", exc)
                 self._player = None
                 self._gestor_eventos_vlc = None
                 def _cerrar(gestor=gestor_eventos):
