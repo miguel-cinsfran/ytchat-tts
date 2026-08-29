@@ -124,6 +124,88 @@ class TestSeleccionFormatos(unittest.TestCase):
             reproductor._mejor_audio({"formats": formatos}), "original")
 
 
+class TestFuentesParaDirecto(unittest.TestCase):
+
+    def test_url_superior_gana_sobre_las_demás_fuentes(self):
+        info = {
+            "url": "superior",
+            "formats": FORMATOS_SEPARADOS,
+            "requested_formats": [
+                {"vcodec": "avc1", "acodec": "none", "url": "video"},
+                {"vcodec": "none", "acodec": "mp4a", "url": "audio"},
+            ],
+        }
+        self.assertEqual(reproductor.fuentes_para_directo(info), ("superior", ""))
+
+    def test_usa_formato_progresivo(self):
+        info = {"formats": [
+            {"vcodec": "avc1", "acodec": "mp4a", "height": 720,
+             "url": "progresivo"},
+        ]}
+        self.assertEqual(reproductor.fuentes_para_directo(info), ("progresivo", ""))
+
+    def test_usa_video_y_audio_de_formats(self):
+        self.assertEqual(
+            reproductor.fuentes_para_directo({"formats": FORMATOS_SEPARADOS}),
+            ("video-1080", "audio-233"),
+        )
+
+    def test_usa_el_par_solicitado_si_formats_no_sirve(self):
+        info = {"formats": [], "requested_formats": [
+            {"vcodec": "avc1", "acodec": "none", "url": "video-solicitado"},
+            {"vcodec": "none", "acodec": "mp4a", "url": "audio-solicitado"},
+        ]}
+        self.assertEqual(
+            reproductor.fuentes_para_directo(info),
+            ("video-solicitado", "audio-solicitado"),
+        )
+
+    def test_sin_fuentes_devuelve_vacio(self):
+        self.assertEqual(reproductor.fuentes_para_directo({}), ("", ""))
+
+
+class TestReproducirDirecto(unittest.TestCase):
+
+    def _panel(self, info):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._info = info
+        panel._inst = mock.Mock()
+        panel._player = mock.Mock()
+        panel._vol = 75
+        panel._muted = False
+        panel._timer = mock.Mock()
+        panel.lbl_estado = mock.Mock()
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._error_carga = mock.Mock()
+        panel._mostrar_pausa = mock.Mock()
+        return panel
+
+    def test_directo_usa_el_par_de_formatos_solicitados(self):
+        panel = self._panel({"is_live": True, "formats": [], "requested_formats": [
+            {"vcodec": "avc1", "acodec": "none", "url": "video-solicitado"},
+            {"vcodec": "none", "acodec": "mp4a", "url": "audio-solicitado"},
+        ]})
+        medio = mock.Mock()
+        panel._inst.media_new.return_value = medio
+
+        panel._reproducir_calidad(None, reproducir=False)
+
+        panel._inst.media_new.assert_called_once_with("video-solicitado")
+        medio.add_option.assert_any_call(":input-slave=audio-solicitado")
+        panel._error_carga.assert_not_called()
+
+    def test_directo_sin_fuentes_deja_diagnostico(self):
+        panel = self._panel({"is_live": True, "formats": [],
+                             "requested_formats": []})
+        with mock.patch.object(reproductor.logger, "warning") as warning:
+            panel._reproducir_calidad(None, reproducir=False)
+
+        warning.assert_called_once_with(
+            "reproducir directo sin fuentes: url_superior=%s formats=%d "
+            "requested_formats=%d is_live=%s", "no", 0, 0, True)
+        panel._error_carga.assert_called_once_with()
+
+
 class _YoutubeDL:
     def __init__(self, opciones):
         pass

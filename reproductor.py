@@ -252,6 +252,34 @@ def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:
     return "", False
 
 
+def fuentes_para_directo(info: dict) -> tuple[str, str]:
+    """(url de vídeo, url de audio esclavo). Audio vacío si no hace falta."""
+    url = info.get("url") or ""
+    if url:
+        return url, ""
+
+    url, progresivo = _video_para_altura(info, 10_000)
+    if url:
+        return url, "" if progresivo else _mejor_audio(info)
+
+    video = audio = ""
+    for formato in info.get("requested_formats", []) or []:
+        url = formato.get("url") or ""
+        if not url:
+            continue
+        tiene_video = formato.get("vcodec") not in (None, "none")
+        tiene_audio = formato.get("acodec") not in (None, "none")
+        if tiene_video:
+            video = url
+            if tiene_audio:
+                return video, ""
+        elif tiene_audio:
+            audio = url
+    if video:
+        return video, audio
+    return "", ""
+
+
 def _fmt_t(ms) -> str:
     """Compacto para la etiqueta visual: H:MM:SS, o M:SS si dura menos de 1 h."""
     s = max(0, int(ms or 0) // 1000)
@@ -886,10 +914,14 @@ class ReproductorPanel(wx.Panel):
         es_directo = self._info.get("is_live")
         if altura is None or es_directo:
             # Auto / directo: el formato combinado que elija yt-dlp.
-            url, slave = self._info.get("url") or "", None
+            url, slave = fuentes_para_directo(self._info)
             if not url:
-                url, prog = _video_para_altura(self._info, 10_000)
-                slave = None if prog else _mejor_audio(self._info)
+                logger.warning(
+                    "reproducir directo sin fuentes: url_superior=%s formats=%d "
+                    "requested_formats=%d is_live=%s",
+                    "sí" if self._info.get("url") else "no",
+                    len(self._info.get("formats", []) or []),
+                    len(self._info.get("requested_formats", []) or []), es_directo)
         else:
             url, prog = _video_para_altura(self._info, altura)
             slave = None if prog else _mejor_audio(self._info)
