@@ -96,6 +96,14 @@ class DiagnosticoTest(unittest.TestCase):
         self.assertIn("ENTORNO inicio", texto)
         self.assertIn("Lector de pantalla activo: NVDA", texto)
 
+    def test_placa_video_oculta_la_ventana_del_subproceso(self):
+        resultado = MagicMock(stdout="Placa", stderr="")
+        with patch.object(diagnostico.os, "name", "nt"), \
+                patch.object(diagnostico.subprocess, "CREATE_NO_WINDOW", 134217728), \
+                patch.object(diagnostico.subprocess, "run", return_value=resultado) as ejecutar:
+            diagnostico._placa_video()
+        self.assertEqual(ejecutar.call_args.kwargs["creationflags"], 134217728)
+
     def test_censo_incluye_hilo_actual(self):
         self.assertIn(threading.current_thread().name, diagnostico.censo_hilos())
         self.assertIn("vivos=", diagnostico.componer_censo_hilos())

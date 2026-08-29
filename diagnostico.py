@@ -204,7 +204,8 @@ def _placa_video() -> tuple[str | None, str | None]:
             ["powershell", "-NoProfile", "-Command",
              "(Get-CimInstance Win32_VideoController | "
              "Select-Object -ExpandProperty Name) -join ', '"],
-            capture_output=True, text=True, timeout=5, check=False)
+            capture_output=True, text=True, timeout=5, check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         nombre = resultado.stdout.strip()
         if nombre:
             return nombre, None
