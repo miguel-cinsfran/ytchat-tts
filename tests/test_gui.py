@@ -375,6 +375,25 @@ class TestRegistroEsAnunciable(unittest.TestCase):
 
         self.assertEqual(grabador.brailleado, ["urgente", "no urgente"])
 
+    def test_anunciar_registra_el_fallo_de_voz_sin_propagarse(self):
+        salida = mock.Mock()
+        salida.speak.side_effect = RuntimeError("COM no disponible")
+        with mock.patch.object(gui, "_ao2", salida), \
+                mock.patch.object(gui.logger, "warning") as registrar:
+            gui.anunciar("hola")
+
+        registrar.assert_called_once_with(
+            "No se pudo anunciar con voz: %s", mock.ANY)
+        self.assertEqual(str(registrar.call_args.args[1]), "COM no disponible")
+
+    def test_anunciar_no_registra_fallo_si_la_voz_responde(self):
+        grabador = GrabadorDeVoz()
+        with mock.patch.object(gui, "_ao2", grabador), \
+                mock.patch.object(gui.logger, "warning") as registrar:
+            gui.anunciar("hola")
+
+        registrar.assert_not_called()
+
     def test_aviso_de_espera_no_interrumpe(self):
         panel = mock.Mock()
         panel._cargando = True

@@ -132,8 +132,8 @@ def anunciar(texto: str, urgente: bool = True) -> None:
     try:
         # Casi todos responden a una tecla y deben llegar antes del próximo foco.
         _ao2.speak(texto, interrupt=urgente)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("No se pudo anunciar con voz: %s", exc)
     # También a la línea braille, como hace TWBlue (output.speak): quien usa
     # pantalla braille sin voz recibe igualmente los anuncios de la app.
     try:
@@ -640,7 +640,8 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: webbrowser.open(
             "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"),
             mi_guia)
-        self.Bind(wx.EVT_MENU, self._on_marcar_incidencia, mi_incidente)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(
+            self._on_marcar_incidencia, None), mi_incidente)
         self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._on_about, None), mi_about)
 
         self.SetMenuBar(mb)
