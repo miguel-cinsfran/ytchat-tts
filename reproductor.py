@@ -31,6 +31,7 @@ from busqueda_video import (
 import iconos
 import diagnostico
 import progreso
+from traza_transporte import traza_salto, traza_sin_barra, traza_transporte
 import ytdlp_bin
 from gui import anunciar, nombre_accesible, _T, _tc
 
@@ -534,6 +535,7 @@ class ReproductorPanel(wx.Panel):
         except Exception as exc:
             logger.warning("No se pudo crear el reproductor de VLC: %s", exc)
             return False
+        logger.debug("PLAYER_NUEVO")
         if _registro_detallado_activo():
             self._enganchar_eventos_vlc()
         return True
@@ -872,6 +874,8 @@ class ReproductorPanel(wx.Panel):
         if self._cargando:
             anunciar("Cargando vídeo")
             return
+        logger.debug("CARGA video=%s reproducir=%s", self._video_id,
+                     "si" if reproducir else "no")
         self._destino_pendiente = None
         self._intencion_reproducir = reproducir
         self._cargando = True
@@ -1039,6 +1043,17 @@ class ReproductorPanel(wx.Panel):
         accion = accion_play_pausa(
             estado, bool(self._video_id or self._url_flujo),
             self._intencion_reproducir)
+        try:
+            puede_pausar = bool(self._player.can_pause())
+        except Exception:
+            puede_pausar = None
+        try:
+            es_buscable = bool(self._player.is_seekable())
+        except Exception:
+            es_buscable = None
+        logger.debug("%s", traza_transporte(
+            estado, accion, bool(self._video_id or self._url_flujo),
+            self._intencion_reproducir, puede_pausar, es_buscable))
         if accion == "pausar":
             self._player.set_pause(1)
             self._intencion_reproducir = False
@@ -1128,11 +1143,15 @@ class ReproductorPanel(wx.Panel):
             return
         dur = self._player.get_length()
         if dur <= 0:
+            logger.debug("%s", traza_sin_barra("relativo", dur))
             self._aviso_sin_barra()
             return
         # El salto anterior puede seguir en vuelo: acumulamos sobre su destino.
         destino = destino_acumulado(
             self._destino_pendiente, self._player.get_time(), delta_ms, dur)
+        logger.debug("%s", traza_salto(
+            "relativo", self._destino_pendiente, self._player.get_time(),
+            delta_ms, destino, dur))
         self._player.set_time(destino)
         self._destino_pendiente = destino
         self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
@@ -1208,9 +1227,13 @@ class ReproductorPanel(wx.Panel):
             return
         dur = self._player.get_length()
         if dur <= 0:
+            logger.debug("%s", traza_sin_barra("deslizador", dur))
             return
         destino = destino_acumulado(
             None, 0, int(self.sld_pos.GetValue() / 1000.0 * dur), dur)
+        logger.debug("%s", traza_salto(
+            "deslizador", self._destino_pendiente, 0,
+            int(self.sld_pos.GetValue() / 1000.0 * dur), destino, dur))
         self._player.set_time(destino)
         self._destino_pendiente = destino
         self._fijar_tiempo(destino, dur, mover_slider=False, anunciar_t=False)
@@ -1236,9 +1259,13 @@ class ReproductorPanel(wx.Panel):
             return
         dur = self._player.get_length()
         if dur <= 0:
+            logger.debug("%s", traza_sin_barra("porcentaje", dur))
             self._aviso_sin_barra()
             return
         destino = destino_acumulado(None, 0, int(dur * pct / 100), dur)
+        logger.debug("%s", traza_salto(
+            "porcentaje", self._destino_pendiente, 0,
+            int(dur * pct / 100), destino, dur))
         self._player.set_time(destino)
         self._destino_pendiente = destino
         self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
