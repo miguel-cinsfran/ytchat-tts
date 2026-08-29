@@ -162,7 +162,7 @@ def debe_actualizar_texto_progreso(anterior: int | None, actual: int | None) -> 
 
 
 def sondear_cancelacion(terminado, dialogo, cancelado, reprogramar) -> bool:
-    """Un tic del sondeo del dialogo de descarga. Devuelve si se reprogramo."""
+    """Un tic del sondeo del dialogo de descarga. Devuelve si se reprogramó."""
     if terminado.is_set():
         return False
     if dialogo.WasCancelled():
