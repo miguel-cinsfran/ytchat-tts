@@ -93,6 +93,27 @@ class TestGruposGestorDescargas(unittest.TestCase):
         finally:
             dialogo.Destroy()
 
+    def test_columnas_de_la_cola_ponen_el_progreso_primero(self):
+        dialogo = gui_descargas.GestorDescargasDialog(None)
+        try:
+            self.assertEqual(
+                [dialogo.lista.GetColumn(indice).GetText()
+                 for indice in range(dialogo.lista.GetColumnCount())],
+                ["Progreso", "Estado", "Nombre"])
+        finally:
+            dialogo.Destroy()
+
+    def test_actualizar_progreso_guarda_cada_dato_en_su_columna(self):
+        dialogo = gui_descargas.GestorDescargasDialog(None)
+        try:
+            dialogo.lista.InsertItem(0, "0 %")
+            dialogo._items_fila["item"] = 0
+            dialogo._actualizar_progreso("item", 42, "archivo.mp4")
+            self.assertEqual(dialogo.lista.GetItemText(0, 0), "42 %")
+            self.assertEqual(dialogo.lista.GetItemText(0, 2), "archivo.mp4")
+        finally:
+            dialogo.Destroy()
+
     def test_progreso_rezagado_despues_de_cerrar_no_lanza(self):
         dialogo = gui_descargas.GestorDescargasDialog(None)
         dialogo.lista.InsertItem(0, "archivo.mp4")

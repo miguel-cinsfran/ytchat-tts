@@ -199,9 +199,9 @@ class GestorDescargasDialog(wx.Dialog):
         self.lista = wx.ListCtrl(cola, style=wx.LC_REPORT | wx.LC_SINGLE_SEL,
                                  name="ColaDescargas")
         nombre_accesible(self.lista, "Cola de descargas", msaa=False)
-        self.lista.InsertColumn(0, "Nombre", width=320)
-        self.lista.InsertColumn(1, "Progreso", width=100)
-        self.lista.InsertColumn(2, "Estado", width=160)
+        self.lista.InsertColumn(0, "Progreso", width=100)
+        self.lista.InsertColumn(1, "Estado", width=160)
+        self.lista.InsertColumn(2, "Nombre", width=320)
         vs_cola.Add(self.lista, 1, wx.EXPAND | wx.ALL, 6)
 
         fila = wx.BoxSizer(wx.HORIZONTAL)
@@ -287,9 +287,9 @@ class GestorDescargasDialog(wx.Dialog):
 
         # Inserción optimista en la cola (estado «en_cola»), luego el hilo
         # actualiza estado/progreso vía CallAfter.
-        idx = self.lista.InsertItem(self.lista.GetItemCount(), url[:300])
-        self.lista.SetItem(idx, 1, "0 %")
-        self.lista.SetItem(idx, 2, "en cola")
+        idx = self.lista.InsertItem(self.lista.GetItemCount(), "0 %")
+        self.lista.SetItem(idx, 1, "en cola")
+        self.lista.SetItem(idx, 2, url[:300])
 
         def _cb_progreso(item_id, pct, _vel, _eta, nombre):
             wx.CallAfter(self._actualizar_progreso, item_id, pct, nombre)
@@ -310,13 +310,13 @@ class GestorDescargasDialog(wx.Dialog):
 
     def _repoblar_lista(self) -> None:
         for item in self._gestor.lista():
-            idx = self.lista.InsertItem(self.lista.GetItemCount(), item.nombre[:300])
-            self.lista.SetItem(idx, 1, f"{item.progreso:.0f} %")
+            idx = self.lista.InsertItem(self.lista.GetItemCount(), f"{item.progreso:.0f} %")
+            self.lista.SetItem(idx, 2, item.nombre[:300])
             if item.mensaje and item.estado in ("error", "cancelado"):
                 estado = f"{item.estado}: {item.mensaje[:80]}"
             else:
                 estado = item.estado
-            self.lista.SetItem(idx, 2, estado[:200])
+            self.lista.SetItem(idx, 1, estado[:200])
             self._items_fila[item.id] = idx
             self._fila_items[idx] = item.id
 
@@ -397,8 +397,8 @@ class GestorDescargasDialog(wx.Dialog):
             return
         texto = f"{pct:.0f} %"
         if nombre:
-            self.lista.SetItem(idx, 0, nombre[:300])
-        self.lista.SetItem(idx, 1, texto)
+            self.lista.SetItem(idx, 2, nombre[:300])
+        self.lista.SetItem(idx, 0, texto)
 
     def _actualizar_estado(self, item_id: str, estado: str, mensaje: str) -> None:
         # _alive cubre el cierre ordenado, pero wx invalida controles al destruirlos.
@@ -411,7 +411,7 @@ class GestorDescargasDialog(wx.Dialog):
             texto = f"{estado}: {mensaje[:80]}"
         else:
             texto = estado
-        self.lista.SetItem(idx, 2, texto[:200])
+        self.lista.SetItem(idx, 1, texto[:200])
         if estado in ("completado", "cancelado", "error"):
             self._registrar_historial(item_id, estado)
         if estado == "descargando":
