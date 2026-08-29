@@ -1272,6 +1272,18 @@ class TestCierreVentana(unittest.TestCase):
         anunciar.assert_called_once_with(
             "No se pudo activar el panel, el puerto 8730 está ocupado")
 
+    def test_el_puerto_ocupado_no_guarda_el_cambio_de_esta_sesion(self):
+        frame = self._frame()
+        frame._config = {"overlay_puerto": 8730, "overlay_activo": True}
+        with mock.patch.object(gui.overlay_servidor, "encender",
+                               side_effect=gui.overlay_servidor.OverlayPuertoOcupadoError()), \
+                mock.patch.object(gui, "anunciar"), \
+                mock.patch.object(gui, "guardar_opcion") as guardar:
+            frame._cambiar_overlay(True)
+
+        self.assertFalse(frame._config["overlay_activo"])
+        guardar.assert_not_called()
+
     def test_cerrar_apaga_el_overlay(self):
         frame = self._frame()
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
