@@ -957,6 +957,75 @@ class TestProgramadorGui(unittest.TestCase):
         self.assertEqual(snapshot.programados_proximo, "")
 
 
+class TestDescartesGui(unittest.TestCase):
+    def _frame(self, descartados=3):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._alive = True
+        frame._config = {"umbral_solo_nombre": 0}
+        frame._stats = mock.Mock(descartados=descartados)
+        frame._descartes_avisado = False
+        frame._actualizar_sb = mock.Mock()
+        frame._procesar_programado = mock.Mock()
+        return frame
+
+    def test_el_timer_anuncia_los_descartes_una_sola_vez(self):
+        frame = self._frame()
+        with mock.patch.object(gui, "anunciar") as anunciar:
+            frame._on_timer(None)
+            frame._on_timer(None)
+        anunciar.assert_called_once_with(gui.descartes.frase_aviso(0))
+        self.assertTrue(frame._descartes_avisado)
+
+    def test_el_snapshot_lleva_los_descartes_al_estado(self):
+        frame = self._frame(descartados=7)
+        frame.__dict__.update(
+            _conectado=False, _es_tiktok=False,
+            _tipo_video=gui.deteccion.DESCONOCIDO, _titulo_stream="",
+            _metadatos={}, _sc_totales={}, _mensajes_programados=[],
+            _obs_vigilante=None, _cola=mock.Mock(), _worker=mock.Mock())
+        snapshot = frame._snapshot_sesion()
+        self.assertEqual(snapshot.descartados, "Mensajes descartados: 7")
+
+    def test_al_reconectar_puede_avisar_otra_vez(self):
+        frame = self._frame()
+        frame._conectado = True
+        frame._live_chat_id = ""
+        frame._causa_sin_chat = ""
+        frame._canal_por_autor = {}
+        frame._tipo_video = gui.deteccion.DESCONOCIDO
+        frame._es_tiktok = False
+        frame._descartar_pendientes = mock.Mock()
+        frame._chat = mock.Mock()
+        frame.lb_chat = mock.Mock()
+        frame._sc_totales = {}
+        frame._metadatos = {}
+        frame.txt_info = mock.Mock()
+        frame._rep_panel = mock.Mock()
+        frame._com_panel = mock.Mock()
+        frame._worker = mock.Mock()
+        frame._mostrar_zona = mock.Mock()
+        frame._anunciar_conectado = mock.Mock()
+        frame.set_titulo_stream = mock.Mock()
+        frame.lbl_tipo = mock.Mock()
+        frame.txt_url = mock.Mock()
+        frame._set_conectado_ui = mock.Mock()
+        frame._actualizar_estado_online = mock.Mock()
+        frame._stats.reset.side_effect = lambda: setattr(frame._stats, "descartados", 0)
+
+        with mock.patch.object(gui, "anunciar") as anunciar, \
+                mock.patch.object(gui.wx, "CallAfter"), \
+                mock.patch.object(gui._snd, "reproducir"):
+            frame._on_timer(None)
+            frame.set_conectado(False)
+            self.assertFalse(frame._descartes_avisado)
+            frame._stats.descartados = 3
+            frame.set_conectado(True)
+            frame._on_timer(None)
+
+        avisos = [llamada.args[0] for llamada in anunciar.call_args_list]
+        self.assertEqual(avisos.count(gui.descartes.frase_aviso(0)), 2)
+
+
 class TestEstadoObsEnF2(unittest.TestCase):
     def _frame(self, toggles, vigilante=None):
         frame = gui.YTChatFrame.__new__(gui.YTChatFrame)

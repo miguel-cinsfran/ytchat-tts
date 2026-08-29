@@ -40,6 +40,7 @@ import ytdlp_bin
 import apagado
 import overlay_servidor
 import programados
+import descartes
 import redaccion
 import alias
 import obs_audio
@@ -416,6 +417,7 @@ class YTChatFrame(wx.Frame):
         self._titulo_stream = ""
         self._tipo_video = deteccion.DESCONOCIDO
         self._es_tiktok = False   # para que F2 distinga TikTok de YouTube (ambos LIVE)
+        self._descartes_avisado = False
 
         self._chat = ListaChat(MAX_ITEMS_CHAT)
         self._filtro = None
@@ -1333,6 +1335,8 @@ class YTChatFrame(wx.Frame):
             programados_proximo=(
                 programados.describir_proximo(self._mensajes_programados, time.time())
                 if self._config.get("programados_activo", False) else ""),
+            descartados=descartes.frase_estado(
+                _seguro(lambda: self._stats.descartados, 0)),
             obs_transmision=(obs_estado.frase_transmision(
                 transmision["outputActive"], transmision["outputDuration"],
                 transmision["outputSkippedFrames"], transmision["outputTotalFrames"])
@@ -1760,6 +1764,15 @@ class YTChatFrame(wx.Frame):
             except Exception: pass
             try:    self._procesar_programado()
             except Exception: pass
+            try:    self._avisar_descartes()
+            except Exception: pass
+
+    def _avisar_descartes(self) -> None:
+        if descartes.hay_que_avisar(self._stats.descartados,
+                                    self._descartes_avisado):
+            anunciar(descartes.frase_aviso(
+                self._config.get("umbral_solo_nombre", 0)))
+            self._descartes_avisado = True
 
     def _on_diagnostico_timer(self, event):
         if not self._alive:
@@ -1909,6 +1922,7 @@ class YTChatFrame(wx.Frame):
         self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
         self._es_tiktok = False
+        self._descartes_avisado = False
         # Chat: datos, lista visible y lo que aún estaba en cola sin volcar (es
         # de la sesión que se cierra; no debe colarse en la siguiente).
         self._descartar_pendientes()
