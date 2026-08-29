@@ -266,6 +266,17 @@ def registrar_cierre_fallos(momento: datetime | None = None) -> None:
         logger.warning("No se pudo registrar el cierre de fallos: %s", exc)
 
 
+def registrar_texto_fallos(texto: str) -> None:
+    """Escribe texto en el archivo de fallos si está disponible."""
+    if _ARCHIVO_FALLOS is None:
+        return
+    try:
+        _ARCHIVO_FALLOS.write(texto + "\n")
+        _ARCHIVO_FALLOS.flush()
+    except Exception as exc:
+        logger.warning("No se pudo registrar texto en fallos: %s", exc)
+
+
 def registrar_entorno(version: str) -> None:
     """Escribe una sola vez el entorno disponible durante el arranque."""
     gpu, motivo_gpu = _placa_video()
@@ -285,6 +296,13 @@ def registrar_entorno(version: str) -> None:
         texto = texto.replace("Versión de yt-dlp: no se pudo obtener",
                               f"Versión de yt-dlp: no se pudo obtener ({motivo_ytdlp})")
     obtener_logger(__name__).info("%s", texto)
+    registrar_texto_fallos(texto)
+
+
+def registrar_entorno_en_hilo(version: str) -> None:
+    """Inicia el registro del entorno sin detener el arranque."""
+    hilo = crear_hilo(registrar_entorno, "Entorno", args=(version,))
+    hilo.start()
 
 
 def componer_volcado_entorno(version: str, *, vlc_version=None,

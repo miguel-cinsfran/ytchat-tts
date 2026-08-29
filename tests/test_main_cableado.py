@@ -27,7 +27,7 @@ class PruebasCableadoMain(unittest.TestCase):
         with patch.object(main, "_verificar_instancia_unica", return_value=False), \
                 patch.object(main, "configurar_logging"), \
                 patch.object(main.diagnostico, "instalar_capturadores"), \
-                patch.object(main.diagnostico, "registrar_entorno"), \
+                patch.object(main.diagnostico, "registrar_entorno_en_hilo"), \
                 patch.dict(sys.modules, {"ctypes": ctypes_falso}), \
                 patch.object(sys, "exit", side_effect=SystemExit(0)):
             with self.assertRaises(SystemExit):

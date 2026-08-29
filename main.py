@@ -619,7 +619,7 @@ def main():
     configurar_logging()
     diagnostico.instalar_capturadores(
         app_dir() / "ytchat-fallos.log", version=APP_VERSION)
-    diagnostico.registrar_entorno(APP_VERSION)
+    diagnostico.registrar_entorno_en_hilo(APP_VERSION)
 
     if not _verificar_instancia_unica():
         # Ya hay una instancia abierta. Intentamos informar al usuario.
