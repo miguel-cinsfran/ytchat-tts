@@ -12,6 +12,7 @@ from typing import NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import diagnostico
 from esclavo_audio import TAMANIO_MINIMO
 
 
@@ -23,7 +24,11 @@ NOMBRE_BINARIO = "yt-dlp.exe"
 NOMBRE_FIRMAS = "SHA2-256SUMS"
 SUBDIRECTORIO_DATOS = "YTChat TTS"
 TIEMPO_ESPERA = 30
-logger = logging.getLogger(__name__)
+# diagnostico importa este módulo para consultar la versión de yt-dlp.
+if hasattr(diagnostico, "obtener_logger"):
+    logger = diagnostico.obtener_logger(__name__)
+else:
+    logger = logging.getLogger(f"ytchat.{__name__}")
 
 
 class ResultadoDescarga(NamedTuple):

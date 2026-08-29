@@ -61,6 +61,17 @@ class PruebasEsclavoReproductor(unittest.TestCase):
         medio = self._reproducir(self._panel(), self._info_con_esclavo())
         medio.add_option.assert_any_call(":input-slave=https://audio")
 
+    def test_directo_usa_audio_de_red_aun_con_cache_utilizable(self):
+        panel = self._panel()
+        panel._audio_local = self.carpeta / "audio.webm"
+        panel._audio_local.write_bytes(b"x" * 65536)
+        info = self._info_con_esclavo()
+        info["is_live"] = True
+        medio = self._reproducir(panel, info)
+        medio.add_option.assert_any_call(":input-slave=https://audio")
+        self.assertFalse(any(f":input-slave={panel._audio_local}" in llamada.args[0]
+                             for llamada in medio.add_option.call_args_list))
+
     def test_formato_progresivo_no_agrega_esclavo(self):
         info = {"is_live": False, "formats": [
             {"url": "https://progresivo", "height": 1080,

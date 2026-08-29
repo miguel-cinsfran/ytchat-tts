@@ -965,7 +965,8 @@ class ReproductorPanel(wx.Panel):
             for opt in opciones_medio(es_directo):
                 media.add_option(opt)
             if slave:
-                slave = esclavo_audio.esclavo_a_usar(self._audio_local, slave)
+                if not es_directo:
+                    slave = esclavo_audio.esclavo_a_usar(self._audio_local, slave)
                 media.add_option(f":input-slave={slave}")
             self._player.set_media(media)
             self._marca_url = time.monotonic()
