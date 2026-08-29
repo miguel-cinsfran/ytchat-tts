@@ -485,7 +485,7 @@ class YTChatFrame(wx.Frame):
         mb.Append(m, "&Archivo")
         self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._conectar_si_procede), self.mi_conectar)
         self.Bind(wx.EVT_MENU, lambda e: self._desconectar_si_procede(), self.mi_desconectar)
-        self.Bind(wx.EVT_MENU, lambda e: self._on_historial(), mi_historial)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._on_historial), mi_historial)
         self.Bind(wx.EVT_MENU, lambda e: self.Close(), mi_salir)
 
         # Ver
@@ -595,7 +595,8 @@ class YTChatFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_detener"), mi_rep_stop)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("_toggle_mute"), mi_rep_mute)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("alternar_pantalla_completa"), mi_rep_fs)
-        self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(
+            self._abrir_descargas,
             url=self._rep_panel.get_url_para_descarga() if self._rep_panel else None),
             self.mi_descargar_este)
         self.Bind(wx.EVT_MENU, lambda e: self._rep_accion("ajustar_volumen", -20), mi_rep_volm)
@@ -608,7 +609,9 @@ class YTChatFrame(wx.Frame):
         self.mi_obs_micro = m.Append(
             wx.ID_ANY, "Silenciar el &micrófono de OBS" + self._accel("obs_micro"))
         mb.Append(m, "&Transmisión")
-        self.Bind(wx.EVT_MENU, self._on_transmision, self.mi_transmision)
+        self.Bind(wx.EVT_MENU,
+                  lambda e: wx.CallAfter(self._on_transmision, None),
+                  self.mi_transmision)
         self.Bind(wx.EVT_MENU, self._on_obs_micro, self.mi_obs_micro)
 
         # Herramientas
@@ -622,10 +625,10 @@ class YTChatFrame(wx.Frame):
         mi_pref = m.Append(
             wx.ID_ANY, "&Preferencias…" + self._accel("abrir_preferencias"))
         mb.Append(m, "&Herramientas")
-        self.Bind(wx.EVT_MENU, lambda e: self._abrir_descargas(), self.mi_descargas)
-        self.Bind(wx.EVT_MENU, self._on_actualizar_ytdlp,
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._abrir_descargas), self.mi_descargas)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._on_actualizar_ytdlp, None),
                   self.mi_actualizar_ytdlp)
-        self.Bind(wx.EVT_MENU, self._on_preferencias, mi_pref)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._on_preferencias, None), mi_pref)
 
         # Ayuda
         m = wx.Menu()
@@ -638,7 +641,7 @@ class YTChatFrame(wx.Frame):
             "https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/CONFIGURACION_API.md"),
             mi_guia)
         self.Bind(wx.EVT_MENU, self._on_marcar_incidencia, mi_incidente)
-        self.Bind(wx.EVT_MENU, self._on_about, mi_about)
+        self.Bind(wx.EVT_MENU, lambda e: wx.CallAfter(self._on_about, None), mi_about)
 
         self.SetMenuBar(mb)
 

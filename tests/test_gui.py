@@ -20,6 +20,39 @@ import ytdlp_bin
 
 
 class TestInicioGui(unittest.TestCase):
+
+    def _menu_frame(self):
+        frame = mock.Mock()
+        frame._accel.return_value = ""
+        elementos = []
+
+        def crear_menu():
+            menu = mock.MagicMock()
+
+            def agregar(*args):
+                elemento = mock.Mock()
+                elementos.append((args[-1], elemento))
+                return elemento
+
+            menu.Append.side_effect = agregar
+            menu.AppendRadioItem.side_effect = lambda *args: mock.Mock()
+            menu.AppendCheckItem.side_effect = lambda *args: mock.Mock()
+            return menu
+
+        with mock.patch.object(gui.wx, "Menu", side_effect=crear_menu), \
+                mock.patch.object(gui.wx, "MenuBar"):
+            gui.YTChatFrame._build_menubar(frame)
+        frame._elementos_menu = elementos
+        return frame
+
+    def _handler_menu(self, frame, elemento):
+        return next(llamada.args[1] for llamada in frame.Bind.call_args_list
+                    if llamada.args[2] is elemento)
+
+    def _elemento_menu(self, frame, texto):
+        return next(elemento for etiqueta, elemento in frame._elementos_menu
+                    if texto in etiqueta)
+
     def test_muestra_trae_al_frente_y_enfoca_la_url_en_ese_orden(self):
         orden = []
         aplicacion = mock.Mock()
@@ -84,27 +117,74 @@ class TestInicioGui(unittest.TestCase):
         ventana._on_close.assert_called_once_with(evento)
 
     def test_menu_conectar_difiere_la_conexion(self):
-        frame = mock.Mock()
-        frame._accel.return_value = ""
-
-        def crear_menu():
-            menu = mock.MagicMock()
-            menu.Append.side_effect = lambda *args: mock.Mock()
-            menu.AppendRadioItem.side_effect = lambda *args: mock.Mock()
-            menu.AppendCheckItem.side_effect = lambda *args: mock.Mock()
-            return menu
-
-        with mock.patch.object(gui.wx, "Menu", side_effect=crear_menu), \
-                mock.patch.object(gui.wx, "MenuBar"):
-            gui.YTChatFrame._build_menubar(frame)
-
-        conexion = next(llamada.args[1] for llamada in frame.Bind.call_args_list
-                         if llamada.args[2] is frame.mi_conectar)
+        frame = self._menu_frame()
+        conexion = self._handler_menu(frame, frame.mi_conectar)
         with mock.patch.object(gui.wx, "CallAfter") as diferir:
             conexion(mock.Mock())
 
         diferir.assert_called_once_with(frame._conectar_si_procede)
         frame._conectar_si_procede.assert_not_called()
+
+    def test_menu_historial_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        historial = self._handler_menu(
+            frame, self._elemento_menu(frame, "Historial de directos"))
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            historial(mock.Mock())
+        diferir.assert_called_once_with(frame._on_historial)
+        frame._on_historial.assert_not_called()
+
+    def test_menu_descargar_este_video_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        url = "https://www.youtube.com/watch?v=prueba"
+        frame._rep_panel.get_url_para_descarga.return_value = url
+        descargar = self._handler_menu(frame, frame.mi_descargar_este)
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            descargar(mock.Mock())
+        diferir.assert_called_once_with(frame._abrir_descargas, url=url)
+        frame._abrir_descargas.assert_not_called()
+
+    def test_menu_transmision_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        transmision = self._handler_menu(frame, frame.mi_transmision)
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            transmision(mock.Mock())
+        diferir.assert_called_once_with(frame._on_transmision, None)
+        frame._on_transmision.assert_not_called()
+
+    def test_menu_descargas_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        descargas = self._handler_menu(frame, frame.mi_descargas)
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            descargas(mock.Mock())
+        diferir.assert_called_once_with(frame._abrir_descargas)
+        frame._abrir_descargas.assert_not_called()
+
+    def test_menu_actualizar_ytdlp_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        actualizar = self._handler_menu(frame, frame.mi_actualizar_ytdlp)
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            actualizar(mock.Mock())
+        diferir.assert_called_once_with(frame._on_actualizar_ytdlp, None)
+        frame._on_actualizar_ytdlp.assert_not_called()
+
+    def test_menu_preferencias_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        preferencias = self._handler_menu(
+            frame, self._elemento_menu(frame, "Preferencias"))
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            preferencias(mock.Mock())
+        diferir.assert_called_once_with(frame._on_preferencias, None)
+        frame._on_preferencias.assert_not_called()
+
+    def test_menu_acerca_de_difiere_la_apertura(self):
+        frame = self._menu_frame()
+        acerca_de = self._handler_menu(
+            frame, self._elemento_menu(frame, "Acerca de"))
+        with mock.patch.object(gui.wx, "CallAfter") as diferir:
+            acerca_de(mock.Mock())
+        diferir.assert_called_once_with(frame._on_about, None)
+        frame._on_about.assert_not_called()
 
     def test_contador_accesible_selecciona_todo_al_recibir_el_foco(self):
         contador = mock.Mock()
