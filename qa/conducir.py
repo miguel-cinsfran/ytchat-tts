@@ -1379,10 +1379,10 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
                    "Posición del panel", "Ancho del panel", "Alto del panel",
                    "Aplicar tamaño", "Mostrar el panel", "Fijar el panel",
                    "Poner al frente", "Ajuste fino", "captura", "lienzo",
-                   "Restablecer", "Transmitir", "Grabar", "Pausar la grabacion",
+                   "Restablecer", "Transmitir", "Grabar", "Pausar la grabación",
                    "Cerrar"),
         esperados_en_tab=("Preparar el panel", "Fuente", "Escena", "Poner al aire", "Posición del panel",
-                          "Restablecer", "Transmitir", "Grabar", "Pausar la grabacion"))
+                          "Restablecer", "Transmitir", "Grabar", "Pausar la grabación"))
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):
