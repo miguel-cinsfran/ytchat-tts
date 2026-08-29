@@ -1381,8 +1381,9 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
                    "Poner al frente", "Ajuste fino", "captura", "lienzo",
                    "Restablecer", "Transmitir", "Grabar", "Pausar la grabación",
                    "Cerrar"),
+        # Arranca deshabilitado sin grabación y wx lo saca del orden de Tab.
         esperados_en_tab=("Preparar el panel", "Fuente", "Escena", "Poner al aire", "Posición del panel",
-                          "Restablecer", "Transmitir", "Grabar", "Pausar la grabación"))
+                          "Restablecer", "Transmitir", "Grabar"))
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):
