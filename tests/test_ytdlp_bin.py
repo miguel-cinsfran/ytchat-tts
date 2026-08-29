@@ -1,6 +1,7 @@
 import hashlib
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 import sys
@@ -28,6 +29,42 @@ class PruebasYtdlpBin(unittest.TestCase):
         self.assertFalse(ytdlp_bin.debe_actualizar_texto_progreso(0, 9))
         self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(0, 10))
         self.assertTrue(ytdlp_bin.debe_actualizar_texto_progreso(90, 100))
+
+    def test_sondeo_terminado_no_reprograma(self):
+        terminado = threading.Event()
+        terminado.set()
+        dialogo = MagicMock()
+        cancelado = threading.Event()
+        reprogramar = MagicMock()
+
+        self.assertFalse(ytdlp_bin.sondear_cancelacion(
+            terminado, dialogo, cancelado, reprogramar))
+        dialogo.WasCancelled.assert_not_called()
+        reprogramar.assert_not_called()
+
+    def test_sondeo_activo_reprograma_sin_cancelar(self):
+        terminado = threading.Event()
+        dialogo = MagicMock()
+        dialogo.WasCancelled.return_value = False
+        cancelado = threading.Event()
+        reprogramar = MagicMock()
+
+        self.assertTrue(ytdlp_bin.sondear_cancelacion(
+            terminado, dialogo, cancelado, reprogramar))
+        self.assertFalse(cancelado.is_set())
+        reprogramar.assert_called_once_with()
+
+    def test_sondeo_cancelado_marca_y_reprograma(self):
+        terminado = threading.Event()
+        dialogo = MagicMock()
+        dialogo.WasCancelled.return_value = True
+        cancelado = threading.Event()
+        reprogramar = MagicMock()
+
+        self.assertTrue(ytdlp_bin.sondear_cancelacion(
+            terminado, dialogo, cancelado, reprogramar))
+        self.assertTrue(cancelado.is_set())
+        reprogramar.assert_called_once_with()
 
     def test_descarga_usa_content_length_y_avisos_de_progreso(self):
         contenido = b"0123456789"

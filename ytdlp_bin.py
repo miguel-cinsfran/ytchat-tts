@@ -161,6 +161,16 @@ def debe_actualizar_texto_progreso(anterior: int | None, actual: int | None) -> 
     return anterior is None or actual >= anterior + 10 or actual == 100
 
 
+def sondear_cancelacion(terminado, dialogo, cancelado, reprogramar) -> bool:
+    """Un tic del sondeo del dialogo de descarga. Devuelve si se reprogramo."""
+    if terminado.is_set():
+        return False
+    if dialogo.WasCancelled():
+        cancelado.set()
+    reprogramar()
+    return True
+
+
 def _descargar_archivo(url: str, destino: Path, aviso=None, cancelar=None) -> None:
     solicitud = Request(url, headers={"User-Agent": USER_AGENT})
     with urlopen(solicitud, timeout=TIEMPO_ESPERA) as respuesta:
