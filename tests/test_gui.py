@@ -626,7 +626,7 @@ class TestCategoriasDePreferencias(unittest.TestCase):
             ["Voz", "Lectura", "Cola de lectura", "Interfaz y sonidos",
              "Reproductor", "Conexion", "Filtros",
              "Estado (F2)", "Atajos", "API y sesión", "Mensajes automáticos",
-             "Transmision", "Diagnostico"])
+             "Transmisión", "Diagnóstico"])
 
     def test_abre_con_el_foco_en_la_lista_de_categorias(self):
         dialogo = self._dialogo()

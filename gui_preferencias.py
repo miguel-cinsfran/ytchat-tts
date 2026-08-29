@@ -136,8 +136,8 @@ class PreferenciasDialog(wx.Dialog):
         self.nb.AddPage(self._pag_atajos(self.nb), "Atajos")
         self.nb.AddPage(self._pag_api(self.nb), "API y sesión")
         self.nb.AddPage(self._pag_programados(self.nb), "Mensajes automáticos")
-        self.nb.AddPage(self._pag_transmision(self.nb), "Transmision")
-        self.nb.AddPage(self._pag_diagnostico(self.nb), "Diagnostico")
+        self.nb.AddPage(self._pag_transmision(self.nb), "Transmisión")
+        self.nb.AddPage(self._pag_diagnostico(self.nb), "Diagnóstico")
         vs.Add(self.nb, 1, wx.EXPAND | wx.ALL, 10)
 
         row = wx.BoxSizer(wx.HORIZONTAL)
