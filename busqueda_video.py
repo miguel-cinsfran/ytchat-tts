@@ -3,8 +3,6 @@
 TOLERANCIA_DESTINO_MS = 1500
 TOLERANCIA_ATRAS_MS = 2000
 CADUCIDAD_DESTINO_MS = 5000
-# Pasada esta ventana, el estado real recupera el mando ante un desajuste.
-VENTANA_ORDEN_MS = 3000
 
 
 def destino_acumulado(destino_pendiente, posicion_actual, delta_ms,
@@ -43,15 +41,21 @@ def destino_vigente(destino_pendiente, edad_ms, tope_ms):
     return destino_pendiente
 
 
+def transporte_confirmado(estado, intencion_reproducir) -> bool:
+    """Indica si el estado observado ya confirma la intención pendiente."""
+    if intencion_reproducir:
+        return estado == "playing"
+    return estado == "paused"
+
+
 def accion_play_pausa(estado, hay_medio, intencion_reproducir,
-                      orden_reciente=False) -> str:
+                       orden_pendiente=False) -> str:
     """Decide el transporte sin depender de enums ni estados transitorios."""
     if not hay_medio:
         return "cargar"
     if estado in {"ended", "stopped", "error", "nothingspecial"}:
         return "cargar"
-    if orden_reciente and ((estado == "playing" and not intencion_reproducir)
-                           or (estado == "paused" and intencion_reproducir)):
+    if orden_pendiente and not transporte_confirmado(estado, intencion_reproducir):
         return "en_curso"
     if estado == "playing":
         return "pausar"

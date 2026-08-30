@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from busqueda_video import (
     CADUCIDAD_DESTINO_MS, TOLERANCIA_ATRAS_MS, TOLERANCIA_DESTINO_MS,
     accion_play_pausa, destino_acumulado, destino_alcanzado, destino_vigente,
-    posicion_a_mostrar, posicion_confiable,
+    posicion_a_mostrar, posicion_confiable, transporte_confirmado,
 )
 
 
@@ -108,10 +108,10 @@ class TestAccionPlayPausa(unittest.TestCase):
                 self.assertEqual(accion_play_pausa(estado, True, True), "pausar")
                 self.assertEqual(accion_play_pausa(estado, True, False), "reanudar")
 
-    def test_orden_reciente_contraria_en_reproduccion(self):
+    def test_orden_pendiente_contraria_en_reproduccion(self):
         self.assertEqual(accion_play_pausa("playing", True, False, True), "en_curso")
 
-    def test_orden_reciente_contraria_en_pausa(self):
+    def test_orden_pendiente_contraria_en_pausa(self):
         self.assertEqual(accion_play_pausa("paused", True, True, True), "en_curso")
 
     def test_orden_vencida_devuelve_el_estado_real(self):
@@ -125,6 +125,56 @@ class TestAccionPlayPausa(unittest.TestCase):
                     with self.subTest(estado=estado, intencion=intencion, reciente=reciente):
                         self.assertIn(accion_play_pausa(estado, True, intencion, reciente),
                                       {"cargar", "pausar", "reanudar", "en_curso"})
+
+
+class TestTransporteConfirmado(unittest.TestCase):
+
+    def test_pausa_solo_paused_confirma(self):
+        self.assertTrue(transporte_confirmado("paused", False))
+        self.assertFalse(transporte_confirmado("playing", False))
+        self.assertFalse(transporte_confirmado("opening", False))
+        self.assertFalse(transporte_confirmado("buffering", False))
+        for estado in ("ended", "stopped", "error", "nothingspecial", "otro"):
+            with self.subTest(estado=estado):
+                self.assertFalse(transporte_confirmado(estado, False))
+
+    def test_reanudacion_solo_playing_confirma(self):
+        self.assertTrue(transporte_confirmado("playing", True))
+        self.assertFalse(transporte_confirmado("paused", True))
+        self.assertFalse(transporte_confirmado("opening", True))
+        self.assertFalse(transporte_confirmado("buffering", True))
+        for estado in ("ended", "stopped", "error", "nothingspecial", "otro"):
+            with self.subTest(estado=estado):
+                self.assertFalse(transporte_confirmado(estado, True))
+
+
+class TestAccionConPendiente(unittest.TestCase):
+
+    def test_pendiente_pausa_con_playing_da_en_curso(self):
+        self.assertEqual(accion_play_pausa("playing", True, False, True), "en_curso")
+
+    def test_pendiente_reanudar_con_paused_da_en_curso(self):
+        self.assertEqual(accion_play_pausa("paused", True, True, True), "en_curso")
+
+    def test_transitorio_con_pendiente_da_en_curso(self):
+        for estado in ("opening", "buffering", "otro"):
+            with self.subTest(estado=estado):
+                self.assertEqual(accion_play_pausa(estado, True, True, True), "en_curso")
+                self.assertEqual(accion_play_pausa(estado, True, False, True), "en_curso")
+
+    def test_pendiente_no_bloquea_estados_finales(self):
+        for estado in ("ended", "stopped", "error", "nothingspecial"):
+            with self.subTest(estado=estado):
+                self.assertEqual(accion_play_pausa(estado, True, False, True), "cargar")
+                self.assertEqual(accion_play_pausa(estado, True, True, True), "cargar")
+
+    def test_pendiente_confirmado_no_bloquea(self):
+        self.assertEqual(accion_play_pausa("paused", True, False, True), "reanudar")
+        self.assertEqual(accion_play_pausa("playing", True, True, True), "pausar")
+
+    def test_sin_pendiente_transitorio_sigue_intencion(self):
+        self.assertEqual(accion_play_pausa("opening", True, True, False), "pausar")
+        self.assertEqual(accion_play_pausa("buffering", True, False, False), "reanudar")
 
 
 class TestPosicionConfiable(unittest.TestCase):
@@ -310,7 +360,7 @@ class TestCableadoPlayPausa(unittest.TestCase):
         panel._video_id = "video-cargado"
         panel._url_flujo = ""
         panel._intencion_reproducir = False
-        panel._ultima_orden_transporte = __import__("time").monotonic()
+        panel._transporte_pendiente = True
         panel._asegurar_player = mock.Mock(return_value=True)
         panel._timer = mock.Mock()
         panel._mostrar_pausa = mock.Mock()
@@ -333,6 +383,7 @@ class TestCableadoPlayPausa(unittest.TestCase):
         panel._video_id = "video-cargado"
         panel._url_flujo = ""
         panel._intencion_reproducir = True
+        panel._transporte_pendiente = False
         panel._asegurar_player = mock.Mock(return_value=True)
         panel._mostrar_pausa = mock.Mock()
         panel._timer = mock.Mock()
@@ -343,6 +394,201 @@ class TestCableadoPlayPausa(unittest.TestCase):
 
         panel._player.set_pause.assert_called_once_with(1)
         panel.cargar.assert_not_called()
+
+
+class TestPendienteSecuencial(unittest.TestCase):
+
+    def _panel_pausa(self):
+        import reproductor
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_state.return_value = SimpleNamespace(name="playing")
+        panel._player.can_pause.return_value = 1
+        panel._player.is_seekable.return_value = 1
+        panel._listo = True
+        panel._video_id = "video-cargado"
+        panel._url_flujo = ""
+        panel._intencion_reproducir = True
+        panel._transporte_pendiente = False
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._mostrar_pausa = mock.Mock()
+        panel._timer = mock.Mock()
+        panel.cargar = mock.Mock()
+        panel._reproducir_flujo = mock.Mock()
+        return panel
+
+    def _panel_reanudar(self):
+        import reproductor
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_state.return_value = SimpleNamespace(name="paused")
+        panel._player.can_pause.return_value = 1
+        panel._player.is_seekable.return_value = 1
+        panel._listo = True
+        panel._video_id = "video-cargado"
+        panel._url_flujo = ""
+        panel._intencion_reproducir = False
+        panel._transporte_pendiente = False
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._mostrar_pausa = mock.Mock()
+        panel._timer = mock.Mock()
+        panel.cargar = mock.Mock()
+        panel._reproducir_flujo = mock.Mock()
+        return panel
+
+    def test_secuencia_pausa_permanece_pendiente_mucho_despues_de_tres_segundos(self):
+        import reproductor
+        panel = self._panel_pausa()
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+            self.assertEqual(panel._player.set_pause.call_count, 1)
+            self.assertEqual(panel._player.set_pause.call_args[0][0], 1)
+            self.assertFalse(panel._intencion_reproducir)
+            self.assertTrue(panel._transporte_pendiente)
+            anunciar.assert_called_once_with("Pausa")
+            panel._mostrar_pausa.assert_called_once_with(False)
+            anunciar.reset_mock()
+            panel._mostrar_pausa.reset_mock()
+            sonido.reset_mock()
+            # Mucho después de tres segundos, VLC sigue en playing sin confirmar
+            panel._player.set_pause.reset_mock()
+            with mock.patch.object(reproductor.time, "monotonic", return_value=99999):
+                panel._toggle_play()
+            panel._player.set_pause.assert_not_called()
+            anunciar.assert_not_called()
+            panel._mostrar_pausa.assert_not_called()
+            sonido.assert_called_once_with("transporte_en_curso")
+            self.assertTrue(panel._transporte_pendiente)
+            sonido.reset_mock()
+            # VLC por fin informa paused: la siguiente pulsación libera y reanuda
+            panel._player.get_state.return_value = SimpleNamespace(name="paused")
+            panel._player.set_pause.reset_mock()
+            panel._toggle_play()
+            panel._player.set_pause.assert_called_once_with(0)
+            self.assertTrue(panel._intencion_reproducir)
+            self.assertTrue(panel._transporte_pendiente)
+            anunciar.assert_called_once_with("Reproduciendo")
+            panel._mostrar_pausa.assert_called_once_with(True)
+
+    def test_secuencia_reanudar_permanece_pendiente_mucho_despues(self):
+        import reproductor
+        panel = self._panel_reanudar()
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+            self.assertEqual(panel._player.set_pause.call_args[0][0], 0)
+            self.assertTrue(panel._intencion_reproducir)
+            self.assertTrue(panel._transporte_pendiente)
+            anunciar.assert_called_once_with("Reproduciendo")
+            anunciar.reset_mock()
+            panel._mostrar_pausa.reset_mock()
+            sonido.reset_mock()
+            panel._player.set_pause.reset_mock()
+            # Mantener paused sin confirmar, incluso muy tarde
+            with mock.patch.object(reproductor.time, "monotonic", return_value=99999):
+                panel._toggle_play()
+            panel._player.set_pause.assert_not_called()
+            anunciar.assert_not_called()
+            sonido.assert_called_once_with("transporte_en_curso")
+            sonido.reset_mock()
+            # VLC informa playing
+            panel._player.get_state.return_value = SimpleNamespace(name="playing")
+            panel._player.set_pause.reset_mock()
+            panel._toggle_play()
+            panel._player.set_pause.assert_called_once_with(1)
+            self.assertFalse(panel._intencion_reproducir)
+            anunciar.assert_called_once_with("Pausa")
+
+    def test_transitorio_no_confirma_y_mantiene_en_curso(self):
+        import reproductor
+        panel = self._panel_pausa()
+        with mock.patch.object(reproductor, "anunciar"), \
+                mock.patch("sound_player.reproducir"):
+            panel._toggle_play()
+        self.assertTrue(panel._transporte_pendiente)
+        panel._player.get_state.return_value = SimpleNamespace(name="opening")
+        panel._player.set_pause.reset_mock()
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+        panel._player.set_pause.assert_not_called()
+        anunciar.assert_not_called()
+        sonido.assert_called_once_with("transporte_en_curso")
+        # buffering tampoco confirma
+        panel._player.get_state.return_value = SimpleNamespace(name="buffering")
+        panel._player.set_pause.reset_mock()
+        sonido.reset_mock()
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+        panel._player.set_pause.assert_not_called()
+        sonido.assert_called_once_with("transporte_en_curso")
+
+    def test_cancelacion_al_detener_y_cargar(self):
+        import reproductor
+        # Al detener
+        panel = self._panel_pausa()
+        with mock.patch.object(reproductor, "anunciar"), \
+                mock.patch("sound_player.reproducir"):
+            panel._toggle_play()
+        self.assertTrue(panel._transporte_pendiente)
+        panel._timer_progreso = mock.Mock()
+        panel._destino_pendiente = None
+        panel._marca_destino_pendiente = None
+        panel._ultima_posicion_confiable = 0
+        panel._gen = 0
+        panel._cache_video_descargando = None
+        panel.lbl_estado = mock.Mock()
+        panel.btn_play = mock.Mock()
+        panel._fijar_tiempo = mock.Mock()
+        panel._detener(silencioso=True)
+        self.assertFalse(panel._transporte_pendiente)
+        # Siguiente toggle sin pendiente debe actuar normal
+        panel._player.get_state.return_value = SimpleNamespace(name="paused")
+        panel._intencion_reproducir = False
+        panel._transporte_pendiente = False
+        panel._player.set_pause.reset_mock()
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+        panel._player.set_pause.assert_called_once_with(0)
+        anunciar.assert_called_once_with("Reproduciendo")
+        # Al cargar otro medio
+        panel2 = self._panel_pausa()
+        with mock.patch.object(reproductor, "anunciar"), \
+                mock.patch("sound_player.reproducir"):
+            panel2._toggle_play()
+        self.assertTrue(panel2._transporte_pendiente)
+        panel2._cargando = False
+        panel2._gen = 0
+        panel2.lbl_estado = mock.Mock()
+        panel2._timer_progreso = mock.Mock()
+        panel2._asegurar_player = mock.Mock(return_value=True)
+        # restaurar el método real de cargar para probar la cancelación
+        panel2.cargar = reproductor.ReproductorPanel.cargar.__get__(panel2, reproductor.ReproductorPanel)
+        with mock.patch.object(reproductor, "anunciar"), \
+                mock.patch.object(reproductor.diagnostico, "crear_hilo") as crear:
+            crear.return_value.start = mock.Mock()
+            panel2.cargar(reproducir=True)
+        self.assertFalse(panel2._transporte_pendiente)
+
+    def test_estado_final_no_queda_bloqueado_por_pendiente(self):
+        import reproductor
+        panel = self._panel_pausa()
+        with mock.patch.object(reproductor, "anunciar"), \
+                mock.patch("sound_player.reproducir"):
+            panel._toggle_play()
+        self.assertTrue(panel._transporte_pendiente)
+        for estado in ("ended", "stopped", "error", "nothingspecial"):
+            panel._player.get_state.return_value = SimpleNamespace(name=estado)
+            panel.cargar = mock.Mock()
+            with mock.patch.object(reproductor, "anunciar"), \
+                    mock.patch("sound_player.reproducir") as sonido:
+                panel._toggle_play()
+            panel.cargar.assert_called_once_with(reproducir=True)
+            sonido.assert_not_called()
+            panel.cargar.reset_mock()
 
 
 if __name__ == "__main__":

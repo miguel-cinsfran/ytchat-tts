@@ -26,9 +26,9 @@ import wx
 import config as _cfg
 from busqueda_video import (
     CADUCIDAD_DESTINO_MS, TOLERANCIA_ATRAS_MS, TOLERANCIA_DESTINO_MS,
-    VENTANA_ORDEN_MS, accion_play_pausa, destino_acumulado,
+    accion_play_pausa, destino_acumulado,
     destino_alcanzado, destino_vigente, posicion_a_mostrar,
-    posicion_confiable,
+    posicion_confiable, transporte_confirmado,
 )
 import iconos
 import diagnostico
@@ -482,7 +482,7 @@ class ReproductorPanel(wx.Panel):
         self._destino_pendiente = None
         self._marca_destino_pendiente = None
         self._ultima_posicion_confiable = 0
-        self._ultima_orden_transporte = None
+        self._transporte_pendiente = False
         self._intencion_reproducir = False
         self._vol = 80
         self._muted = False
@@ -916,7 +916,7 @@ class ReproductorPanel(wx.Panel):
         self._destino_pendiente = None
         self._marca_destino_pendiente = None
         self._ultima_posicion_confiable = 0
-        self._ultima_orden_transporte = None
+        self._transporte_pendiente = False
         self._intencion_reproducir = reproducir
         self._cargando = True
         self.lbl_estado.SetLabel("Cargando vídeo…")
@@ -1073,6 +1073,7 @@ class ReproductorPanel(wx.Panel):
             anunciar("El reproductor no está disponible.")
             return
         self._destino_pendiente = None
+        self._transporte_pendiente = False
         self._intencion_reproducir = reproducir
         try:
             media = self._inst.media_new(self._url_flujo)
@@ -1148,10 +1149,13 @@ class ReproductorPanel(wx.Panel):
             return
         st = self._player.get_state()
         estado = getattr(st, "name", str(st)).rsplit(".", 1)[-1].lower()
+        if getattr(self, "_transporte_pendiente", False) and transporte_confirmado(
+                estado, self._intencion_reproducir):
+            self._transporte_pendiente = False
         accion = accion_play_pausa(
             estado, bool(self._video_id or self._url_flujo),
             self._intencion_reproducir,
-            self._orden_transporte_reciente())
+            getattr(self, "_transporte_pendiente", False))
         try:
             puede_pausar = bool(self._player.can_pause())
         except Exception:
@@ -1168,8 +1172,8 @@ class ReproductorPanel(wx.Panel):
             _snd.reproducir("transporte_en_curso")
         elif accion == "pausar":
             self._player.set_pause(1)
-            self._ultima_orden_transporte = time.monotonic()
             self._intencion_reproducir = False
+            self._transporte_pendiente = True
             self._mostrar_pausa(False)
             self._timer.Stop()
             anunciar("Pausa")
@@ -1181,8 +1185,8 @@ class ReproductorPanel(wx.Panel):
                 self._reproducir_flujo()
             else:
                 self._player.set_pause(0)
-                self._ultima_orden_transporte = time.monotonic()
                 self._intencion_reproducir = True
+                self._transporte_pendiente = True
                 self._mostrar_pausa(True)
                 self._timer.Start(500)
                 anunciar("Reproduciendo")
@@ -1206,7 +1210,7 @@ class ReproductorPanel(wx.Panel):
         self._destino_pendiente = None
         self._marca_destino_pendiente = None
         self._ultima_posicion_confiable = 0
-        self._ultima_orden_transporte = None
+        self._transporte_pendiente = False
         if getattr(self, "_cache_video_descargando", None) is not None:
             try:
                 self._cache_video_descargando.unlink()
@@ -1346,10 +1350,6 @@ class ReproductorPanel(wx.Panel):
             self.sld_pos.SetValue(int(self._pos_ms / self._dur_ms * 1000))
         if anunciar_t:
             anunciar(_fmt_hablado(self._pos_ms))
-
-    def _orden_transporte_reciente(self) -> bool:
-        marca = getattr(self, "_ultima_orden_transporte", None)
-        return marca is not None and (time.monotonic() - marca) * 1000 <= VENTANA_ORDEN_MS
 
     def _lectura_confiable(self) -> int:
         lectura = self._player.get_time()
