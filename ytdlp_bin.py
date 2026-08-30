@@ -138,22 +138,88 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
     destino = Path(destino)
     try:
         proceso = subprocess.Popen(
-            [ruta, "-f", "ba", "-o", str(destino), "--no-playlist", "--quiet",
+            [ruta, "-f", "ba", "-o", str(destino), "--no-playlist",
              "--no-warnings", "--newline", "--progress-template", PLANTILLA,
              f"https://www.youtube.com/watch?v={video_id}"],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         inicio = time.monotonic()
-        for linea in proceso.stdout or ():
+        import queue
+        import threading
+        cola: queue.Queue = queue.Queue()
+
+        def _lector():
+            try:
+                flujo = proceso.stdout
+                if flujo is None:
+                    cola.put(None)
+                    return
+                for linea in flujo:
+                    cola.put(linea)
+                cola.put(None)
+            except Exception:
+                try:
+                    cola.put(None)
+                except Exception:
+                    pass
+
+        hilo = threading.Thread(target=_lector, daemon=True)
+        hilo.start()
+        while True:
+            transcurrido = time.monotonic() - inicio
+            if transcurrido > tope_segundos:
+                try:
+                    proceso.kill()
+                except Exception:
+                    pass
+                try:
+                    proceso.wait(timeout=5)
+                except Exception:
+                    pass
+                return False
+            restante = tope_segundos - transcurrido
+            espera = restante if restante < 0.2 else 0.2
+            if espera <= 0:
+                espera = 0.05
+            try:
+                linea = cola.get(timeout=espera)
+            except queue.Empty:
+                if proceso.poll() is not None:
+                    # El proceso terminó pero el lector aún no entregó el centinela;
+                    # se espera un poco más sin volver a bloquear indefinidamente.
+                    # Si el hilo ya no vive y la cola está vacía, se sale.
+                    if not hilo.is_alive() and cola.empty():
+                        break
+                continue
+            if linea is None:
+                break
             datos = analizar_linea_progreso(linea)
             if datos is not None and aviso_progreso is not None:
                 aviso_progreso(int(datos["pct"]))
+        # Salida normal por fin de flujo: esperar al proceso sin colgarse
+        # más allá del tope.
+        while True:
+            if proceso.poll() is not None:
+                break
             if time.monotonic() - inicio > tope_segundos:
-                proceso.kill()
-                proceso.wait()
+                try:
+                    proceso.kill()
+                except Exception:
+                    pass
+                try:
+                    proceso.wait(timeout=5)
+                except Exception:
+                    pass
                 return False
-        if proceso.wait() != 0:
+            time.sleep(0.05)
+        try:
+            codigo = proceso.wait(timeout=5)
+        except Exception:
+            codigo = getattr(proceso, "returncode", None)
+        if codigo is None:
+            codigo = getattr(proceso, "returncode", 0) or 0
+        if codigo != 0:
             logger.debug("descargar audio: yt-dlp terminó con error")
             return False
         return destino.is_file() and destino.stat().st_size >= TAMANIO_MINIMO

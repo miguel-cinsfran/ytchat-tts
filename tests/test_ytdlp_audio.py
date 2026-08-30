@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -24,6 +25,9 @@ class PruebasDescargarAudio(unittest.TestCase):
         proceso = mock.Mock()
         proceso.stdout = lineas
         proceso.wait.return_value = codigo
+        proceso.poll.return_value = codigo
+        proceso.returncode = codigo
+        proceso.kill = mock.Mock()
         return proceso
 
     def test_sin_ejecutable_no_inicia_subproceso(self):
@@ -81,6 +85,46 @@ class PruebasDescargarAudio(unittest.TestCase):
                                   return_value=self._proceso(1, lineas)):
             ytdlp_bin.descargar_audio("A" * 11, self.destino, avisos.append)
         self.assertEqual([10, 80], avisos)
+
+    def test_argumentos_sin_quiet_con_progreso(self):
+        # Verifica que no se use --quiet y sí --newline y --progress-template.
+        with mock.patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                mock.patch.object(ytdlp_bin.subprocess, "Popen",
+                                  return_value=self._proceso()) as crear:
+            ytdlp_bin.descargar_audio("A" * 11, self.destino)
+        argumentos = crear.call_args[0][0]
+        self.assertNotIn("--quiet", argumentos)
+        self.assertIn("--newline", argumentos)
+        self.assertIn("--progress-template", argumentos)
+        self.assertIn("--no-warnings", argumentos)
+
+    def test_tope_corta_descarga_colgada_sin_salida(self):
+        # Proceso que no imprime nada y no termina: debe cortarse por tope.
+        class _SalidaBloqueada:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                time.sleep(10)
+                return "nunca termina"
+
+        proceso = mock.Mock()
+        proceso.stdout = _SalidaBloqueada()
+        proceso.poll.return_value = None
+        proceso.returncode = None
+        proceso.kill = mock.Mock()
+        # wait debe no bloquear indefinidamente; simulamos que tras kill termina
+        def _espera(*_a, **_kw):
+            return 0
+        proceso.wait.side_effect = _espera
+        with mock.patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                mock.patch.object(ytdlp_bin.subprocess, "Popen", return_value=proceso):
+            inicio = time.monotonic()
+            resultado = ytdlp_bin.descargar_audio("A" * 11, self.destino, tope_segundos=1)
+            duracion = time.monotonic() - inicio
+        self.assertFalse(resultado)
+        self.assertLess(duracion, 3)
+        proceso.kill.assert_called()
 
 
 if __name__ == "__main__":
