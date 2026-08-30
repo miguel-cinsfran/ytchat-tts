@@ -316,7 +316,8 @@ _DEF = {
     "tamanio_fuente_chat": "12", "mostrar_total_superchats": "true",
     "guardar_historial": "no", "autoplay_reproductor": "true",
     "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
-    "mostrar_botones_reproductor": "false", "mostrar_metadatos": "true",
+    "mostrar_botones_reproductor": "false", "cache_video_mb": "1024",
+    "mostrar_metadatos": "true",
     "anunciar_entradas": "false",
     "programados_activo": "false",
     # Gestor de descargas (yt-dlp). El formato y la carpeta se eligen en el
@@ -384,6 +385,7 @@ autoplay_reproductor = true
 filtro_activo = todos
 silenciar_sonidos = false
 mostrar_botones_reproductor = false
+cache_video_mb = 1024
 mostrar_metadatos = true
 [sesion]
 guardar_historial = no
@@ -448,6 +450,7 @@ _EVENTOS_SONIDO = [
     "pausa", "reanudar", "copiar", "voz_cambiada",
     # v0.6 online y acciones que antes reutilizaban otros sonidos:
     "enviado", "comentario", "moderacion", "cola_vaciada",
+    "transporte_en_curso",
 ]
 
 # Carpeta base de temas y tema por defecto.
@@ -653,6 +656,8 @@ def cargar_configuracion() -> dict:
         guardar_opcion(ruta, "ui", "autoplay_reproductor", "true")
     if not p.has_option("ui", "mostrar_botones_reproductor"):
         guardar_opcion(ruta, "ui", "mostrar_botones_reproductor", "false")
+    if not p.has_option("ui", "cache_video_mb"):
+        guardar_opcion(ruta, "ui", "cache_video_mb", "1024")
     if not p.has_option("ui", "mostrar_metadatos"):
         guardar_opcion(ruta, "ui", "mostrar_metadatos", "true")
     if not p.has_option("sesion", "silenciar_lectura"):
@@ -730,6 +735,7 @@ def cargar_configuracion() -> dict:
         "mostrar_total_superchats": _pb(p, "ui", "mostrar_total_superchats"),
         "autoplay_reproductor": _pb(p, "ui", "autoplay_reproductor"),
         "mostrar_botones_reproductor": _pb(p, "ui", "mostrar_botones_reproductor"),
+        "cache_video_mb": _pi(p, "ui", "cache_video_mb", lo=0, hi=20000),
         "mostrar_metadatos": _pb(p, "ui", "mostrar_metadatos"),
         "filtro_activo": filtro_activo,
         "silenciar_sonidos": _pb(p, "ui", "silenciar_sonidos"),

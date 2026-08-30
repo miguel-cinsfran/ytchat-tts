@@ -5,8 +5,9 @@ from unittest import mock
 from types import SimpleNamespace
 
 from busqueda_video import (
-    TOLERANCIA_DESTINO_MS, accion_play_pausa, destino_acumulado,
-    destino_alcanzado, posicion_a_mostrar,
+    CADUCIDAD_DESTINO_MS, TOLERANCIA_ATRAS_MS, TOLERANCIA_DESTINO_MS,
+    accion_play_pausa, destino_acumulado, destino_alcanzado, destino_vigente,
+    posicion_a_mostrar, posicion_confiable,
 )
 
 
@@ -63,6 +64,54 @@ class TestAccionPlayPausa(unittest.TestCase):
                 self.assertEqual(accion_play_pausa(estado, True, True), "pausar")
                 self.assertEqual(accion_play_pausa(estado, True, False), "reanudar")
 
+    def test_orden_reciente_contraria_en_reproduccion(self):
+        self.assertEqual(accion_play_pausa("playing", True, False, True), "en_curso")
+
+    def test_orden_reciente_contraria_en_pausa(self):
+        self.assertEqual(accion_play_pausa("paused", True, True, True), "en_curso")
+
+    def test_orden_vencida_devuelve_el_estado_real(self):
+        self.assertEqual(accion_play_pausa("playing", True, False, False), "pausar")
+
+    def test_propiedad_valores_conocidos(self):
+        estados = ("playing", "paused", "opening", "buffering", "ended", "stopped", "error", "nothingspecial", "otro")
+        for estado in estados:
+            for intencion in (False, True):
+                for reciente in (False, True):
+                    with self.subTest(estado=estado, intencion=intencion, reciente=reciente):
+                        self.assertIn(accion_play_pausa(estado, True, intencion, reciente),
+                                      {"cargar", "pausar", "reanudar", "en_curso"})
+
+
+class TestPosicionConfiable(unittest.TestCase):
+
+    def test_retroceso_a_cero_se_descarta(self):
+        self.assertEqual(posicion_confiable(31038, 0, 2000), 31038)
+
+    def test_retroceso_grande_se_descarta(self):
+        self.assertEqual(posicion_confiable(31038, 18812, 2000), 31038)
+
+    def test_retroceso_dentro_de_tolerancia_se_conserva(self):
+        self.assertEqual(posicion_confiable(31038, 30000, 2000), 30000)
+
+    def test_avance_se_conserva(self):
+        self.assertEqual(posicion_confiable(31038, 41000, 2000), 41000)
+
+    def test_sin_ultima_lectura_acepta_cero(self):
+        self.assertEqual(posicion_confiable(None, 0, 2000), 0)
+
+
+class TestDestinoVigente(unittest.TestCase):
+
+    def test_destino_vencido_caduca(self):
+        self.assertIsNone(destino_vigente(776139, 43000, 5000))
+
+    def test_destino_reciente_se_conserva(self):
+        self.assertEqual(destino_vigente(776139, 1200, 5000), 776139)
+
+    def test_sin_destino_sigue_vacio(self):
+        self.assertIsNone(destino_vigente(None, 43000, 5000))
+
 
 class TestCableadoBusqueda(unittest.TestCase):
 
@@ -74,6 +123,8 @@ class TestCableadoBusqueda(unittest.TestCase):
         panel._player.get_length.return_value = 60_000
         panel._player.get_time.return_value = 10_000
         panel._destino_pendiente = None
+        panel._ultima_posicion_confiable = 10_000
+        panel._marca_destino_pendiente = None
         panel._fijar_tiempo = mock.Mock()
 
         panel._buscar_rel(10_000)
@@ -81,6 +132,22 @@ class TestCableadoBusqueda(unittest.TestCase):
 
         self.assertEqual(panel._player.set_time.call_args_list,
                          [mock.call(20_000), mock.call(30_000)])
+
+    def test_salto_no_vuelve_a_cero_con_lectura_atrasada(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 60_000
+        panel._player.get_time.return_value = 0
+        panel._destino_pendiente = None
+        panel._marca_destino_pendiente = None
+        panel._ultima_posicion_confiable = 31_038
+        panel._fijar_tiempo = mock.Mock()
+
+        panel._buscar_rel(-10_000)
+
+        panel._player.set_time.assert_called_once_with(21_038)
 
     def test_on_timer_con_salto_en_vuelo_conserva_el_destino_pendiente(self):
         import reproductor
@@ -136,6 +203,29 @@ class TestCableadoBusqueda(unittest.TestCase):
 
 
 class TestCableadoPlayPausa(unittest.TestCase):
+
+    def test_orden_en_curso_no_invierte_ni_anuncia(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_state.return_value = SimpleNamespace(name="playing")
+        panel._video_id = "video-cargado"
+        panel._url_flujo = ""
+        panel._intencion_reproducir = False
+        panel._ultima_orden_transporte = __import__("time").monotonic()
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._timer = mock.Mock()
+        panel._mostrar_pausa = mock.Mock()
+
+        with mock.patch.object(reproductor, "anunciar") as anunciar, \
+                mock.patch("sound_player.reproducir") as sonido:
+            panel._toggle_play()
+
+        panel._player.set_pause.assert_not_called()
+        panel._timer.stop.assert_not_called()
+        anunciar.assert_not_called()
+        sonido.assert_called_once_with("transporte_en_curso")
 
     def test_buffering_pausa_sin_recargar_el_video(self):
         import reproductor

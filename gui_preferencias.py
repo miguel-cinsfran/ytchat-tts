@@ -369,6 +369,15 @@ class PreferenciasDialog(wx.Dialog):
         self.chk_botones_rep.SetValue(bool(self._config.get("mostrar_botones_reproductor", False)))
         vs.Add(self.chk_botones_rep, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
 
+        etiqueta_cache = wx.StaticText(
+            p, label="&Tamaño máximo de la caché de vídeo, en megabytes:")
+        self.sp_cache_video = wx.SpinCtrl(
+            p, min=0, max=20000,
+            initial=int(self._config.get("cache_video_mb", 1024)),
+            name="Tamaño máximo de la caché de vídeo en megabytes")
+        vs.Add(etiqueta_cache, 0, wx.LEFT | wx.RIGHT | wx.TOP, 10)
+        vs.Add(self.sp_cache_video, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 10)
+
         p.SetSizer(vs)
         return p
 
@@ -962,6 +971,10 @@ class PreferenciasDialog(wx.Dialog):
         botones_rep = self.chk_botones_rep.GetValue()
         self._set("ui", "mostrar_botones_reproductor", "true" if botones_rep else "false")
         c["mostrar_botones_reproductor"] = botones_rep
+
+        cache_video = self.sp_cache_video.GetValue()
+        self._set("ui", "cache_video_mb", str(cache_video))
+        c["cache_video_mb"] = cache_video
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():

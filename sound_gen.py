@@ -251,6 +251,10 @@ def gen_reanudar():
     return _normalizar(_concat(n1, n2), 0.7)
 
 
+def gen_transporte_en_curso():
+    return _normalizar(_perc(_triangular(A4, 0.07, 0.28), 0.003, 0.05), 0.52)
+
+
 def gen_copiar():
     # Tic agudo y muy breve: confirmación discreta.
     return _normalizar(_perc(_triangular(C6, 0.05, 0.30), 0.002, 0.04), 0.55)
@@ -364,6 +368,10 @@ def s_reanudar():
     return _seq(_madera(D4, 0.10, 0.34, 0.08), _madera(G4, 0.16, 0.34, 0.12))
 
 
+def s_transporte_en_curso():
+    return _normalizar(_madera(A4, 0.08, 0.26, 0.05), 0.48)
+
+
 def s_copiar():
     return _normalizar(_madera(C6, 0.07, 0.30, 0.04), 0.5)
 
@@ -401,6 +409,7 @@ TEMAS = {
         "error.wav":         gen_error,
         "pausa.wav":         gen_pausa,
         "reanudar.wav":      gen_reanudar,
+        "transporte_en_curso.wav": gen_transporte_en_curso,
         "copiar.wav":        gen_copiar,
         "voz_cambiada.wav":  gen_voz_cambiada,
         "enviado.wav":       gen_enviado,
@@ -419,6 +428,7 @@ TEMAS = {
         "error.wav":         s_error,
         "pausa.wav":         s_pausa,
         "reanudar.wav":      s_reanudar,
+        "transporte_en_curso.wav": s_transporte_en_curso,
         "copiar.wav":        s_copiar,
         "voz_cambiada.wav":  s_voz_cambiada,
         "enviado.wav":       s_enviado,

@@ -74,6 +74,28 @@ class PruebasEsclavoAudio(unittest.TestCase):
             self.assertLessEqual(len(sobrantes) + min(tope, cantidad), cantidad)
             self.assertTrue(set(sobrantes).isdisjoint(nuevas))
 
+    def test_escalones_de_progreso(self):
+        self.assertEqual((75,), esclavo_audio.escalones_de_progreso(10, 80))
+        self.assertEqual((25,), esclavo_audio.escalones_de_progreso(10, 25))
+
+    def test_sobrantes_por_tamanio_cabe(self):
+        self.assertEqual((), esclavo_audio.sobrantes_por_tamanio((("a", 2, 1),), 2))
+
+    def test_sobrantes_por_tamanio_borra_el_mas_viejo(self):
+        self.assertEqual(("a",), esclavo_audio.sobrantes_por_tamanio(
+            (("a", 2, 1), ("b", 2, 2)), 3))
+
+    def test_sobrantes_por_tamanio_borra_varios(self):
+        self.assertEqual(("a", "b"), esclavo_audio.sobrantes_por_tamanio(
+            (("a", 2, 1), ("b", 2, 2), ("c", 2, 3)), 2))
+
+    def test_sobrantes_por_tamanio_cero_borra_todo(self):
+        self.assertEqual(("a", "b"), esclavo_audio.sobrantes_por_tamanio(
+            (("a", 2, 1), ("b", 2, 2)), 0))
+
+    def test_sobrantes_por_tamanio_vacio(self):
+        self.assertEqual((), esclavo_audio.sobrantes_por_tamanio((), 2))
+
 
 if __name__ == "__main__":
     unittest.main()

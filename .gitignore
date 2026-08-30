@@ -12,6 +12,9 @@ yt-dlp.exe
 # corriendo desde el repositorio cae en la raiz. Son megas por video.
 cache-audio/
 
+# Cache del video completo, lo mismo pero mucho mas grande.
+cache-video/
+
 # Python
 __pycache__/
 *.py[cod]

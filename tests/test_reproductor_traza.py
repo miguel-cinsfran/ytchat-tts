@@ -60,6 +60,7 @@ class TestTrazaReproductor(unittest.TestCase):
         panel = self._panel()
         panel._destino_pendiente = 4000
         panel._player.get_length.return_value = 10000
+        panel._player.get_time.return_value = 0
         panel._player.get_time.return_value = 5000
 
         with self.assertLogs("ytchat.reproductor", "DEBUG") as capturas:
@@ -82,6 +83,7 @@ class TestTrazaReproductor(unittest.TestCase):
     def test_porcentaje_y_deslizador_registran_su_origen(self):
         panel = self._panel()
         panel._player.get_length.return_value = 10000
+        panel._player.get_time.return_value = 0
         panel.sld_pos = mock.Mock()
         panel.sld_pos.GetValue.return_value = 500
 

@@ -8,12 +8,14 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 from typing import NamedTuple
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import diagnostico
 from esclavo_audio import TAMANIO_MINIMO
+from progreso_ytdlp import PLANTILLA, analizar_linea_progreso
 
 
 URL_API_RELEASES = (
@@ -24,6 +26,8 @@ NOMBRE_BINARIO = "yt-dlp.exe"
 NOMBRE_FIRMAS = "SHA2-256SUMS"
 SUBDIRECTORIO_DATOS = "YTChat TTS"
 TIEMPO_ESPERA = 30
+LIMITE_CACHE = "300K"
+# Limita la caché para no ahogar la reproducción que usa la misma conexión.
 # diagnostico importa este módulo para consultar la versión de yt-dlp.
 if hasattr(diagnostico, "obtener_logger"):
     logger = diagnostico.obtener_logger(__name__)
@@ -85,7 +89,7 @@ def ruta_ytdlp() -> str | None:
 def version_ytdlp(ruta: str | os.PathLike) -> str:
     """Lee la versión de un ejecutable sin abrir una ventana de consola."""
     try:
-        resultado = subprocess.run(
+        proceso = subprocess.Popen(
             [str(ruta), "--version"],
             capture_output=True,
             text=True,
@@ -124,26 +128,64 @@ def info_video(video_id: str) -> dict | None:
         return None
 
 
-def descargar_audio(video_id: str, destino: Path,
-                    tope_segundos: int = 90) -> bool:
+def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
+                    tope_segundos: int = 600) -> bool:
     """Descarga la mejor pista de audio a la caché interna."""
+    # A 6,6 megabits, 24 MB tardan 29 s y los vídeos largos superan 90 s.
     ruta = ruta_ytdlp()
     if ruta is None:
         return False
     destino = Path(destino)
     try:
-        resultado = subprocess.run(
+        proceso = subprocess.Popen(
             [ruta, "-f", "ba", "-o", str(destino), "--no-playlist", "--quiet",
-             "--no-warnings", f"https://www.youtube.com/watch?v={video_id}"],
-            capture_output=True, text=True, timeout=tope_segundos,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
+             "--no-warnings", "--newline", "--progress-template", PLANTILLA,
+             f"https://www.youtube.com/watch?v={video_id}"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        if resultado.returncode:
-            logger.debug("descargar audio: yt-dlp terminó con %s", resultado.returncode)
+        inicio = time.monotonic()
+        for linea in proceso.stdout or ():
+            datos = analizar_linea_progreso(linea)
+            if datos is not None and aviso_progreso is not None:
+                aviso_progreso(int(datos["pct"]))
+            if time.monotonic() - inicio > tope_segundos:
+                proceso.kill()
+                proceso.wait()
+                return False
+        if proceso.wait() != 0:
+            logger.debug("descargar audio: yt-dlp terminó con error")
             return False
         return destino.is_file() and destino.stat().st_size >= TAMANIO_MINIMO
     except Exception as exc:
         logger.debug("descargar audio: %s", exc)
+        return False
+
+
+def descargar_video_cache(video_id: str, destino: Path) -> bool:
+    """Descarga vídeo y audio completos a un archivo local limitado."""
+    ruta = ruta_ytdlp()
+    if ruta is None:
+        return False
+    destino = Path(destino)
+    try:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        argumentos = [
+            ruta, "-f", "bv*+ba/b", "-o", str(destino), "--no-playlist",
+            "--no-warnings", "--limit-rate", LIMITE_CACHE,
+            "--merge-output-format", "mp4",
+        ]
+        if getattr(sys, "frozen", False):
+            argumentos.extend(["--ffmpeg-location", str(Path(sys.executable).parent)])
+        argumentos.append(f"https://www.youtube.com/watch?v={video_id}")
+        resultado = subprocess.run(
+            argumentos, capture_output=True, text=True, timeout=3600,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
+        )
+        return (not resultado.returncode and destino.is_file()
+                and destino.stat().st_size > 0)
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("descargar vídeo de caché: %s", exc)
         return False
 
 

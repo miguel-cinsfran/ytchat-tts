@@ -25,8 +25,10 @@ import wx
 
 import config as _cfg
 from busqueda_video import (
-    TOLERANCIA_DESTINO_MS, accion_play_pausa, destino_acumulado,
-    destino_alcanzado, posicion_a_mostrar,
+    CADUCIDAD_DESTINO_MS, TOLERANCIA_ATRAS_MS, TOLERANCIA_DESTINO_MS,
+    VENTANA_ORDEN_MS, accion_play_pausa, destino_acumulado,
+    destino_alcanzado, destino_vigente, posicion_a_mostrar,
+    posicion_confiable,
 )
 import iconos
 import diagnostico
@@ -206,7 +208,15 @@ def _preparar_audio_local(info: dict, video_id: str):
         destino = esclavo_audio.ruta_de_cache(carpeta, video_id)
         if esclavo_audio.esclavo_a_usar(destino, ""):
             return destino
-        if ytdlp_bin.descargar_audio(video_id, destino):
+        ultimo = None
+
+        def avisar_progreso(porcentaje):
+            nonlocal ultimo
+            for escalon in esclavo_audio.escalones_de_progreso(ultimo, porcentaje):
+                wx.CallAfter(anunciar, f"Preparando el audio, {escalon} por ciento")
+            ultimo = porcentaje
+
+        if ytdlp_bin.descargar_audio(video_id, destino, aviso_progreso=avisar_progreso):
             return destino
     except Exception as exc:
         logger.debug("caché de audio: %s", exc)
@@ -470,6 +480,9 @@ class ReproductorPanel(wx.Panel):
         self._pos_ms = 0
         self._dur_ms = 0
         self._destino_pendiente = None
+        self._marca_destino_pendiente = None
+        self._ultima_posicion_confiable = 0
+        self._ultima_orden_transporte = None
         self._intencion_reproducir = False
         self._vol = 80
         self._muted = False
@@ -485,6 +498,7 @@ class ReproductorPanel(wx.Panel):
         self._gestor_eventos_vlc = None
         self._info = None
         self._audio_local = None
+        self._cache_video_descargando = None
         self._marca_reproduccion = None
         self._marca_extraccion = None
         self._marca_url = None
@@ -900,6 +914,9 @@ class ReproductorPanel(wx.Panel):
         logger.debug("CARGA video=%s reproducir=%s", self._video_id,
                      "si" if reproducir else "no")
         self._destino_pendiente = None
+        self._marca_destino_pendiente = None
+        self._ultima_posicion_confiable = 0
+        self._ultima_orden_transporte = None
         self._intencion_reproducir = reproducir
         self._cargando = True
         self.lbl_estado.SetLabel("Cargando vídeo…")
@@ -939,6 +956,70 @@ class ReproductorPanel(wx.Panel):
         self._marca_reproduccion = marca_inicio
         self._marca_extraccion = marca_extraccion
         self._reproducir_calidad(self._calidad_sel, reproducir)
+        if not info.get("is_live"):
+            self._descargar_video_cache(vid, gen)
+
+    def _podar_cache_video(self, carpeta):
+        tope = int(self._config.get("cache_video_mb", 1024)) * 1024 * 1024
+        entradas = tuple(
+            (ruta, ruta.stat().st_size, ruta.stat().st_mtime)
+            for ruta in carpeta.iterdir() if ruta.is_file())
+        for ruta in esclavo_audio.sobrantes_por_tamanio(entradas, tope):
+            try:
+                ruta.unlink()
+            except OSError:
+                pass
+
+    def _descargar_video_cache(self, video_id, gen):
+        if int(getattr(self, "_config", {}).get("cache_video_mb", 1024)) <= 0:
+            return
+        carpeta = _cfg.app_dir() / "cache-video"
+        destino = carpeta / f"{video_id}.mp4"
+        self._cache_video_descargando = destino
+
+        def descargar():
+            try:
+                carpeta.mkdir(parents=True, exist_ok=True)
+                self._podar_cache_video(carpeta)
+                completa = ytdlp_bin.descargar_video_cache(video_id, destino)
+            except Exception as exc:
+                logger.debug("caché de vídeo: %s", exc)
+                completa = False
+            wx.CallAfter(self._cache_video_lista, video_id, gen, destino, completa)
+
+        diagnostico.crear_hilo(descargar, "ReproductorCacheVideo").start()
+
+    def _cache_video_lista(self, video_id, gen, destino, completa):
+        self._cache_video_descargando = None
+        if (not completa or gen != self._gen or video_id != self._video_id
+                or not destino.is_file()):
+            if gen != self._gen or video_id != self._video_id:
+                try:
+                    destino.unlink()
+                except OSError:
+                    pass
+            return
+        self._podar_cache_video(destino.parent)
+        if not destino.is_file():
+            return
+        posicion = self._lectura_confiable()
+        pausado = not self._intencion_reproducir
+        try:
+            media = self._inst.media_new(str(destino))
+            for opcion in opciones_medio(False):
+                media.add_option(opcion)
+            self._player.set_media(media)
+            self._player.audio_set_volume(self._vol)
+            self._player.audio_set_mute(self._muted)
+            self._player.play()
+            self._player.set_time(posicion)
+            if pausado:
+                self._player.set_pause(1)
+            self._marcar_destino(posicion)
+            import sound_player as _snd
+            _snd.reproducir("transporte_en_curso")
+        except Exception as exc:
+            logger.debug("cambio a caché de vídeo: %s", exc)
 
     def _reproducir_calidad(self, altura, reproducir):
         if self._info is None or not self._asegurar_player():
@@ -1069,7 +1150,8 @@ class ReproductorPanel(wx.Panel):
         estado = getattr(st, "name", str(st)).rsplit(".", 1)[-1].lower()
         accion = accion_play_pausa(
             estado, bool(self._video_id or self._url_flujo),
-            self._intencion_reproducir)
+            self._intencion_reproducir,
+            self._orden_transporte_reciente())
         try:
             puede_pausar = bool(self._player.can_pause())
         except Exception:
@@ -1081,8 +1163,12 @@ class ReproductorPanel(wx.Panel):
         logger.debug("%s", traza_transporte(
             estado, accion, bool(self._video_id or self._url_flujo),
             self._intencion_reproducir, puede_pausar, es_buscable))
-        if accion == "pausar":
+        if accion == "en_curso":
+            import sound_player as _snd
+            _snd.reproducir("transporte_en_curso")
+        elif accion == "pausar":
             self._player.set_pause(1)
+            self._ultima_orden_transporte = time.monotonic()
             self._intencion_reproducir = False
             self._mostrar_pausa(False)
             self._timer.Stop()
@@ -1095,6 +1181,7 @@ class ReproductorPanel(wx.Panel):
                 self._reproducir_flujo()
             else:
                 self._player.set_pause(0)
+                self._ultima_orden_transporte = time.monotonic()
                 self._intencion_reproducir = True
                 self._mostrar_pausa(True)
                 self._timer.Start(500)
@@ -1117,6 +1204,15 @@ class ReproductorPanel(wx.Panel):
         self._gen += 1
         self._cargando = False
         self._destino_pendiente = None
+        self._marca_destino_pendiente = None
+        self._ultima_posicion_confiable = 0
+        self._ultima_orden_transporte = None
+        if getattr(self, "_cache_video_descargando", None) is not None:
+            try:
+                self._cache_video_descargando.unlink()
+            except OSError:
+                pass
+            self._cache_video_descargando = None
         self._intencion_reproducir = False
         self._timer_progreso.Stop()
         if self._player is not None:
@@ -1173,14 +1269,16 @@ class ReproductorPanel(wx.Panel):
             logger.debug("%s", traza_sin_barra("relativo", dur))
             self._aviso_sin_barra()
             return
+        pendiente = self._destino_vigente()
+        lectura = self._lectura_confiable()
         # El salto anterior puede seguir en vuelo: acumulamos sobre su destino.
         destino = destino_acumulado(
-            self._destino_pendiente, self._player.get_time(), delta_ms, dur)
+            pendiente, lectura, delta_ms, dur)
         logger.debug("%s", traza_salto(
-            "relativo", self._destino_pendiente, self._player.get_time(),
+            "relativo", pendiente, lectura,
             delta_ms, destino, dur))
         self._player.set_time(destino)
-        self._destino_pendiente = destino
+        self._marcar_destino(destino)
         self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
 
     def _toggle_mute(self):
@@ -1249,6 +1347,40 @@ class ReproductorPanel(wx.Panel):
         if anunciar_t:
             anunciar(_fmt_hablado(self._pos_ms))
 
+    def _orden_transporte_reciente(self) -> bool:
+        marca = getattr(self, "_ultima_orden_transporte", None)
+        return marca is not None and (time.monotonic() - marca) * 1000 <= VENTANA_ORDEN_MS
+
+    def _lectura_confiable(self) -> int:
+        lectura = self._player.get_time()
+        ultima = getattr(self, "_ultima_posicion_confiable", 0)
+        posicion = posicion_confiable(ultima, lectura, TOLERANCIA_ATRAS_MS)
+        self._ultima_posicion_confiable = posicion
+        return posicion
+
+    def _destino_vigente(self):
+        pendiente = getattr(self, "_destino_pendiente", None)
+        marca = getattr(self, "_marca_destino_pendiente", None)
+        edad = 0 if marca is None else (time.monotonic() - marca) * 1000
+        vigente = destino_vigente(pendiente, edad, CADUCIDAD_DESTINO_MS)
+        if vigente is None:
+            self._destino_pendiente = None
+            self._marca_destino_pendiente = None
+        return vigente
+
+    def _marcar_destino(self, destino):
+        self._destino_pendiente = destino
+        self._ultima_posicion_confiable = destino
+        self._marca_destino_pendiente = time.monotonic()
+        gen = getattr(self, "_gen", None)
+
+        def caducar():
+            if gen == getattr(self, "_gen", None):
+                self._destino_vigente()
+
+        if wx.GetApp() is not None:
+            wx.CallLater(CADUCIDAD_DESTINO_MS + 1, caducar)
+
     def _on_sld_pos(self, event):
         if self._player is None:
             return
@@ -1256,13 +1388,15 @@ class ReproductorPanel(wx.Panel):
         if dur <= 0:
             logger.debug("%s", traza_sin_barra("deslizador", dur))
             return
+        pendiente = self._destino_vigente()
+        lectura = self._lectura_confiable()
         destino = destino_acumulado(
-            None, 0, int(self.sld_pos.GetValue() / 1000.0 * dur), dur)
+            None, lectura, int(self.sld_pos.GetValue() / 1000.0 * dur) - lectura, dur)
         logger.debug("%s", traza_salto(
-            "deslizador", self._destino_pendiente, 0,
-            int(self.sld_pos.GetValue() / 1000.0 * dur), destino, dur))
+            "deslizador", pendiente, lectura,
+            int(self.sld_pos.GetValue() / 1000.0 * dur) - lectura, destino, dur))
         self._player.set_time(destino)
-        self._destino_pendiente = destino
+        self._marcar_destino(destino)
         self._fijar_tiempo(destino, dur, mover_slider=False, anunciar_t=False)
 
     def _on_pos_key(self, event):
@@ -1289,12 +1423,15 @@ class ReproductorPanel(wx.Panel):
             logger.debug("%s", traza_sin_barra("porcentaje", dur))
             self._aviso_sin_barra()
             return
-        destino = destino_acumulado(None, 0, int(dur * pct / 100), dur)
+        pendiente = self._destino_vigente()
+        lectura = self._lectura_confiable()
+        destino = destino_acumulado(
+            None, lectura, int(dur * pct / 100) - lectura, dur)
         logger.debug("%s", traza_salto(
-            "porcentaje", self._destino_pendiente, 0,
-            int(dur * pct / 100), destino, dur))
+            "porcentaje", pendiente, lectura,
+            int(dur * pct / 100) - lectura, destino, dur))
         self._player.set_time(destino)
-        self._destino_pendiente = destino
+        self._marcar_destino(destino)
         self._fijar_tiempo(destino, dur, mover_slider=True, anunciar_t=True)
 
     def _on_vol_key(self, event):
@@ -1339,10 +1476,12 @@ class ReproductorPanel(wx.Panel):
             if actual >= 0 and actual != self._vol:
                 self._player.audio_set_volume(self._vol)
         dur = self._player.get_length()
-        pos = self._player.get_time()
+        pos = self._lectura_confiable()
+        self._destino_vigente()
         if destino_alcanzado(
                 self._destino_pendiente, pos, TOLERANCIA_DESTINO_MS):
             self._destino_pendiente = None
+            self._marca_destino_pendiente = None
         pos = posicion_a_mostrar(self._destino_pendiente, pos)
         mover = wx.Window.FindFocus() is not self.sld_pos
         self._fijar_tiempo(pos, dur, mover_slider=mover, anunciar_t=False)

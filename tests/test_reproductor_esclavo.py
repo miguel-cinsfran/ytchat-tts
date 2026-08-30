@@ -30,6 +30,7 @@ class PruebasEsclavoReproductor(unittest.TestCase):
         panel._vol = 80
         panel._muted = False
         panel._audio_local = None
+        panel._descargar_video_cache = mock.Mock()
         return panel
 
     def _info_con_esclavo(self):
@@ -123,6 +124,36 @@ class PruebasEsclavoReproductor(unittest.TestCase):
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", return_value=False):
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
         self.assertEqual(3, podar.call_args.args[1])
+
+    def test_progreso_del_audio_anuncia_escalones_sin_repetir(self):
+        def descargar(_video, _destino, aviso_progreso=None):
+            for porcentaje in (10, 25, 50, 75, 80):
+                aviso_progreso(porcentaje)
+            return False
+
+        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+                mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
+                mock.patch.object(reproductor.wx, "CallAfter") as llamar:
+            reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
+        self.assertEqual([
+            mock.call(reproductor.anunciar, "Preparando el audio, 25 por ciento"),
+            mock.call(reproductor.anunciar, "Preparando el audio, 50 por ciento"),
+            mock.call(reproductor.anunciar, "Preparando el audio, 75 por ciento"),
+        ], llamar.call_args_list)
+
+    def test_progreso_salta_a_ochenta_y_anuncia_una_sola_vez(self):
+        def descargar(_video, _destino, aviso_progreso=None):
+            for porcentaje in (10, 80):
+                aviso_progreso(porcentaje)
+            return False
+
+        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+                mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
+                mock.patch.object(reproductor.wx, "CallAfter") as llamar:
+            reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
+        self.assertEqual(
+            [mock.call(reproductor.anunciar, "Preparando el audio, 75 por ciento")],
+            llamar.call_args_list)
 
 
 if __name__ == "__main__":
