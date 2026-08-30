@@ -228,31 +228,57 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
         return False
 
 
-def descargar_video_cache(video_id: str, destino: Path) -> bool:
+def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: str) -> list[str]:
+    argumentos = [
+        str(ruta), "-f", "bv*+ba/b", "-o", str(temporal), "--no-playlist",
+        "--no-warnings", "--limit-rate", LIMITE_CACHE,
+        "--merge-output-format", "mp4",
+    ]
+    if getattr(sys, "frozen", False):
+        argumentos.extend(["--ffmpeg-location", str(Path(sys.executable).parent)])
+    argumentos.append(f"https://www.youtube.com/watch?v={video_id}")
+    return argumentos
+
+
+def descargar_video_cache(video_id: str, destino: Path, cancel_event=None,
+                          tope_segundos: int = 3600) -> bool:
     """Descarga vídeo y audio completos a un archivo local limitado."""
     ruta = ruta_ytdlp()
     if ruta is None:
         return False
     destino = Path(destino)
+    temporal = None
     try:
         destino.parent.mkdir(parents=True, exist_ok=True)
-        argumentos = [
-            ruta, "-f", "bv*+ba/b", "-o", str(destino), "--no-playlist",
-            "--no-warnings", "--limit-rate", LIMITE_CACHE,
-            "--merge-output-format", "mp4",
-        ]
-        if getattr(sys, "frozen", False):
-            argumentos.extend(["--ffmpeg-location", str(Path(sys.executable).parent)])
-        argumentos.append(f"https://www.youtube.com/watch?v={video_id}")
-        resultado = subprocess.run(
-            argumentos, capture_output=True, text=True, timeout=3600,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
+        with tempfile.NamedTemporaryFile(prefix=".ytcache-", suffix=".mp4",
+                                         dir=destino.parent, delete=False) as archivo:
+            temporal = Path(archivo.name)
+        temporal.unlink()
+        argumentos = _argumentos_video_cache(ruta, temporal, video_id)
+        from subprocesos import Estado, ejecutar
+        estado = ejecutar(
+            argumentos, cancel_event=cancel_event, tope_segundos=tope_segundos,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        return (not resultado.returncode and destino.is_file()
-                and destino.stat().st_size > 0)
+        if estado == Estado.exito:
+            if (temporal.is_file() and temporal.stat().st_size > 0
+                    and (cancel_event is None or not cancel_event.is_set())):
+                os.replace(temporal, destino)
+                temporal = None
+                return True
+            return False
+        return False
     except (OSError, subprocess.SubprocessError) as exc:
         logger.debug("descargar vídeo de caché: %s", exc)
         return False
+    finally:
+        if temporal is not None:
+            try:
+                if temporal.exists():
+                    temporal.unlink()
+            except OSError:
+                pass
 
 
 def ultima_version_ytdlp() -> tuple[str, str, str] | None:

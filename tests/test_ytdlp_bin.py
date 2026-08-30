@@ -1,12 +1,15 @@
 import hashlib
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import MagicMock, patch
-import sys
 
 import ytdlp_bin
+import subprocesos
 
 
 class PruebasYtdlpBin(unittest.TestCase):
@@ -438,6 +441,309 @@ class PruebasYtdlpBin(unittest.TestCase):
             abrir.return_value.__enter__.return_value.read.return_value = b"a" * 64 + b"  yt-dlp.exe\n"
             resultado = ytdlp_bin.actualizar_ytdlp()
         self.assertEqual("firma_incorrecta", resultado[0])
+
+
+class PruebasDescargarVideoCache(unittest.TestCase):
+
+    def test_argumentos_completos_incluye_temporal_unico_y_flags(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            temporal = Path(carpeta) / ".ytcache-abc123.mp4"
+            args = ytdlp_bin._argumentos_video_cache("yt-dlp.exe", temporal, "A" * 11)
+            self.assertIn("-f", args)
+            self.assertIn("bv*+ba/b", args)
+            self.assertIn("--no-playlist", args)
+            self.assertIn("--no-warnings", args)
+            self.assertIn("--limit-rate", args)
+            self.assertIn(ytdlp_bin.LIMITE_CACHE, args)
+            self.assertIn("--merge-output-format", args)
+            self.assertIn("mp4", args)
+            self.assertIn(str(temporal), args)
+            self.assertTrue(str(temporal).endswith(".mp4"))
+            self.assertIn(f"https://www.youtube.com/watch?v={'A' * 11}", args)
+            # No reutilizar .part compartido
+            self.assertNotIn(str(Path(carpeta) / "destino.mp4.part"), args)
+
+    def test_argumentos_con_ffmpeg_location_en_frozen(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            temporal = Path(carpeta) / ".ytcache-x.mp4"
+            with patch.object(sys, "executable", str(Path(carpeta) / "app.exe")), \
+                    patch.object(sys, "frozen", True, create=True):
+                args = ytdlp_bin._argumentos_video_cache("yt-dlp.exe", temporal, "A" * 11)
+                self.assertIn("--ffmpeg-location", args)
+                idx = args.index("--ffmpeg-location")
+                self.assertEqual(str(Path(sys.executable).parent), args[idx + 1])
+            with patch.object(sys, "frozen", False, create=True):
+                args2 = ytdlp_bin._argumentos_video_cache("yt-dlp.exe", temporal, "A" * 11)
+                self.assertNotIn("--ffmpeg-location", args2)
+
+    def test_descargar_video_cache_usa_temporal_unico_en_parent(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "video.mp4"
+            capturados = []
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                # Buscar el valor tras -o
+                if "-o" in argumentos:
+                    idx = argumentos.index("-o")
+                    capturados.append(Path(argumentos[idx + 1]))
+                # crear temporal no vacío para simular éxito
+                if capturados:
+                    capturados[-1].write_bytes(b"dato")
+                return subprocesos.Estado.exito
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertTrue(resultado)
+            self.assertEqual(1, len(capturados))
+            temporal = capturados[0]
+            self.assertEqual(Path(carpeta), temporal.parent)
+            self.assertTrue(temporal.suffix == ".mp4")
+            self.assertTrue(str(temporal.name).startswith(".ytcache-"))
+            self.assertTrue(destino.is_file())
+            self.assertGreater(destino.stat().st_size, 0)
+
+    def test_exito_publica_por_os_replace_y_deja_contenido_no_vacio(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"viejo")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                temporal = Path(argumentos[idx + 1])
+                temporal.write_bytes(b"nuevo contenido")
+                return subprocesos.Estado.exito
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertTrue(resultado)
+            self.assertEqual(b"nuevo contenido", destino.read_bytes())
+            # temporal limpio tras replace
+            restantes = list(Path(carpeta).glob(".ytcache-*.mp4"))
+            self.assertEqual([], restantes)
+
+    def test_fallo_preserva_destino_y_borra_temporal(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                Path(argumentos[idx + 1]).write_bytes(b"parcial")
+                return subprocesos.Estado.fallo
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertFalse(resultado)
+            self.assertEqual(b"previo", destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_cancelado_preserva_destino_y_borra_temporal(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                Path(argumentos[idx + 1]).write_bytes(b"parcial")
+                return subprocesos.Estado.cancelado
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino,
+                                                            cancel_event=threading.Event())
+            self.assertFalse(resultado)
+            self.assertEqual(b"previo", destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_vencido_preserva_destino_y_borra_temporal(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                Path(argumentos[idx + 1]).write_bytes(b"parcial")
+                return subprocesos.Estado.vencido
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertFalse(resultado)
+            self.assertEqual(b"previo", destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_fallo_arranque_preserva_destino_y_borra_temporal(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                Path(argumentos[idx + 1]).write_bytes(b"parcial")
+                return subprocesos.Estado.fallo
+
+            # Simular OSError en ejecutar devolviendo fallo es equivalente
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertFalse(resultado)
+            self.assertEqual(b"previo", destino.read_bytes())
+
+    def test_archivo_ausente_o_vacio_no_publica(self):
+        for contenido in [None, b""]:
+            with tempfile.TemporaryDirectory() as carpeta:
+                destino = Path(carpeta) / "salida.mp4"
+                destino.write_bytes(b"previo")
+
+                def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                    idx = argumentos.index("-o")
+                    temporal = Path(argumentos[idx + 1])
+                    if contenido is not None:
+                        temporal.write_bytes(contenido)
+                    else:
+                        # no crear archivo
+                        pass
+                    return subprocesos.Estado.exito
+
+                with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                        patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                    resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+                self.assertFalse(resultado, f"contenido={contenido!r} debió fallar")
+                self.assertEqual(b"previo", destino.read_bytes())
+                self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_evento_marcado_despues_de_hijo_impide_publicar(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+            evento = threading.Event()
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                Path(argumentos[idx + 1]).write_bytes(b"nuevo")
+                # Simular carrera: el hijo terminó, pero justo después se marca cancelación
+                if cancel_event is not None:
+                    cancel_event.set()
+                return subprocesos.Estado.exito
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino,
+                                                            cancel_event=evento)
+            self.assertFalse(resultado)
+            self.assertEqual(b"previo", destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_cableado_real_cancel_event_ya_marcado_vuelve_rapido(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            destino.write_bytes(b"previo")
+            evento = threading.Event()
+            evento.set()
+
+            def constructor_falso(ruta, temporal, video_id):
+                return [sys.executable, "-c", "import time; time.sleep(5)"]
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(ytdlp_bin, "_argumentos_video_cache", side_effect=constructor_falso):
+                inicio = time.monotonic()
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino,
+                                                            cancel_event=evento,
+                                                            tope_segundos=10)
+                duracion = time.monotonic() - inicio
+            self.assertFalse(resultado)
+            self.assertLess(duracion, 4, f"tardó {duracion:.2f}s, debe volver rápido")
+            self.assertEqual(b"previo", destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_dos_invocaciones_usan_temporales_distintos(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino1 = Path(carpeta) / "a.mp4"
+            destino2 = Path(carpeta) / "b.mp4"
+            temporales = []
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                temporal = Path(argumentos[idx + 1])
+                temporales.append(str(temporal))
+                temporal.write_bytes(b"datos")
+                return subprocesos.Estado.fallo
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                ytdlp_bin.descargar_video_cache("A" * 11, destino1)
+                # Crear un archivo que simule el temporal de la primera para probar limpieza aislada
+                # La primera ya limpio su temporal, ahora segunda debe usar otro nombre
+                ytdlp_bin.descargar_video_cache("B" * 11, destino2)
+
+            self.assertEqual(2, len(temporales))
+            self.assertNotEqual(temporales[0], temporales[1])
+            self.assertTrue(temporales[0].endswith(".mp4"))
+            self.assertTrue(temporales[1].endswith(".mp4"))
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_limpieza_de_una_no_borra_temporal_de_otra(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            # Simular dos temporales coexistiendo: el primero debe borrarse sin tocar el segundo
+            temporal_otro = Path(carpeta) / ".ytcache-otro.mp4"
+            temporal_otro.write_bytes(b"otro")
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                idx = argumentos.index("-o")
+                temporal = Path(argumentos[idx + 1])
+                temporal.write_bytes(b"parcial")
+                return subprocesos.Estado.fallo
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+            self.assertFalse(resultado)
+            self.assertTrue(temporal_otro.is_file(), "limpieza borró temporal ajeno")
+            self.assertEqual(b"otro", temporal_otro.read_bytes())
+
+    def test_descargar_video_cache_borra_placeholder_antes_de_lanzar_usa_popen_real(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            contenido_esperado = b"contenido-prueba"
+
+            def constructor_falso(ruta, temporal, video_id):
+                return [sys.executable, "-c",
+                        "import pathlib, sys; p=pathlib.Path(sys.argv[1]); sys.exit(1) if p.exists() else p.write_bytes(b'contenido-prueba')",
+                        str(temporal)]
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(ytdlp_bin, "_argumentos_video_cache", side_effect=constructor_falso):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+
+            self.assertTrue(resultado, "debió publicar tras borrar placeholder")
+            self.assertTrue(destino.is_file())
+            self.assertEqual(contenido_esperado, destino.read_bytes())
+            self.assertEqual([], list(Path(carpeta).glob(".ytcache-*.mp4")))
+
+    def test_descargar_video_cache_pasa_devnull_al_helper(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            destino = Path(carpeta) / "salida.mp4"
+            capturados = {}
+
+            def falso_ejecutar(argumentos, cancel_event=None, tope_segundos=3600, **kw):
+                capturados["stdout"] = kw.get("stdout")
+                capturados["stderr"] = kw.get("stderr")
+                if "-o" in argumentos:
+                    idx = argumentos.index("-o")
+                    Path(argumentos[idx + 1]).write_bytes(b"datos")
+                return subprocesos.Estado.exito
+
+            with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
+                    patch.object(subprocesos, "ejecutar", side_effect=falso_ejecutar):
+                resultado = ytdlp_bin.descargar_video_cache("A" * 11, destino)
+
+            self.assertTrue(resultado)
+            self.assertIs(subprocess.DEVNULL, capturados.get("stdout"))
+            self.assertIs(subprocess.DEVNULL, capturados.get("stderr"))
 
 
 
