@@ -56,7 +56,8 @@ class Conexiones:
             if _gm._gui_frame and _gm._gui_frame._alive:
                 import wx
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
-                             autor, mensaje, hora, tipo, monto, canal_id)
+                             autor, mensaje, hora, tipo, monto, canal_id,
+                             plataforma="youtube")
 
         def _on_estado(tipo_estado, texto):
             if not self._registro.vigente(gen):
@@ -175,7 +176,8 @@ class Conexiones:
             if _gm._gui_frame and _gm._gui_frame._alive:
                 import wx
                 wx.CallAfter(_gm._gui_frame.agregar_mensaje_chat,
-                             autor, mensaje, hora, tipo, monto, canal_id)
+                             autor, mensaje, hora, tipo, monto, canal_id,
+                             plataforma="tiktok")
 
         def _on_evento(autor, mensaje, tipo, monto, canal_id):
             if not self._registro.vigente(gen):

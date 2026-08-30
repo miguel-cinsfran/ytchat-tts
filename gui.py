@@ -30,7 +30,7 @@ import deteccion
 import metadatos
 import estado_sesion
 import historial
-from lista_chat import ListaChat
+from lista_chat import ListaChat, MensajeChat
 from busqueda_lista import buscar_prefijo, coincide
 import sound_player as _snd
 import credenciales
@@ -423,11 +423,10 @@ class YTChatFrame(wx.Frame):
         self._filtro = None
         # Cola de mensajes entrantes aún no volcados a lb_chat/self._chat, y el
         # temporizador que programa el volcado agrupado (ver MS_VOLCADO_CHAT).
-        self._pendientes: list[tuple] = []
+        self._pendientes: list[MensajeChat] = []
         self._pendientes_timer = None
 
         self._sc_totales: dict[str, float] = {}
-        self._canal_por_autor: dict[str, str] = {}
         self._live_chat_id = ""
         self._causa_sin_chat = ""
         self._mensajes_programados = programados.cargar(
@@ -1560,7 +1559,8 @@ class YTChatFrame(wx.Frame):
         menu.Append(id_link,    "Abrir enlace")
         menu.AppendSeparator()
 
-        autor = self._autor_seleccionado() or ""
+        registro_sel = self._get_selected_data()
+        autor = registro_sel.autor if registro_sel else ""
         if autor:
             autor_mostrado = alias.visible(autor)
             if self._autor_esta_silenciado(autor):
@@ -1575,15 +1575,17 @@ class YTChatFrame(wx.Frame):
 
         id_ban     = wx.NewIdRef()
         id_timeout = wx.NewIdRef()
-        canal_autor = self._canal_por_autor.get(autor.lower().strip(), "")
-        moderable = bool(autor and canal_autor and self._live_chat_id
+        plataforma_sel = registro_sel.plataforma if registro_sel else ""
+        identificador_sel = registro_sel.identificador if registro_sel else ""
+        moderable = bool(autor and plataforma_sel == "youtube" and identificador_sel
+                         and self._live_chat_id
                          and youtube_api.google_disponible() and credenciales.hay_sesion())
         if moderable:
             menu.AppendSeparator()
             menu.Append(id_timeout, f"Expulsar 5 min a {autor_mostrado} (timeout)")
             menu.Append(id_ban,     f"Banear a {autor_mostrado} del directo (permanente)")
-            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, 300), id=id_timeout)
-            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, canal_autor, None), id=id_ban)
+            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, identificador_sel, 300), id=id_timeout)
+            menu.Bind(wx.EVT_MENU, lambda e: self._moderar(autor, identificador_sel, None), id=id_ban)
 
         # Los handlers van sobre el propio menú (no sobre la ventana): así mueren
         # con él y no se acumulan bindings en cada apertura del menú contextual.
@@ -1624,7 +1626,7 @@ class YTChatFrame(wx.Frame):
         data = self._get_selected_data()
         if data is None:
             return
-        _, mensaje, _, _, _ = data
+        mensaje = data.texto
         self._clipboard_set(mensaje)
         _snd.reproducir("copiar")
         anunciar("Mensaje copiado")
@@ -1633,10 +1635,9 @@ class YTChatFrame(wx.Frame):
         data = self._get_selected_data()
         if data is None:
             return
-        autor, msg, hora, _, monto = data
-        linea = f"{autor}: {msg}, {hora}"
-        if monto:
-            linea += f" [{monto}]"
+        linea = f"{data.autor}: {data.texto}, {data.hora}"
+        if data.monto:
+            linea += f" [{data.monto}]"
         self._clipboard_set(linea)
         _snd.reproducir("copiar")
         anunciar("Línea copiada")
@@ -1645,16 +1646,14 @@ class YTChatFrame(wx.Frame):
         data = self._get_selected_data()
         if data is None:
             return
-        autor, msg, _, _, _ = data
         from tts_worker import construir_tts
-        self._cola.put({"texto_tts": construir_tts(autor, msg, self._config)})
+        self._cola.put({"texto_tts": construir_tts(data.autor, data.texto, self._config)})
 
     def _abrir_enlace(self):
         data = self._get_selected_data()
         if data is None:
             return
-        _, msg, _, _, _ = data
-        urls = _URL_RE.findall(msg)
+        urls = _URL_RE.findall(data.texto)
         if not urls:
             anunciar("No se encontró ningún enlace")
             wx.MessageBox("No se encontró ningún enlace en este mensaje.",
@@ -1695,7 +1694,7 @@ class YTChatFrame(wx.Frame):
 
     def _autor_seleccionado(self) -> str | None:
         data = self._get_selected_data()
-        return data[0] if data else None
+        return data.autor if data else None
 
     # ── Selección y portapapeles ─────────────────────────────────────────────
 
@@ -1800,7 +1799,7 @@ class YTChatFrame(wx.Frame):
 
     def agregar_mensaje_chat(self, autor: str, mensaje: str, hora: str,
                              tipo: str = TIPO_TEXTO, monto: str = "",
-                             canal_id: str = "") -> None:
+                             canal_id: str = "", plataforma: str = "") -> None:
         if not self._alive:
             return
         # Si ya no estamos conectados, descartar: puede ser un mensaje rezagado
@@ -1813,41 +1812,42 @@ class YTChatFrame(wx.Frame):
         # No tocar self._chat/lb_chat aquí: se encola y se procesa en el
         # volcado agrupado (ver _volcar_pendientes) para no disparar un
         # Append/Delete por mensaje mientras NVDA navega la lista.
-        self._pendientes.append((autor, mensaje, hora, tipo, monto, canal_id))
+        registro = MensajeChat(
+            plataforma=plataforma, autor=autor, identificador=canal_id,
+            texto=mensaje, hora=hora, tipo=tipo, monto=monto)
+        self._pendientes.append(registro)
         # Si el temporizador ya corre, NO reiniciarlo: con un chat activo
         # (mensajes cada menos de MS_VOLCADO_CHAT) reiniciar pospondría el
         # volcado indefinidamente y no aparecería nada hasta una pausa.
         if self._pendientes_timer is None:
             self._pendientes_timer = wx.CallLater(MS_VOLCADO_CHAT, self._volcar_pendientes)
 
-    def _procesar_mensaje_chat(self, autor: str, mensaje: str, hora: str,
-                               tipo: str, monto: str, canal_id: str) -> bool:
+    def _procesar_mensaje_chat(self, registro: MensajeChat) -> bool:
         """Aplica UN mensaje ya desencolado al modelo y a lb_chat. Devuelve si
         quedó visible (se le hizo Append). Solo lo llama _volcar_pendientes."""
-        if canal_id:
-            self._canal_por_autor[autor.lower().strip()] = canal_id
-        if self._autor_esta_oculto(autor):
+        if self._autor_esta_oculto(registro.autor):
             return False
 
         # El modelo (lista_chat) recorta el historial y nos dice cuántas filas
         # viejas borrar por arriba, manteniendo fila ↔ mensaje siempre alineados
         # (antes se descontaba dos veces y, pasados 500 mensajes, copiar o
         # banear caían sobre el mensaje equivocado).
-        visible = self._filtro is None or tipo == self._filtro
-        borrar = self._chat.agregar((autor, mensaje, hora, tipo, monto), visible)
+        visible = self._filtro is None or registro.tipo == self._filtro
+        borrar = self._chat.agregar(registro, visible)
         for _ in range(borrar):
             self.lb_chat.Delete(0)
 
-        if tipo in (TIPO_SUPERCHAT, TIPO_STICKER):
+        if registro.tipo in (TIPO_SUPERCHAT, TIPO_STICKER):
             _snd.reproducir("superchat")
-            self._sumar_superchat(monto)
-        elif tipo == TIPO_MIEMBRO:
+            self._sumar_superchat(registro.monto)
+        elif registro.tipo == TIPO_MIEMBRO:
             _snd.reproducir("nuevo_miembro")
         else:
             _snd.reproducir("mensaje_nuevo")
 
         if visible:
-            self.lb_chat.Append(self._format_display(autor, mensaje, hora, tipo, monto))
+            self.lb_chat.Append(self._format_display(
+                registro.autor, registro.texto, registro.hora, registro.tipo, registro.monto))
         return visible
 
     def _volcar_pendientes(self) -> None:
@@ -1864,8 +1864,8 @@ class YTChatFrame(wx.Frame):
             self.lb_chat.Freeze()
         hubo_visible = False
         try:
-            for datos in pendientes:
-                if self._procesar_mensaje_chat(*datos):
+            for registro in pendientes:
+                if self._procesar_mensaje_chat(registro):
                     hubo_visible = True
         finally:
             if freeze:
@@ -1931,7 +1931,6 @@ class YTChatFrame(wx.Frame):
         toca las preferencias del usuario (filtro, voz, sonidos, tema)."""
         self._live_chat_id = ""
         self._causa_sin_chat = ""
-        self._canal_por_autor.clear()
         self._tipo_video = deteccion.DESCONOCIDO
         self._es_tiktok = False
         self._descartes_avisado = False
@@ -2161,10 +2160,11 @@ class YTChatFrame(wx.Frame):
         self._flush_pendientes_ahora()
         self.lb_chat.Clear()
         visibles = self._chat.reconstruir(
-            lambda it: not self._autor_esta_oculto(it[0])
-            and (self._filtro is None or it[3] == self._filtro))
-        for autor, msg, hora, tipo, monto in visibles:
-            self.lb_chat.Append(self._format_display(autor, msg, hora, tipo, monto))
+            lambda it: not self._autor_esta_oculto(it.autor)
+            and (self._filtro is None or it.tipo == self._filtro))
+        for registro in visibles:
+            self.lb_chat.Append(self._format_display(
+                registro.autor, registro.texto, registro.hora, registro.tipo, registro.monto))
 
     def _set_conectado_ui(self, conectado: bool) -> None:
         # Botón (toggle), items de menú Conectar/Desconectar y campo URL. El

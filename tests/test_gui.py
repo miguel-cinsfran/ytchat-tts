@@ -17,6 +17,7 @@ import apagado
 import alias
 import programados
 import ytdlp_bin
+from lista_chat import MensajeChat, ListaChat
 
 
 class TestInicioGui(unittest.TestCase):
@@ -614,9 +615,11 @@ class TestAliasDesdeElChat(unittest.TestCase):
     def test_menu_muestra_alias_y_moderacion_recibe_autor_real(self):
         frame = self._frame()
         frame.lb_chat.GetSelection.return_value = 0
-        frame._autor_seleccionado = mock.Mock(return_value=self.autor)
+        registro = MensajeChat(plataforma="youtube", autor=self.autor,
+                               identificador="canal-real", texto="hola",
+                               hora="12:00:00", tipo="text", monto="")
+        frame._get_selected_data = mock.Mock(return_value=registro)
         frame._autor_esta_silenciado = mock.Mock(return_value=False)
-        frame._canal_por_autor = {self.autor.lower(): "canal-real"}
         frame._live_chat_id = "chat"
         frame._moderar = mock.Mock()
         frame._silenciar_autor = mock.Mock()
@@ -642,6 +645,169 @@ class TestAliasDesdeElChat(unittest.TestCase):
             menu.handlers[identificador_silenciar](None)
         frame._moderar.assert_called_once_with(self.autor, "canal-real", None)
         frame._silenciar_autor.assert_called_once_with(self.autor, False)
+        alias.usar({})
+
+
+class TestIdentidadModeracionChat(unittest.TestCase):
+    """Moderación usa exclusivamente el registro seleccionado, nunca el último homónimo."""
+
+    def _frame_con_chat(self):
+        frame = gui.YTChatFrame.__new__(gui.YTChatFrame)
+        frame._chat = ListaChat(max_items=500)
+        frame._pendientes = []
+        frame._pendientes_timer = None
+        frame._filtro = None
+        frame._config = {"limpiar_emojis": True, "silenciados_runtime": set(),
+                         "silenciados_ocultar": set()}
+        frame._sc_totales = {}
+        frame._live_chat_id = "live123"
+        frame._conectado = True
+        frame._alive = True
+        frame._autor_esta_oculto = lambda autor: False
+        frame._autor_esta_silenciado = lambda autor: False
+        frame._moderar = mock.Mock()
+        frame._silenciar_autor = mock.Mock()
+        frame._rehabilitar_autor = mock.Mock()
+        frame.lb_chat = mock.Mock()
+        frame.lb_chat.Freeze = mock.Mock()
+        frame.lb_chat.Thaw = mock.Mock()
+        frame.lb_chat.Delete = mock.Mock()
+        frame.lb_chat.Append = mock.Mock()
+        frame.lb_chat.Clear = mock.Mock()
+        frame.lb_chat.GetSelection = mock.Mock(return_value=0)
+        frame.lb_chat.GetCount = mock.Mock(return_value=0)
+        return frame
+
+    def _encolar_y_volcar(self, frame, plataforma, autor, identificador, texto="hola"):
+        with mock.patch.object(gui.wx, "CallLater", return_value=mock.Mock()):
+            frame.agregar_mensaje_chat(autor, texto, "12:00:00", "text", "", identificador,
+                                       plataforma=plataforma)
+        # Volcar sin depender del temporizador ni de wx.App.
+        with mock.patch.object(gui.wx.Window, "FindFocus", return_value=None):
+            frame._volcar_pendientes()
+
+    def test_homonimos_banear_recibe_identificador_antiguo(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Igual", "AAA", "mensaje A")
+        self._encolar_y_volcar(frame, "youtube", "Igual", "BBB", "mensaje B")
+        # Seleccionar fila antigua (0 -> AAA).
+        frame.lb_chat.GetSelection.return_value = 0
+        menu = MenuChatFalso()
+        alias.usar({})
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 20)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+        identificador_ban = next(i for i, texto in menu.etiquetas.items() if texto.startswith("Banear"))
+        with mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *a: fn(*a)):
+            menu.handlers[identificador_ban](None)
+        frame._moderar.assert_called_once_with("Igual", "AAA", None)
+        self.assertNotEqual(frame._moderar.call_args.args[1], "BBB")
+        alias.usar({})
+
+    def test_homonimos_timeout_recibe_identificador_antiguo(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Igual", "AAA")
+        self._encolar_y_volcar(frame, "youtube", "Igual", "BBB")
+        frame.lb_chat.GetSelection.return_value = 0
+        menu = MenuChatFalso()
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 20)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+        identificador_timeout = next(i for i, texto in menu.etiquetas.items() if texto.startswith("Expulsar"))
+        with mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *a: fn(*a)):
+            menu.handlers[identificador_timeout](None)
+        frame._moderar.assert_called_once_with("Igual", "AAA", 300)
+
+    def test_tiktok_no_muestra_moderacion_aunque_tenga_identificador(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "tiktok", "Igual", "TIK123")
+        frame.lb_chat.GetSelection.return_value = 0
+        menu = MenuChatFalso()
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 20)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+        self.assertNotIn("Banear a Igual del directo (permanente)", menu.etiquetas.values())
+        self.assertNotIn("Expulsar 5 min a Igual (timeout)", menu.etiquetas.values())
+
+    def test_youtube_sin_identificador_no_muestra_moderacion(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Igual", "")
+        frame.lb_chat.GetSelection.return_value = 0
+        menu = MenuChatFalso()
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 20)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+        self.assertNotIn("Banear a Igual del directo (permanente)", menu.etiquetas.values())
+
+    def test_copia_usa_texto_del_registro_seleccionado(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Igual", "AAA", "texto A")
+        self._encolar_y_volcar(frame, "youtube", "Igual", "BBB", "texto B")
+        frame.lb_chat.GetSelection.return_value = 0
+        frame._clipboard_set = mock.Mock()
+        with mock.patch.object(gui._snd, "reproducir"), mock.patch.object(gui, "anunciar"):
+            frame._copiar_mensaje()
+        frame._clipboard_set.assert_called_once_with("texto A")
+
+    def test_copia_todo_usa_registro_seleccionado(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Igual", "AAA", "hola")
+        frame.lb_chat.GetSelection.return_value = 0
+        # Forzar monto y hora conocidas.
+        frame._chat.todos[0] = MensajeChat(plataforma="youtube", autor="Igual",
+                                          identificador="AAA", texto="hola",
+                                          hora="12:34:56", tipo="text", monto="$5")
+        frame._chat.visibles = [0]
+        frame._clipboard_set = mock.Mock()
+        with mock.patch.object(gui._snd, "reproducir"), mock.patch.object(gui, "anunciar"):
+            frame._copiar_todo()
+        frame._clipboard_set.assert_called_once_with("Igual: hola, 12:34:56 [$5]")
+
+    def test_releer_usa_registro_seleccionado(self):
+        frame = self._frame_con_chat()
+        frame._cola = mock.Mock()
+        frame._cola.put = mock.Mock()
+        self._encolar_y_volcar(frame, "youtube", "Ana", "AAA", "hola mundo")
+        frame.lb_chat.GetSelection.return_value = 0
+        with mock.patch.object(gui, "anunciar"):
+            frame._releer_mensaje()
+        self.assertTrue(frame._cola.put.called)
+        texto_tts = frame._cola.put.call_args.args[0]["texto_tts"]
+        self.assertIn("hola mundo", texto_tts)
+
+    def test_abrir_enlace_usa_texto_del_registro(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "Ana", "AAA", "mira https://example.com")
+        frame.lb_chat.GetSelection.return_value = 0
+        with mock.patch.object(gui.webbrowser, "open") as abrir, \
+                mock.patch.object(gui, "anunciar"):
+            frame._abrir_enlace()
+        abrir.assert_called_once_with("https://example.com")
+
+    def test_alias_solo_cambia_texto_visible_moderacion_recibe_real(self):
+        frame = self._frame_con_chat()
+        self._encolar_y_volcar(frame, "youtube", "xX_gamer_29384756_Xx", "CANAL1", "hola")
+        frame.lb_chat.GetSelection.return_value = 0
+        alias.usar({"xx_gamer_29384756_xx": "Carlos"})
+        menu = MenuChatFalso()
+        with mock.patch.object(gui.wx, "Menu", return_value=menu), \
+                mock.patch.object(gui.wx, "NewIdRef", side_effect=range(1, 20)), \
+                mock.patch.object(gui.youtube_api, "google_disponible", return_value=True), \
+                mock.patch.object(gui.credenciales, "hay_sesion", return_value=True):
+            frame._mostrar_menu_chat()
+        self.assertIn("Silenciar a Carlos (solo TTS)", menu.etiquetas.values())
+        identificador_ban = next(i for i, texto in menu.etiquetas.items() if texto.startswith("Banear"))
+        with mock.patch.object(gui.wx, "CallAfter", side_effect=lambda fn, *a: fn(*a)):
+            menu.handlers[identificador_ban](None)
+        frame._moderar.assert_called_once_with("xX_gamer_29384756_Xx", "CANAL1", None)
         alias.usar({})
 
 
@@ -1144,7 +1310,6 @@ class TestDescartesGui(unittest.TestCase):
         frame._conectado = True
         frame._live_chat_id = ""
         frame._causa_sin_chat = ""
-        frame._canal_por_autor = {}
         frame._tipo_video = gui.deteccion.DESCONOCIDO
         frame._es_tiktok = False
         frame._descartar_pendientes = mock.Mock()

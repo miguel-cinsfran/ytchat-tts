@@ -7,11 +7,31 @@ menú contextual (copiar, silenciar, banear) caía sobre el mensaje equivocado.
 
 import unittest
 
-from lista_chat import ListaChat
+from lista_chat import ListaChat, MensajeChat
 
 
-def _msg(n, tipo="text"):
-    return (f"autor{n}", f"mensaje {n}", "12:00:00", tipo, "")
+def _msg(n, tipo="text", plataforma="youtube", identificador=None, autor=None):
+    return MensajeChat(
+        plataforma=plataforma,
+        autor=autor if autor is not None else f"autor{n}",
+        identificador=identificador if identificador is not None else f"id{n}",
+        texto=f"mensaje {n}",
+        hora="12:00:00",
+        tipo=tipo,
+        monto="",
+    )
+
+
+def _homonimo(texto_n, identificador, plataforma="youtube"):
+    return MensajeChat(
+        plataforma=plataforma,
+        autor="Igual",
+        identificador=identificador,
+        texto=texto_n,
+        hora="12:00:00",
+        tipo="text",
+        monto="",
+    )
 
 
 class TestAgregarBasico(unittest.TestCase):
@@ -48,13 +68,11 @@ class TestRecorte(unittest.TestCase):
         filas = 0
         for n in range(5):
             filas += 1 - lc.agregar(_msg(n), es_visible=True)
-        # Mensaje 6: recorta el 0 (que estaba visible) y añade el nuevo.
         borrar = lc.agregar(_msg(5), es_visible=True)
         self.assertEqual(borrar, 1)
         filas += 1 - borrar
         self.assertEqual(filas, 5)
-        self.assertEqual(len(lc.visibles), filas)  # sin desalineación
-        # La fila 0 ahora es el mensaje 1 y la última el recién llegado.
+        self.assertEqual(len(lc.visibles), filas)
         self.assertEqual(lc.dato_en_fila(0), _msg(1))
         self.assertEqual(lc.dato_en_fila(4), _msg(5))
 
@@ -70,28 +88,25 @@ class TestRecorte(unittest.TestCase):
 
     def test_recorte_de_mensaje_oculto_no_borra_filas(self):
         lc = ListaChat(max_items=3)
-        lc.agregar(_msg(0), es_visible=False)   # este caerá primero
+        lc.agregar(_msg(0), es_visible=False)
         lc.agregar(_msg(1), es_visible=True)
         lc.agregar(_msg(2), es_visible=True)
         borrar = lc.agregar(_msg(3), es_visible=True)
-        self.assertEqual(borrar, 0)   # el recortado no estaba en pantalla
+        self.assertEqual(borrar, 0)
         self.assertEqual(len(lc.visibles), 3)
         self.assertEqual(lc.dato_en_fila(0), _msg(1))
         self.assertEqual(lc.dato_en_fila(2), _msg(3))
 
     def test_recorte_con_filtro_mixto(self):
         lc = ListaChat(max_items=4)
-        # Alterna visible / oculto; el recorte debe quitar filas solo cuando el
-        # mensaje que cae estaba visible.
         lc.agregar(_msg(0), es_visible=True)
         lc.agregar(_msg(1), es_visible=False)
         lc.agregar(_msg(2), es_visible=True)
         lc.agregar(_msg(3), es_visible=False)
-        borrar = lc.agregar(_msg(4), es_visible=True)   # cae el 0 (visible)
+        borrar = lc.agregar(_msg(4), es_visible=True)
         self.assertEqual(borrar, 1)
-        borrar = lc.agregar(_msg(5), es_visible=True)   # cae el 1 (oculto)
+        borrar = lc.agregar(_msg(5), es_visible=True)
         self.assertEqual(borrar, 0)
-        # Filas actuales: 2, 4, 5.
         self.assertEqual(lc.dato_en_fila(0), _msg(2))
         self.assertEqual(lc.dato_en_fila(1), _msg(4))
         self.assertEqual(lc.dato_en_fila(2), _msg(5))
@@ -104,7 +119,7 @@ class TestReconstruir(unittest.TestCase):
         lc.agregar(_msg(0, "text"), es_visible=True)
         lc.agregar(_msg(1, "superchat"), es_visible=True)
         lc.agregar(_msg(2, "text"), es_visible=True)
-        visibles = lc.reconstruir(lambda it: it[3] == "superchat")
+        visibles = lc.reconstruir(lambda it: it.tipo == "superchat")
         self.assertEqual(visibles, [_msg(1, "superchat")])
         self.assertEqual(lc.dato_en_fila(0), _msg(1, "superchat"))
         self.assertIsNone(lc.dato_en_fila(1))
@@ -126,6 +141,89 @@ class TestLimpiar(unittest.TestCase):
         lc.limpiar()
         self.assertEqual(lc.todos, [])
         self.assertEqual(lc.visibles, [])
+        self.assertIsNone(lc.dato_en_fila(0))
+
+
+class TestIdentidadHomonima(unittest.TestCase):
+    """Dos registros homónimos con identificadores distintos conservan identidad por fila."""
+
+    def test_homonimos_conservan_identidad_por_fila(self):
+        lc = ListaChat(max_items=10)
+        a = _homonimo("hola A", "AAA")
+        b = _homonimo("hola B", "BBB")
+        lc.agregar(a, es_visible=True)
+        lc.agregar(b, es_visible=True)
+        self.assertIs(lc.dato_en_fila(0), a)
+        self.assertIs(lc.dato_en_fila(1), b)
+        self.assertEqual(lc.dato_en_fila(0).identificador, "AAA")
+        self.assertEqual(lc.dato_en_fila(1).identificador, "BBB")
+        self.assertEqual(lc.dato_en_fila(0).autor, "Igual")
+        self.assertEqual(lc.dato_en_fila(1).autor, "Igual")
+
+    def test_seleccion_antigua_tras_agregar_nueva(self):
+        lc = ListaChat(max_items=10)
+        a = _homonimo("primero", "AAA")
+        b = _homonimo("segundo", "BBB")
+        lc.agregar(a, es_visible=True)
+        lc.agregar(b, es_visible=True)
+        # Simula seleccionar fila 0 después de agregar la nueva.
+        fila_antigua = lc.dato_en_fila(0)
+        self.assertIs(fila_antigua, a)
+        self.assertEqual(fila_antigua.identificador, "AAA")
+        self.assertNotEqual(fila_antigua.identificador, "BBB")
+
+    def test_filtro_conserva_instancia(self):
+        lc = ListaChat(max_items=10)
+        a = _homonimo("hola A", "AAA")
+        b = _homonimo("hola B", "BBB")
+        c = MensajeChat(plataforma="youtube", autor="Otro", identificador="CCC",
+                        texto="otro", hora="12:00:01", tipo="superchat", monto="$5")
+        lc.agregar(a, es_visible=True)
+        lc.agregar(b, es_visible=True)
+        lc.agregar(c, es_visible=True)
+        visibles = lc.reconstruir(lambda it: it.tipo == "text")
+        self.assertEqual(len(visibles), 2)
+        self.assertIs(visibles[0], a)
+        self.assertIs(visibles[1], b)
+        self.assertIs(lc.dato_en_fila(0), a)
+        self.assertIs(lc.dato_en_fila(1), b)
+
+    def test_reconstruccion_conserva_instancia(self):
+        lc = ListaChat(max_items=10)
+        a = _homonimo("hola A", "AAA")
+        b = _homonimo("hola B", "BBB")
+        lc.agregar(a, es_visible=False)
+        lc.agregar(b, es_visible=True)
+        # Reconstruir para mostrar todo recupera la misma instancia a.
+        visibles = lc.reconstruir(lambda it: True)
+        self.assertEqual(len(visibles), 2)
+        self.assertIs(visibles[0], a)
+        self.assertIs(visibles[1], b)
+
+    def test_recorte_con_homonimos_mantiene_identidad(self):
+        lc = ListaChat(max_items=3)
+        a = _homonimo("a", "AAA")
+        b = _homonimo("b", "BBB")
+        c = _homonimo("c", "CCC")
+        d = _homonimo("d", "DDD")
+        lc.agregar(a, es_visible=True)
+        lc.agregar(b, es_visible=True)
+        lc.agregar(c, es_visible=True)
+        borrar = lc.agregar(d, es_visible=True)
+        self.assertEqual(borrar, 1)
+        self.assertIs(lc.dato_en_fila(0), b)
+        self.assertIs(lc.dato_en_fila(1), c)
+        self.assertIs(lc.dato_en_fila(2), d)
+        self.assertEqual(lc.dato_en_fila(0).identificador, "BBB")
+
+    def test_limpieza_vacia_homonimos(self):
+        lc = ListaChat(max_items=10)
+        a = _homonimo("hola A", "AAA")
+        b = _homonimo("hola B", "BBB")
+        lc.agregar(a, es_visible=True)
+        lc.agregar(b, es_visible=True)
+        lc.limpiar()
+        self.assertEqual(lc.todos, [])
         self.assertIsNone(lc.dato_en_fila(0))
 
 

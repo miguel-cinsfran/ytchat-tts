@@ -13,18 +13,33 @@ mensajes visibles para repoblarla de cero.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class MensajeChat:
+    """Registro inmutable de una fila del chat con identidad estable."""
+
+    plataforma: str
+    autor: str
+    identificador: str
+    texto: str
+    hora: str
+    tipo: str
+    monto: str
+
 
 class ListaChat:
     """Historial + filas visibles del chat, con recorte y filtro coherentes."""
 
     def __init__(self, max_items: int = 500):
         self.max_items = int(max_items)
-        # Cada mensaje es una tupla (autor, mensaje, hora, tipo, monto).
-        self.todos: list[tuple] = []
+        # Cada mensaje es un MensajeChat.
+        self.todos: list[MensajeChat] = []
         # Índices en `todos` de las filas mostradas, en orden.
         self.visibles: list[int] = []
 
-    def agregar(self, item: tuple, es_visible: bool) -> int:
+    def agregar(self, item: MensajeChat, es_visible: bool) -> int:
         """Añade un mensaje al historial (y a las filas si `es_visible`).
 
         Devuelve cuántas filas debe borrar la GUI POR ARRIBA de su ListBox
@@ -45,7 +60,7 @@ class ListaChat:
             self.visibles.append(idx)
         return borrar_arriba
 
-    def dato_en_fila(self, fila: int) -> tuple | None:
+    def dato_en_fila(self, fila: int) -> MensajeChat | None:
         """Mensaje que corresponde a una fila del ListBox. None si no hay."""
         if 0 <= fila < len(self.visibles):
             idx = self.visibles[fila]
@@ -53,7 +68,7 @@ class ListaChat:
                 return self.todos[idx]
         return None
 
-    def reconstruir(self, es_visible) -> list[tuple]:
+    def reconstruir(self, es_visible) -> list[MensajeChat]:
         """Recalcula `visibles` con el predicado dado y devuelve, en orden, los
         mensajes que la GUI debe volver a pintar (tras un Clear())."""
         self.visibles = [i for i, it in enumerate(self.todos) if es_visible(it)]

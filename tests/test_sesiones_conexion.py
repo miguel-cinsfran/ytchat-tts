@@ -149,5 +149,85 @@ class PruebasCableadoConexiones(unittest.TestCase):
         difundir.assert_not_called()
 
 
+class TestPlataformaMensajesChat(unittest.TestCase):
+    def setUp(self):
+        self.gui_falsa = types.SimpleNamespace(_gui_frame=None)
+        self.modulo_gui_anterior = sys.modules.get("gui")
+        sys.modules["gui"] = self.gui_falsa
+        self.registro = RegistroEspia()
+        self.conexiones = Conexiones(
+            queue.Queue(), {}, mock.Mock(), threading.Event(),
+            crear_hilo=crear_hilo_inerte, registro=self.registro)
+
+    def tearDown(self):
+        if self.modulo_gui_anterior is None:
+            sys.modules.pop("gui", None)
+        else:
+            sys.modules["gui"] = self.modulo_gui_anterior
+
+    def test_youtube_entrega_plataforma_youtube_a_gui(self):
+        import main
+        import wx
+        callbacks = {}
+        def hilo(objetivo, nombre, **kwargs):
+            return HiloEjecuta(objetivo) if nombre == "Chat" else HiloInerte()
+        def captura(*args, **kwargs):
+            callbacks.update(kwargs)
+        frame = mock.Mock()
+        frame._alive = True
+        self.gui_falsa._gui_frame = frame
+        llamadas = []
+        def call_after(fn, *args, **kwargs):
+            llamadas.append((fn, args, kwargs))
+            # Capturar el método y argumentos sin ejecutar
+            return mock.Mock()
+        with mock.patch.object(main, "obtener_info_video",
+                               return_value=("Título", main.deteccion.LIVE, {})), \
+                mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
+                mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
+                mock.patch("overlay_servidor.difundir"), \
+                mock.patch.object(wx, "CallAfter", side_effect=call_after):
+            self.conexiones._crear_hilo = hilo
+            self.conexiones.conectar("dQw4w9WgXcQ")
+            callbacks["on_message"]("Ana", "Hola", "12:00", monto="US$ 5", canal_id="CANAL123")
+        # Debe haber llamado a agregar_mensaje_chat con plataforma youtube
+        agregados = [(fn, a, kw) for fn, a, kw in llamadas if fn is frame.agregar_mensaje_chat]
+        self.assertTrue(agregados)
+        fn, args, kwargs = agregados[0]
+        self.assertEqual(kwargs.get("plataforma"), "youtube")
+        # Verificar que canal_id también se entregó
+        self.assertIn("CANAL123", args)
+
+    def test_tiktok_entrega_plataforma_tiktok_a_gui(self):
+        import main
+        import wx
+        import tiktok_captura
+        callbacks = {}
+        def hilo(objetivo, nombre, **kwargs):
+            return HiloEjecuta(objetivo) if nombre == "TikTok" else HiloInerte()
+        def captura(*args, **kwargs):
+            callbacks.update(kwargs)
+        frame = mock.Mock()
+        frame._alive = True
+        self.gui_falsa._gui_frame = frame
+        llamadas = []
+        def call_after(fn, *args, **kwargs):
+            llamadas.append((fn, args, kwargs))
+            return mock.Mock()
+        self.conexiones._crear_hilo = hilo
+        with mock.patch.object(main, "procesar_entrante",
+                               side_effect=lambda *a, **k: k["on_message"](
+                                   "Ana", "Hola", "12:00", main.TIPO_TEXTO, "regalo", "TIKID")), \
+                mock.patch.object(tiktok_captura, "capturar_con_reconexion", side_effect=captura), \
+                mock.patch("overlay_servidor.difundir"), \
+                mock.patch.object(wx, "CallAfter", side_effect=call_after):
+            self.conexiones._conectar_tiktok("pepe")
+            callbacks["on_evento"]("Ana", "Hola", main.TIPO_TEXTO, "regalo", "TIKID")
+        agregados = [(fn, a, kw) for fn, a, kw in llamadas if fn is frame.agregar_mensaje_chat]
+        self.assertTrue(agregados)
+        fn, args, kwargs = agregados[0]
+        self.assertEqual(kwargs.get("plataforma"), "tiktok")
+
+
 if __name__ == "__main__":
     unittest.main()
