@@ -89,7 +89,7 @@ def ruta_ytdlp() -> str | None:
 def version_ytdlp(ruta: str | os.PathLike) -> str:
     """Lee la versión de un ejecutable sin abrir una ventana de consola."""
     try:
-        proceso = subprocess.Popen(
+        resultado = subprocess.run(
             [str(ruta), "--version"],
             capture_output=True,
             text=True,

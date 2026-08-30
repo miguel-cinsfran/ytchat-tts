@@ -11,6 +11,11 @@ import ytdlp_bin
 
 class PruebasYtdlpBin(unittest.TestCase):
 
+    def test_version_ytdlp_ejecuta_un_programa_real(self):
+        version = ytdlp_bin.version_ytdlp(sys.executable)
+        self.assertTrue(version)
+        self.assertTrue(version.startswith("Python"))
+
     def test_resultado_actualizacion_distingue_fallos(self):
         self.assertFalse(ytdlp_bin.resultado_actualizacion_es_fallo("ya_al_dia"))
         self.assertFalse(ytdlp_bin.resultado_actualizacion_es_fallo("actualizado"))
