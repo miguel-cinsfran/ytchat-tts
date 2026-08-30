@@ -1,6 +1,7 @@
 """Pruebas de las decisiones puras del reproductor."""
 
 import unittest
+import time
 from unittest import mock
 from types import SimpleNamespace
 
@@ -148,6 +149,27 @@ class TestCableadoBusqueda(unittest.TestCase):
         panel._buscar_rel(-10_000)
 
         panel._player.set_time.assert_called_once_with(21_038)
+
+    def test_salto_siguiente_conserva_como_referencia_el_destino_anterior(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 60_000
+        panel._player.get_time.side_effect = [5_000, 8_000]
+        panel._destino_pendiente = None
+        panel._ultima_posicion_confiable = 5_000
+        panel._marca_destino_pendiente = None
+        panel._fijar_tiempo = mock.Mock()
+
+        panel._buscar_rel(20_000)
+        panel._marca_destino_pendiente = time.monotonic() - (
+            CADUCIDAD_DESTINO_MS + 1) / 1000
+
+        panel._buscar_rel(10_000)
+
+        self.assertEqual(panel._player.set_time.call_args_list,
+                         [mock.call(25_000), mock.call(35_000)])
 
     def test_on_timer_con_salto_en_vuelo_conserva_el_destino_pendiente(self):
         import reproductor
