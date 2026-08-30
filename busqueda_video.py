@@ -11,7 +11,10 @@ def destino_acumulado(destino_pendiente, posicion_actual, delta_ms,
                       duracion_ms) -> int:
     """Calcula el siguiente salto sin perder pulsaciones en vuelo."""
     base = posicion_actual if destino_pendiente is None else destino_pendiente
-    return min(max(0, base + delta_ms), duracion_ms)
+    destino = min(max(0, base + delta_ms), duracion_ms)
+    if delta_ms > 0 and destino < base:
+        return base
+    return destino
 
 
 def destino_alcanzado(destino_pendiente, posicion_actual,

@@ -24,6 +24,49 @@ class TestDestinoAcumulado(unittest.TestCase):
         self.assertEqual(destino_acumulado(None, 1_000, -10_000, 60_000), 0)
         self.assertEqual(destino_acumulado(None, 59_000, 10_000, 60_000), 60_000)
 
+    def test_caso_real_sin_destino_pendiente_con_duracion_atrasada_conserva_base(self):
+        self.assertEqual(destino_acumulado(None, 3_615_868, 60_000, 3_600_000), 3_615_868)
+
+    def test_caso_real_con_destino_pendiente_con_duracion_atrasada_conserva_base(self):
+        self.assertEqual(destino_acumulado(3_615_868, 3_000_000, 60_000, 3_600_000), 3_615_868)
+
+    def test_avance_con_duracion_por_delante_recorta_a_duracion(self):
+        self.assertEqual(destino_acumulado(None, 50_000, 20_000, 60_000), 60_000)
+
+    def test_avance_con_destino_pendiente_y_duracion_por_delante_recorta(self):
+        self.assertEqual(destino_acumulado(50_000, 10_000, 20_000, 60_000), 60_000)
+
+    def test_avance_no_retrocede_monotonia(self):
+        for base, delta, dur in [
+            (3_615_868, 60_000, 3_600_000),
+            (50_000, 20_000, 60_000),
+            (10_000, 5_000, 60_000),
+            (0, 10_000, 5_000),
+        ]:
+            with self.subTest(base=base, delta=delta, dur=dur):
+                destino = destino_acumulado(None, base, delta, dur)
+                self.assertGreaterEqual(destino, base)
+
+    def test_retroceso_no_avanza_monotonia(self):
+        for base, delta, dur in [
+            (3_615_868, -10_000, 3_600_000),
+            (50_000, -20_000, 60_000),
+            (10_000, -5_000, 60_000),
+        ]:
+            with self.subTest(base=base, delta=delta, dur=dur):
+                destino = destino_acumulado(None, base, delta, dur)
+                self.assertLessEqual(destino, base)
+
+    def test_retroceso_con_duracion_atrasada_recorta_por_duracion(self):
+        self.assertEqual(destino_acumulado(None, 3_615_868, -10_000, 3_600_000), 3_600_000)
+
+    def test_retroceso_respeta_limite_cero(self):
+        self.assertEqual(destino_acumulado(None, 5_000, -10_000, 60_000), 0)
+
+    def test_acumulacion_sobre_destino_pendiente_respeta_monotonia_avance(self):
+        destino = destino_acumulado(3_615_868, 3_600_000, 60_000, 3_600_000)
+        self.assertGreaterEqual(destino, 3_615_868)
+
 
 class TestDestinoAlcanzado(unittest.TestCase):
 
@@ -222,6 +265,38 @@ class TestCableadoBusqueda(unittest.TestCase):
         self.assertIsNone(panel._destino_pendiente)
         destino_consultado.assert_called_once_with(
             30_000, 29_000, TOLERANCIA_DESTINO_MS)
+
+    def test_buscar_rel_caso_real_con_duracion_atrasada_no_retrocede(self):
+        import reproductor
+
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 3_600_000
+        panel._player.get_time.return_value = 3_615_868
+        panel._destino_pendiente = None
+        panel._marca_destino_pendiente = None
+        panel._ultima_posicion_confiable = 3_615_868
+        panel._marcar_destino = mock.Mock()
+        panel._fijar_tiempo = mock.Mock()
+
+        panel._buscar_rel(60_000)
+
+        panel._player.set_time.assert_called_once_with(3_615_868)
+        panel._marcar_destino.assert_called_once_with(3_615_868)
+        panel._fijar_tiempo.assert_called_once_with(
+            3_615_868, 3_600_000, mover_slider=True, anunciar_t=True)
+        for nombre, llamada in [
+            ("set_time", panel._player.set_time),
+            ("_marcar_destino", panel._marcar_destino),
+            ("_fijar_tiempo", panel._fijar_tiempo),
+        ]:
+            with self.subTest(receptor=nombre):
+                args = llamada.call_args[0] if llamada.call_args else ()
+                kwargs = llamada.call_args[1] if llamada.call_args else {}
+                valores = list(args) + list(kwargs.values())
+                self.assertNotIn(3_600_000, valores[0:1] if nombre != "_fijar_tiempo" else valores[0:1],
+                                 f"{nombre} recibió 3.600.000 en lugar de 3.615.868")
+                self.assertIn(3_615_868, valores)
 
 
 class TestCableadoPlayPausa(unittest.TestCase):
