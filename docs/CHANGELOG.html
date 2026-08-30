@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10.1" />
+  <meta name="generator" content="pandoc 3.10" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>YTChat TTS — Novedades</title>
   <style>
@@ -41,6 +41,7 @@
       body {
         background-color: transparent;
         color: black;
+        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -222,8 +223,46 @@ está en el historial de git.</p>
 <h2 id="210--agosto-de-2026">2.1.0 — agosto de 2026</h2>
 <p>Esta versión añade un panel de chat para mostrar en la emisión, la
 posibilidad de escribir en el chat desde la propia aplicación, y
-simplifica la personalización de los atajos.</p>
+simplifica la personalización de los atajos. También arregla el
+reproductor, que hasta ahora hacía caso cuando quería.</p>
 <ul>
+<li><p><strong>El reproductor obedece al instante.</strong> Después de
+adelantar o retroceder, el pausar y el reproducir se perdían durante
+diez o veinte segundos: se anunciaba «pausar» tres veces seguidas y el
+vídeo seguía andando. En los vídeos de YouTube el audio viaja por
+separado del vídeo, y al reproductor le llegaban los dos por la red: el
+audio frenaba todo lo demás. Ahora el audio se guarda antes en el disco,
+en una carpeta <code>cache-audio</code> junto al ejecutable, y las
+órdenes se cumplen todas. De paso, el vídeo empieza a verse en menos de
+un segundo en vez de en seis.</p></li>
+<li><p><strong>Ya no se abre una ventana negra al arrancar.</strong>
+Aparecía un instante y le robaba el foco al lector de pantalla. Era una
+consulta al sistema sobre la tarjeta de vídeo, que además retrasaba el
+arranque unos segundos y ahora se hace por detrás.</p></li>
+<li><p><strong>El servidor de OBS se activa desde aquí.</strong>
+<em>Preferencias, Transmisión</em>, botón <em>Activar el servidor de
+OBS</em>, sin tener que buscarlo en los menús de OBS.</p></li>
+<li><p><strong>Los avisos del menú ya no se cortan.</strong> Al elegir
+una opción del menú, el lector empezaba a leer el aviso y se callaba a
+mitad, porque enseguida leía otra cosa. Pasaba en diecinueve sitios,
+incluido el menú del botón derecho sobre el chat, donde fallaba
+siempre.</p></li>
+<li><p><strong>La casilla del panel de chat funciona aunque OBS no
+esté.</strong> Dejaba de responder si OBS no contestaba, aunque el panel
+no necesita OBS para nada.</p></li>
+<li><p><strong>Cuando OBS no se puede activar, dice por qué.</strong>
+Antes salía un mensaje vacío de contenido.</p></li>
+<li><p><strong>En las descargas se lee primero el progreso.</strong> Las
+columnas pasaron a ser progreso, estado y nombre, que es el orden en que
+interesan.</p></li>
+<li><p><strong>Se atacaron dos defectos de los cierres inesperados al
+salir.</strong> El reproductor dejaba cabos sueltos al cerrarse, que
+encajan con los cierres bruscos que aparecían en el registro. No se
+puede dar por curado hasta usarlo un tiempo, pero el registro ahora deja
+rastro de ese cierre en vez de callarse.</p></li>
+<li><p><strong>Los fallos de la voz quedan anotados.</strong> Si el
+sintetizador falla al anunciar algo, antes no quedaba ni
+rastro.</p></li>
 <li><p><strong>Un panel de chat para que lo vean los
 espectadores.</strong> Los mensajes aparecen en una página con fondo
 transparente que puede añadirse a la emisión, de modo que quien mira el

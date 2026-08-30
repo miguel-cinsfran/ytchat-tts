@@ -155,6 +155,12 @@ Dentro del deslizador de posición, las flechas mueven la reproducción diez
 segundos, y el deslizador anuncia el tiempo transcurrido en lugar de un número
 sin contexto.
 
+Al cargar un vídeo de YouTube, la aplicación guarda su audio en una carpeta
+`cache-audio`, junto al ejecutable. Es lo que permite que pausar y saltar
+respondan al instante: leído desde el disco, el audio no frena las órdenes del
+reproductor como hacía al venir por la red. Se conservan los tres últimos y los
+demás se borran solos. Si la descarga falla, el vídeo se reproduce igual.
+
 La primera vez que se abre la aplicación, el reproductor tarda unos segundos en
 quedar disponible. Durante esa preparación se anuncia «Preparando el
 reproductor», y al terminar, «Reproductor listo».
@@ -204,9 +210,11 @@ Con OBS Studio no hace falta colocar nada a mano. *Herramientas, Transmisión*,
 o `Ctrl+Mayúsculas+T`, abre una ventana que habla con OBS y permite ordenar la
 escena entera sin ver la pantalla.
 
-Antes de usarla hay que activar el servidor de OBS una sola vez, en *Herramientas,
-Configuración del servidor WebSocket*, dentro del propio OBS. La aplicación lee
-sola el puerto y la contraseña que queden guardados ahí.
+Antes de usarla hay que activar el servidor de OBS una sola vez. Lo más cómodo
+es hacerlo desde aquí: *Preferencias, Transmisión*, botón *Activar el servidor
+de OBS*. Deja el servidor encendido y la aplicación se queda con el puerto y la
+contraseña. También puede hacerse a mano dentro del propio OBS, en
+*Herramientas, Configuración del servidor WebSocket*.
 
 La ventana permite:
 
@@ -459,9 +467,10 @@ los espectadores. El chat accesible es la lista de la ventana principal.
 
 ## Configuración
 
-Casi todo se ajusta en *Herramientas, Preferencias*, repartido en pestañas de
-interfaz, lectura, estado, filtros, atajos, API y mensajes automáticos. Los
-cambios se aplican en el momento.
+Casi todo se ajusta en *Herramientas, Preferencias*, repartido en trece
+pestañas: voz, lectura, cola de lectura, interfaz y sonidos, reproductor,
+conexión, filtros, estado (F2), atajos, API y sesión, mensajes automáticos,
+transmisión y diagnóstico. Los cambios se aplican en el momento.
 
 Los ajustes se guardan en `config.ini` y `sounds.ini`, junto al ejecutable.
 Ambos son archivos de texto que pueden editarse con el Bloc de notas, y si se
@@ -492,7 +501,15 @@ general activado, sesión de Google iniciada y un directo de YouTube conectado.
 Si faltó alguna de las tres, no se envía nada y no se anuncia.
 
 **Algo falla.** El archivo `ytchat.log`, junto al ejecutable, recoge los
-errores. En funcionamiento normal está vacío.
+errores. En funcionamiento normal está vacío. Si la aplicación llega a cerrarse
+sola, deja además `ytchat-fallos.log`, con los datos del equipo y lo que estaba
+haciendo cada parte del programa en ese momento.
+
+**Cómo dar un informe útil.** En *Preferencias, Diagnóstico* hay una casilla,
+*Guardar un registro detallado para diagnosticar fallos*, apagada de fábrica. Al
+encenderla y reiniciar, la aplicación anota mucho más en el registro. Conviene
+encenderla solo mientras se persigue un problema, reproducirlo, y enviar los dos
+archivos.
 
 ## Licencia
 

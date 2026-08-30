@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10.1" />
+  <meta name="generator" content="pandoc 3.10" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>YTChat TTS — Léeme</title>
   <style>
@@ -41,6 +41,7 @@
       body {
         background-color: transparent;
         color: black;
+        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -368,6 +369,12 @@ disponible por menú y por atajo; se muestran desde el menú
 <p>Dentro del deslizador de posición, las flechas mueven la reproducción
 diez segundos, y el deslizador anuncia el tiempo transcurrido en lugar
 de un número sin contexto.</p>
+<p>Al cargar un vídeo de YouTube, la aplicación guarda su audio en una
+carpeta <code>cache-audio</code>, junto al ejecutable. Es lo que permite
+que pausar y saltar respondan al instante: leído desde el disco, el
+audio no frena las órdenes del reproductor como hacía al venir por la
+red. Se conservan los tres últimos y los demás se borran solos. Si la
+descarga falla, el vídeo se reproduce igual.</p>
 <p>La primera vez que se abre la aplicación, el reproductor tarda unos
 segundos en quedar disponible. Durante esa preparación se anuncia
 «Preparando el reproductor», y al terminar, «Reproductor listo».</p>
@@ -411,10 +418,12 @@ la aplicación</h3>
 Transmisión</em>, o <code>Ctrl+Mayúsculas+T</code>, abre una ventana que
 habla con OBS y permite ordenar la escena entera sin ver la
 pantalla.</p>
-<p>Antes de usarla hay que activar el servidor de OBS una sola vez, en
-<em>Herramientas, Configuración del servidor WebSocket</em>, dentro del
-propio OBS. La aplicación lee sola el puerto y la contraseña que queden
-guardados ahí.</p>
+<p>Antes de usarla hay que activar el servidor de OBS una sola vez. Lo
+más cómodo es hacerlo desde aquí: <em>Preferencias, Transmisión</em>,
+botón <em>Activar el servidor de OBS</em>. Deja el servidor encendido y
+la aplicación se queda con el puerto y la contraseña. También puede
+hacerse a mano dentro del propio OBS, en <em>Herramientas, Configuración
+del servidor WebSocket</em>.</p>
 <p>La ventana permite:</p>
 <ul>
 <li>Elegir la <strong>escena</strong> y, dentro de ella, <strong>qué
@@ -663,8 +672,10 @@ destinada a los espectadores. El chat accesible es la lista de la
 ventana principal.</p>
 <h2 id="configuración">Configuración</h2>
 <p>Casi todo se ajusta en <em>Herramientas, Preferencias</em>, repartido
-en pestañas de interfaz, lectura, estado, filtros, atajos, API y
-mensajes automáticos. Los cambios se aplican en el momento.</p>
+en trece pestañas: voz, lectura, cola de lectura, interfaz y sonidos,
+reproductor, conexión, filtros, estado (F2), atajos, API y sesión,
+mensajes automáticos, transmisión y diagnóstico. Los cambios se aplican
+en el momento.</p>
 <p>Los ajustes se guardan en <code>config.ini</code> y
 <code>sounds.ini</code>, junto al ejecutable. Ambos son archivos de
 texto que pueden editarse con el Bloc de notas, y si se eliminan se
@@ -692,7 +703,15 @@ directo de YouTube conectado. Si faltó alguna de las tres, no se envía
 nada y no se anuncia.</p>
 <p><strong>Algo falla.</strong> El archivo <code>ytchat.log</code>,
 junto al ejecutable, recoge los errores. En funcionamiento normal está
-vacío.</p>
+vacío. Si la aplicación llega a cerrarse sola, deja además
+<code>ytchat-fallos.log</code>, con los datos del equipo y lo que estaba
+haciendo cada parte del programa en ese momento.</p>
+<p><strong>Cómo dar un informe útil.</strong> En <em>Preferencias,
+Diagnóstico</em> hay una casilla, <em>Guardar un registro detallado para
+diagnosticar fallos</em>, apagada de fábrica. Al encenderla y reiniciar,
+la aplicación anota mucho más en el registro. Conviene encenderla solo
+mientras se persigue un problema, reproducirlo, y enviar los dos
+archivos.</p>
 <h2 id="licencia">Licencia</h2>
 <p>MIT. Ver <a href="LICENSE">LICENSE</a>.</p>
 </body>

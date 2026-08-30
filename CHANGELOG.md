@@ -7,7 +7,39 @@ historial de git.
 
 Esta versión añade un panel de chat para mostrar en la emisión, la posibilidad
 de escribir en el chat desde la propia aplicación, y simplifica la
-personalización de los atajos.
+personalización de los atajos. También arregla el reproductor, que hasta ahora
+hacía caso cuando quería.
+
+- **El reproductor obedece al instante.** Después de adelantar o retroceder, el
+  pausar y el reproducir se perdían durante diez o veinte segundos: se anunciaba
+  «pausar» tres veces seguidas y el vídeo seguía andando. En los vídeos de YouTube el
+  audio viaja por separado del vídeo, y al reproductor le llegaban los dos por
+  la red: el audio frenaba todo lo demás. Ahora el audio se guarda antes en el disco, en
+  una carpeta `cache-audio` junto al ejecutable, y las órdenes se cumplen todas.
+  De paso, el vídeo empieza a verse en menos de un segundo en vez de en seis.
+- **Ya no se abre una ventana negra al arrancar.** Aparecía un instante y le
+  robaba el foco al lector de pantalla. Era una consulta al sistema sobre la
+  tarjeta de vídeo, que además retrasaba el arranque unos segundos y ahora se
+  hace por detrás.
+- **El servidor de OBS se activa desde aquí.** *Preferencias, Transmisión*,
+  botón *Activar el servidor de OBS*, sin tener que buscarlo en los menús de
+  OBS.
+- **Los avisos del menú ya no se cortan.** Al elegir una opción del menú, el
+  lector empezaba a leer el aviso y se callaba a mitad, porque enseguida leía
+  otra cosa. Pasaba en diecinueve sitios, incluido el menú del botón derecho
+  sobre el chat, donde fallaba siempre.
+- **La casilla del panel de chat funciona aunque OBS no esté.** Dejaba de
+  responder si OBS no contestaba, aunque el panel no necesita OBS para nada.
+- **Cuando OBS no se puede activar, dice por qué.** Antes salía un mensaje
+  vacío de contenido.
+- **En las descargas se lee primero el progreso.** Las columnas pasaron a ser
+  progreso, estado y nombre, que es el orden en que interesan.
+- **Se atacaron dos defectos de los cierres inesperados al salir.** El
+  reproductor dejaba cabos sueltos al cerrarse, que encajan con los cierres
+  bruscos que aparecían en el registro. No se puede dar por curado hasta usarlo
+  un tiempo, pero el registro ahora deja rastro de ese cierre en vez de callarse.
+- **Los fallos de la voz quedan anotados.** Si el sintetizador falla al
+  anunciar algo, antes no quedaba ni rastro.
 
 - **Un panel de chat para que lo vean los espectadores.** Los mensajes aparecen
   en una página con fondo transparente que puede añadirse a la emisión, de modo
