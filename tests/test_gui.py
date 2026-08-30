@@ -831,6 +831,7 @@ class TestCategoriasDePreferencias(unittest.TestCase):
             ("ui", "autoplay_reproductor"),
             ("ui", "mostrar_metadatos"),
             ("ui", "mostrar_botones_reproductor"),
+            ("ui", "cache_video_mb"),
             ("voz", "voz"), ("voz", "voz_eventos"), ("voz", "multivoz"),
             ("lectura", "formato_prefijo"),
             ("texto", "limpiar_emojis"), ("texto", "eliminar_urls"),
