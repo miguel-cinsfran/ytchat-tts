@@ -18,6 +18,7 @@ cache-video/
 # Python
 __pycache__/
 *.py[cod]
+/tmp*/
 
 # Entorno virtual (lo crea construir.bat con uv). Miles de archivos: nunca va.
 .venv/
@@ -45,12 +46,17 @@ historial_lives.json
 
 # Andamiaje de trabajo con agentes: no se versiona.
 # Viaja si se copia la carpeta, no con un git clone.
+.agents/
 .claude/
+.codex/
 .claudeignore
 .atl/
 CLAUDE.md
 claude.md
 AGENTS.md
+.ignore
+.mcp.json
+opencode.json
 MD/
 herramientas/
 
@@ -80,3 +86,6 @@ todosloslogs.txt
 
 # Cache de win32com, se regenera sola al cargar SAPI5.
 gen_py/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
