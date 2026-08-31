@@ -53,10 +53,34 @@ def traza_busqueda_orden(topologia, estado, confirmada, destino, muestra, edad_m
     )
 
 
+def traza_busqueda_muestra(topologia, es_directo, estado, confirmada, destino,
+                           muestra, duracion, candidato, edad_ms) -> str:
+    """Traza pura de una muestra mientras la búsqueda está pendiente."""
+    cand = "ninguno" if candidato is None else str(int(candidato))
+    return (
+        f"BUSQUEDA_MUESTRA topologia={topologia} es_directo={_booleano(es_directo)} "
+        f"estado={estado} confirmada={confirmada} destino={destino} muestra={muestra} "
+        f"dur={duracion} candidato={cand} edad={int(edad_ms)}"
+    )
+
+
 def traza_busqueda_desenlace(topologia, estado, confirmada, destino, muestra, edad_ms,
                              resultado) -> str:
     """Traza pura de un desenlace de búsqueda."""
     return (
         f"BUSQUEDA_{resultado.upper()} topologia={topologia} estado={estado} "
         f"confirmada={confirmada} destino={destino} muestra={muestra} edad={int(edad_ms)}"
+    )
+
+
+def traza_inicio_muestra(topologia, es_directo, estado, primera, muestra) -> str:
+    """Traza pura de una muestra mientras el inicio está pendiente."""
+    prim = "ninguna" if primera is None else str(int(primera))
+    if isinstance(muestra, int) and muestra >= 0:
+        muest = str(int(muestra))
+    else:
+        muest = "ninguna"
+    return (
+        f"INICIO_MUESTRA topologia={topologia} es_directo={_booleano(es_directo)} "
+        f"estado={estado} primera={prim} muestra={muest}"
     )

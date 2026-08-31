@@ -4,8 +4,9 @@ import itertools
 import unittest
 
 from traza_transporte import (
-    topologia_medio, traza_busqueda_orden, traza_busqueda_desenlace,
-    traza_salto, traza_sin_barra, traza_transporte,
+    topologia_medio, traza_busqueda_muestra, traza_busqueda_orden,
+    traza_busqueda_desenlace, traza_inicio_muestra, traza_salto, traza_sin_barra,
+    traza_transporte,
 )
 
 
@@ -109,6 +110,41 @@ class TestTopologia(unittest.TestCase):
         linea = traza_busqueda_orden("unica", "playing", 0, 0, 0, 0)
         for fragmento in ("googlevideo", "ytimg", "m3u8", "signature", "sig="):
             self.assertNotIn(fragmento, linea.lower())
+
+    def test_traza_busqueda_muestra_campos_y_sin_url(self):
+        linea = traza_busqueda_muestra("dividida", True, "playing", 1000, 60000, 60000, 120000, 60000, 123)
+        self.assertIn("BUSQUEDA_MUESTRA", linea)
+        self.assertIn("topologia=dividida", linea)
+        self.assertIn("es_directo=si", linea)
+        self.assertIn("estado=playing", linea)
+        self.assertIn("confirmada=1000", linea)
+        self.assertIn("destino=60000", linea)
+        self.assertIn("muestra=60000", linea)
+        self.assertIn("dur=120000", linea)
+        self.assertIn("candidato=60000", linea)
+        self.assertIn("edad=123", linea)
+        self.assertNotIn("http", linea.lower())
+        linea2 = traza_busqueda_muestra("unica", False, "paused", 0, 1000, 0, 10000, None, 0)
+        self.assertIn("es_directo=no", linea2)
+        self.assertIn("candidato=ninguno", linea2)
+        for fragmento in ("googlevideo", "ytimg", "m3u8", "signature", "sig="):
+            self.assertNotIn(fragmento, linea2.lower())
+
+    def test_traza_inicio_muestra_campos_y_sin_url(self):
+        linea = traza_inicio_muestra("unica", False, "playing", 1000, 1250)
+        self.assertIn("INICIO_MUESTRA", linea)
+        self.assertIn("topologia=unica", linea)
+        self.assertIn("es_directo=no", linea)
+        self.assertIn("estado=playing", linea)
+        self.assertIn("primera=1000", linea)
+        self.assertIn("muestra=1250", linea)
+        self.assertNotIn("http", linea.lower())
+        linea2 = traza_inicio_muestra("dividida", True, "paused", None, -1)
+        self.assertIn("es_directo=si", linea2)
+        self.assertIn("primera=ninguna", linea2)
+        self.assertIn("muestra=ninguna", linea2)
+        for fragmento in ("googlevideo", "ytimg", "m3u8", "signature", "sig="):
+            self.assertNotIn(fragmento, linea2.lower())
 
 
 if __name__ == "__main__":

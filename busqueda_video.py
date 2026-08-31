@@ -9,6 +9,22 @@ PROGRESO_MINIMO_MS = 250
 _ESTADOS_FINALES = {"ended", "stopped", "error", "nothingspecial"}
 
 
+def busqueda_permitida(es_directo, es_local, tiene_esclavo) -> bool:
+    """Indica si la topología actual admite búsquedas.
+
+    Un VOD remoto dividido no admite búsquedas. Un archivo local sí.
+    Una fuente única conserva el comportamiento actual. El directo
+    no se deshabilita: solo pierde la confirmación especial de final.
+    """
+    if es_directo:
+        return True
+    if es_local:
+        return True
+    if tiene_esclavo:
+        return False
+    return True
+
+
 def destino_acumulado(destino_pendiente, posicion_actual, delta_ms,
                       duracion_ms) -> int:
     base = posicion_actual if destino_pendiente is None else destino_pendiente
@@ -120,7 +136,7 @@ class EstadoBusqueda:
             return self.confirmada
         return int(lectura_actual)
 
-    def observar(self, muestra, duracion, estado, ahora):
+    def observar(self, muestra, duracion, estado, ahora, es_directo=False):
         if self.destino is None:
             if isinstance(muestra, int) and muestra >= 0:
                 self.confirmada = int(muestra)
@@ -167,7 +183,7 @@ class EstadoBusqueda:
         if estado_norm != "playing":
             return (None, None)
 
-        if duracion and duracion > 0:
+        if not es_directo and duracion and duracion > 0:
             cerca_dest = abs(int(duracion) - int(self.destino)) <= TOLERANCIA_DESTINO_MS
             cerca_muestra = abs(int(duracion) - int(muestra)) <= TOLERANCIA_DESTINO_MS
             dentro = abs(int(muestra) - int(self.destino)) <= TOLERANCIA_DESTINO_MS
@@ -201,3 +217,73 @@ class EstadoBusqueda:
 
         self._ultima_valida = int(muestra)
         return (None, None)
+
+
+class EstadoInicioReproduccion:
+    """Inicio real de una carga explícita.
+
+    Deja el estado visible en preparación y solo etiqueta y anuncia
+    Reproduciendo después de observar estado reproducible y al menos
+    dos muestras válidas con avance de 250 ms o más. El evento Playing
+    solo no basta y el cambio interno a caché local no lo repite.
+    """
+
+    def __init__(self):
+        self._requiere = False
+        self._anunciado = False
+        self._primera = None
+        self._gen = 0
+
+    @property
+    def requiere(self) -> bool:
+        return bool(self._requiere and not self._anunciado)
+
+    @property
+    def anunciado(self) -> bool:
+        return bool(self._anunciado)
+
+    @property
+    def generacion(self) -> int:
+        return self._gen
+
+    @property
+    def primera(self):
+        return self._primera
+
+    def iniciar(self) -> int:
+        self._requiere = True
+        self._anunciado = False
+        self._primera = None
+        self._gen += 1
+        return self._gen
+
+    def cancelar(self) -> int:
+        self._requiere = False
+        self._anunciado = False
+        self._primera = None
+        self._gen += 1
+        return self._gen
+
+    def observar(self, estado, muestra) -> bool:
+        if not self._requiere or self._anunciado:
+            return False
+        estado_norm = (estado or "").lower()
+        if estado_norm != "playing":
+            self._primera = None
+            return False
+        if not isinstance(muestra, int) or muestra < 0:
+            return False
+        muestra = int(muestra)
+        if self._primera is None:
+            self._primera = muestra
+            return False
+        if muestra < self._primera:
+            self._primera = muestra
+            return False
+        if muestra - self._primera >= PROGRESO_MINIMO_MS:
+            self._anunciado = True
+            self._requiere = False
+            self._primera = None
+            self._gen += 1
+            return True
+        return False

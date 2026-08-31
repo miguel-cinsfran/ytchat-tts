@@ -373,6 +373,7 @@ class TestBusquedaCableado(unittest.TestCase):
         panel = self._panel_busqueda(confirmada=0)
         panel._player.get_length.return_value = 100_000
         panel._tiene_esclavo = True
+        panel._info = {"is_live": True}
         with self.assertLogs("ytchat.reproductor", "DEBUG") as capturas:
             with mock.patch.object(reproductor, "anunciar"):
                 panel._buscar_rel(10_000)
@@ -380,6 +381,473 @@ class TestBusquedaCableado(unittest.TestCase):
         self.assertIn("topologia=dividida", salida.lower())
         self.assertNotIn("http", salida.lower())
         self.assertNotIn("googlevideo", salida.lower())
+
+
+class TestBusquedaBloqueadaVODDividido(unittest.TestCase):
+
+    def _panel_vod_dividido(self, confirmada=40_000):
+        import reproductor
+        from busqueda_video import EstadoBusqueda
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._listo = True
+        panel._video_id = "VOD12345678"
+        panel._url_flujo = ""
+        panel._tiene_esclavo = True
+        panel._usando_cache_local = False
+        panel._info = {"is_live": False}
+        panel._gen = 0
+        panel._cargando = False
+        panel._config = {"cache_video_mb": 1024}
+        panel._muted = False
+        panel._vol = 80
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 120_000
+        panel._player.get_time.return_value = confirmada
+        panel._player.get_state.return_value = mock.Mock(name="playing")
+        try:
+            panel._player.get_state.return_value.name = "playing"
+        except Exception:
+            pass
+        panel._player.set_time = mock.Mock()
+        panel.sld_pos = mock.Mock()
+        panel.sld_pos.GetValue.return_value = 600
+        panel.lbl_tiempo = mock.Mock()
+        panel.lbl_estado = mock.Mock()
+        panel._timer = mock.Mock()
+        panel._timer_progreso = mock.Mock()
+        panel._fijar_tiempo = mock.Mock()
+        panel._topologia_actual = lambda: "dividida"
+        panel._estado_busqueda = EstadoBusqueda(confirmada=confirmada)
+        panel._estado_inicio = mock.Mock()
+        panel._transporte_pendiente = False
+        panel._intencion_reproducir = True
+        panel._marca_url = None
+        panel._marca_reproduccion = None
+        panel._marca_extraccion = None
+        panel._inst = mock.Mock()
+        return panel
+
+    def test_relativo_bloqueado_sin_set_time_ni_destino(self):
+        import reproductor
+        panel = self._panel_vod_dividido(confirmada=40_000)
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with self.assertNoLogs("ytchat.reproductor", "DEBUG"):
+                panel._buscar_rel(10_000)
+        panel._player.set_time.assert_not_called()
+        self.assertIsNone(panel._estado_busqueda.destino)
+        panel._fijar_tiempo.assert_not_called()
+        anunciar.assert_called_once_with("No se puede mover este vídeo mientras usa la fuente de internet")
+
+    def test_porcentaje_bloqueado(self):
+        import reproductor
+        panel = self._panel_vod_dividido()
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with self.assertNoLogs("ytchat.reproductor", "DEBUG"):
+                panel._buscar_porcentaje(50)
+        panel._player.set_time.assert_not_called()
+        self.assertIsNone(panel._estado_busqueda.destino)
+        anunciar.assert_called_once_with("No se puede mover este vídeo mientras usa la fuente de internet")
+
+    def test_deslizador_bloqueado(self):
+        import reproductor
+        panel = self._panel_vod_dividido()
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with self.assertNoLogs("ytchat.reproductor", "DEBUG"):
+                panel._on_sld_pos(None)
+        panel._player.set_time.assert_not_called()
+        self.assertIsNone(panel._estado_busqueda.destino)
+        anunciar.assert_called_once_with("No se puede mover este vídeo mientras usa la fuente de internet")
+
+    def test_pos_key_flecha_bloqueada(self):
+        import reproductor
+        panel = self._panel_vod_dividido()
+        panel.sld_pos = mock.Mock()
+        panel._player.get_length.return_value = 120_000
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with self.assertNoLogs("ytchat.reproductor", "DEBUG"):
+                event = mock.Mock()
+                event.GetKeyCode.return_value = reproductor.wx.WXK_RIGHT
+                panel._on_pos_key(event)
+        panel._player.set_time.assert_not_called()
+        anunciar.assert_called_once_with("No se puede mover este vídeo mientras usa la fuente de internet")
+
+    def test_local_dividido_acepta_busqueda(self):
+        import reproductor
+        panel = self._panel_vod_dividido(confirmada=10_000)
+        panel._usando_cache_local = True
+        panel._topologia_actual = lambda: "local"
+        with mock.patch.object(reproductor, "anunciar"):
+            with self.assertLogs("ytchat.reproductor", "DEBUG") as cap:
+                panel._buscar_rel(10_000)
+        panel._player.set_time.assert_called_once()
+        self.assertEqual(panel._estado_busqueda.destino, 20_000)
+        self.assertTrue(any("BUSQUEDA_ORDEN" in o for o in cap.output))
+        self.assertEqual(sum("BUSQUEDA_ORDEN" in o for o in cap.output), 1)
+
+    def test_unica_remota_acepta_busqueda(self):
+        import reproductor
+        panel = self._panel_vod_dividido(confirmada=10_000)
+        panel._tiene_esclavo = False
+        panel._topologia_actual = lambda: "unica"
+        panel._info = {"is_live": False}
+        with mock.patch.object(reproductor, "anunciar"):
+            with self.assertLogs("ytchat.reproductor", "DEBUG"):
+                panel._buscar_rel(10_000)
+        panel._player.set_time.assert_called_once_with(20_000)
+        self.assertIsNotNone(panel._estado_busqueda.destino)
+
+    def test_cada_accion_aceptada_una_orden_y_muestra(self):
+        import reproductor
+        panel = self._panel_vod_dividido(confirmada=10_000)
+        panel._tiene_esclavo = False
+        panel._topologia_actual = lambda: "unica"
+        with mock.patch.object(reproductor, "anunciar"):
+            with self.assertLogs("ytchat.reproductor", "DEBUG") as cap:
+                panel._buscar_rel(10_000)
+        orden = [l for l in cap.output if "BUSQUEDA_ORDEN" in l]
+        self.assertEqual(len(orden), 1, cap.output)
+        # muestra en evaluacion siguiente
+        panel._player.get_time.return_value = 10_000
+        panel._player.get_state.return_value.name = "playing"
+        with self.assertLogs("ytchat.reproductor", "DEBUG") as cap2:
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._evaluar_busqueda()
+        muestras = [l for l in cap2.output if "BUSQUEDA_MUESTRA" in l]
+        self.assertEqual(len(muestras), 1, cap2.output)
+        self.assertIn("topologia=", muestras[0].lower())
+        self.assertIn("es_directo=", muestras[0].lower())
+        self.assertIn("estado=", muestras[0].lower())
+        self.assertIn("muestra=", muestras[0].lower())
+
+
+class TestInicioReproduccionCableado(unittest.TestCase):
+
+    def _panel_inicio(self):
+        import reproductor
+        from busqueda_video import EstadoInicioReproduccion, EstadoBusqueda
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._listo = True
+        panel._video_id = "VID12345678"
+        panel._url_flujo = ""
+        panel._info = {"is_live": False}
+        panel._tiene_esclavo = False
+        panel._usando_cache_local = False
+        panel._gen = 0
+        panel._cargando = False
+        panel._config = {}
+        panel._muted = False
+        panel._vol = 80
+        panel._marca_url = None
+        panel._marca_reproduccion = None
+        panel._marca_extraccion = None
+        panel._intencion_reproducir = True
+        panel._transporte_pendiente = False
+        panel._tarea_cache_video = None
+        panel._player = mock.Mock()
+        panel._player.get_state.return_value = mock.Mock(name="playing")
+        panel._player.get_state.return_value.name = "playing"
+        panel._player.get_time.return_value = 0
+        panel._player.get_length.return_value = 120_000
+        panel._inst = mock.Mock()
+        panel._estado_busqueda = EstadoBusqueda(confirmada=0)
+        panel._estado_inicio = EstadoInicioReproduccion()
+        panel._timer = mock.Mock()
+        panel._timer_progreso = mock.Mock()
+        panel.lbl_tiempo = mock.Mock()
+        panel.lbl_estado = mock.Mock()
+        panel.btn_play = mock.Mock()
+        panel.sld_pos = mock.Mock()
+        panel._fijar_tiempo = mock.Mock()
+        panel._mostrar_pausa = mock.Mock()
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._asegurar_instancia = mock.Mock(return_value=True)
+        panel._fijar_salida = mock.Mock()
+        panel._intencion_reproducir = True
+        panel._transporte_pendiente = False
+        return panel
+
+    def test_carga_con_playing_inmovil_no_anuncia(self):
+        import reproductor
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._reproducir_calidad(None, reproducir=True)
+            anunciar.assert_not_called()
+            self.assertEqual(panel.lbl_estado.SetLabel.call_args[0][0], "Cargando vídeo…")
+            # dos ticks con misma muestra no anuncia
+            panel._player.get_state.return_value.name = "playing"
+            panel._player.get_time.return_value = 500
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+            panel._player.get_time.return_value = 500
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+
+    def test_carga_con_avance_anuncia_una_vez(self):
+        import reproductor
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._reproducir_calidad(None, reproducir=True)
+            panel._player.get_state.return_value.name = "playing"
+            panel._player.get_time.return_value = 1000
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+            panel._player.get_time.return_value = 1300
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_called_once_with("Reproduciendo")
+            self.assertEqual(panel.lbl_estado.SetLabel.call_args[0][0], "Reproduciendo.")
+            anunciar.reset_mock()
+            panel._player.get_time.return_value = 1600
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+
+    def test_cache_local_no_repita_reproduciendo(self):
+        import reproductor
+        from pathlib import Path
+        import tempfile
+        from tarea_cache_video import TareaCacheVideo
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        # simular carga ya confirmada
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._reproducir_calidad(None, reproducir=True)
+            panel._player.get_state.return_value.name = "playing"
+            panel._player.get_time.return_value = 1000
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            panel._player.get_time.return_value = 1300
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_called_once_with("Reproduciendo")
+            anunciar.reset_mock()
+            # ahora cache local
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / "VID12345678.mp4"
+                dest.write_bytes(b"x")
+                panel._video_id = "VID12345678"
+                panel._gen = 0
+                tarea = TareaCacheVideo("VID12345678", 0, dest)
+                panel._tarea_cache_video = tarea
+                panel._player.set_media = mock.Mock()
+                panel._player.audio_set_volume = mock.Mock()
+                panel._player.audio_set_mute = mock.Mock()
+                panel._player.play = mock.Mock()
+                panel._player.set_time = mock.Mock()
+                panel._podar_cache_video = mock.Mock()
+                panel._marcar_destino = mock.Mock()
+                with mock.patch("sound_player.reproducir"):
+                    panel._cache_video_lista(tarea, True)
+                anunciar.assert_not_called()
+                panel._player.get_time.return_value = 2000
+                with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                    panel._on_timer(None)
+                anunciar.assert_not_called()
+
+    def test_flujo_directo_anuncia_en_directo_no_reproduciendo(self):
+        import reproductor
+        panel = self._panel_inicio()
+        panel._url_flujo = "https://example.com/flujo.m3u8"
+        panel._info = None
+        panel._inst.media_new.return_value = mock.Mock(add_option=mock.Mock())
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._reproducir_flujo(reproducir=True)
+            self.assertEqual(panel.lbl_estado.SetLabel.call_args[0][0], "Cargando vídeo…")
+            anunciar.assert_not_called()
+            panel._player.get_state.return_value.name = "playing"
+            panel._player.get_time.return_value = 5000
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+            panel._player.get_time.return_value = 5300
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_called_once_with("En directo")
+            self.assertEqual(panel.lbl_estado.SetLabel.call_args[0][0], "En directo (sin barra de tiempo).")
+            anunciar.reset_mock()
+            panel._player.get_time.return_value = 5600
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+
+    def test_detener_cancela_inicio_y_no_anuncia(self):
+        import reproductor
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._reproducir_calidad(None, reproducir=True)
+            panel._player.get_state.return_value.name = "playing"
+            panel._player.get_time.return_value = 1000
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            # antes de segundo tick, detener
+            panel._player.stop = mock.Mock()
+            panel._player.get_time.return_value = 1300
+            panel._detener(silencioso=True)
+            with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                panel._on_timer(None)
+            anunciar.assert_not_called()
+            self.assertFalse(panel._estado_inicio.requiere)
+
+    def test_inicio_inmovil_no_emite_reproduccion_pero_si_muestra(self):
+        import reproductor
+        import diagnostico
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar"):
+            panel._reproducir_calidad(None, reproducir=True)
+        self.assertIsNotNone(panel._marca_url)
+        marca_url = panel._marca_url
+        panel._player.get_state.return_value.name = "playing"
+        panel._player.get_time.return_value = 1000
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with mock.patch.object(diagnostico.logger, "info") as mock_info:
+                with self.assertLogs("ytchat.reproductor", "DEBUG") as cap:
+                    with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                        panel._on_timer(None)
+                self.assertTrue(any("INICIO_MUESTRA" in o for o in cap.output), cap.output)
+                self.assertIn("topologia=", cap.output[0].lower())
+                self.assertIn("es_directo=", cap.output[0].lower())
+                mock_info.assert_not_called()
+                self.assertEqual(panel._marca_url, marca_url)
+                anunciar.assert_not_called()
+                self.assertNotIn("Reproduciendo", panel.lbl_estado.SetLabel.call_args[0][0] if panel.lbl_estado.SetLabel.call_args else "")
+                panel._player.get_time.return_value = 1000
+                with self.assertLogs("ytchat.reproductor", "DEBUG") as cap2:
+                    with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                        panel._on_timer(None)
+                self.assertTrue(any("INICIO_MUESTRA" in o for o in cap2.output))
+                mock_info.assert_not_called()
+                self.assertEqual(panel._marca_url, marca_url)
+                anunciar.assert_not_called()
+
+    def test_inicio_con_progreso_emite_reproduccion_y_limpia_marca(self):
+        import reproductor
+        import diagnostico
+        panel = self._panel_inicio()
+        panel._info = {"is_live": False, "formats": [{"vcodec": "avc1", "acodec": "mp4a", "height": 720, "url": "http://example.com/video.mp4"}]}
+        media = mock.Mock(add_option=mock.Mock())
+        panel._inst.media_new.return_value = media
+        with mock.patch.object(reproductor, "anunciar"):
+            panel._reproducir_calidad(None, reproducir=True)
+        panel._player.get_state.return_value.name = "playing"
+        panel._player.get_time.return_value = 2000
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            with mock.patch.object(diagnostico.logger, "info") as mock_info:
+                with self.assertLogs("ytchat.reproductor", "DEBUG"):
+                    with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                        panel._on_timer(None)
+                mock_info.assert_not_called()
+                anunciar.assert_not_called()
+                self.assertIsNotNone(panel._marca_url)
+                panel._player.get_time.return_value = 2300
+                with self.assertLogs("ytchat.reproductor", "DEBUG") as cap2:
+                    with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                        panel._on_timer(None)
+                self.assertTrue(any("INICIO_MUESTRA" in o for o in cap2.output))
+                mock_info.assert_called_once()
+                args, _ = mock_info.call_args
+                self.assertIn("REPRODUCCIÓN", args[0])
+                self.assertIsNone(panel._marca_url)
+                anunciar.assert_called_once_with("Reproduciendo")
+                self.assertEqual(panel.lbl_estado.SetLabel.call_args[0][0], "Reproduciendo.")
+                anunciar.reset_mock()
+                mock_info.reset_mock()
+                panel._player.get_time.return_value = 2600
+                with mock.patch.object(reproductor.wx.Window, "FindFocus", return_value=None):
+                    panel._on_timer(None)
+                mock_info.assert_not_called()
+                anunciar.assert_not_called()
+
+    def test_transicion_remoto_dividido_a_cache_habilita_busqueda(self):
+        import reproductor
+        from busqueda_video import EstadoBusqueda
+        from pathlib import Path
+        import tempfile
+        from tarea_cache_video import TareaCacheVideo
+        # panel VOD remoto dividido bloqueado
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._listo = True
+        panel._video_id = "VID12345678"
+        panel._url_flujo = ""
+        panel._tiene_esclavo = True
+        panel._usando_cache_local = False
+        panel._info = {"is_live": False}
+        panel._gen = 3
+        panel._cargando = False
+        panel._config = {"cache_video_mb": 1024}
+        panel._muted = False
+        panel._vol = 80
+        panel._player = mock.Mock()
+        panel._player.get_length.return_value = 120_000
+        panel._player.get_time.return_value = 40000
+        panel._player.get_state.return_value = mock.Mock(name="playing")
+        panel._player.get_state.return_value.name = "playing"
+        panel._player.set_time = mock.Mock()
+        panel.sld_pos = mock.Mock()
+        panel.sld_pos.GetValue.return_value = 0
+        panel.lbl_tiempo = mock.Mock()
+        panel.lbl_estado = mock.Mock()
+        panel._timer = mock.Mock()
+        panel._timer_progreso = mock.Mock()
+        panel._fijar_tiempo = mock.Mock()
+        panel._topologia_actual = lambda: "dividida"
+        panel._estado_busqueda = EstadoBusqueda(confirmada=40000)
+        from busqueda_video import EstadoInicioReproduccion
+        panel._estado_inicio = EstadoInicioReproduccion()
+        panel._transporte_pendiente = False
+        panel._intencion_reproducir = True
+        panel._marca_url = None
+        panel._marca_reproduccion = None
+        panel._marca_extraccion = None
+        panel._inst = mock.Mock()
+        panel._inst.media_new.return_value = mock.Mock(add_option=mock.Mock())
+        # bloqueado antes de cache
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(10_000)
+            panel._player.set_time.assert_not_called()
+            anunciar.assert_called_once_with("No se puede mover este vídeo mientras usa la fuente de internet")
+        # simular llegada de cache local con misma confirmada y reproducir
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "VID12345678.mp4"
+            dest.write_bytes(b"x")
+            tarea = TareaCacheVideo("VID12345678", 3, dest)
+            panel._tarea_cache_video = tarea
+            panel._player.set_media = mock.Mock()
+            panel._player.audio_set_volume = mock.Mock()
+            panel._player.audio_set_mute = mock.Mock()
+            panel._player.play = mock.Mock()
+            panel._player.set_pause = mock.Mock()
+            panel._podar_cache_video = mock.Mock()
+            panel._player.get_time.return_value = 40000
+            # no mockear _marcar_destino, dejar que registre destino real
+            with mock.patch("sound_player.reproducir"):
+                panel._cache_video_lista(tarea, True)
+            self.assertTrue(panel._usando_cache_local)
+            self.assertFalse(panel._tiene_esclavo)
+            self.assertEqual(panel._estado_busqueda.confirmada, 40000)
+            # ahora buscable: debe aceptar
+            panel._player.set_time.reset_mock()
+            panel._topologia_actual = lambda: "local"
+            with mock.patch.object(reproductor, "anunciar"):
+                panel._buscar_rel(10_000)
+            panel._player.set_time.assert_called_once_with(50_000)
+            self.assertEqual(panel._estado_busqueda.destino, 50_000)
 
 
 if __name__ == "__main__":

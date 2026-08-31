@@ -1031,5 +1031,119 @@ class TestEstadoBusquedaConstantes(unittest.TestCase):
         self.assertEqual(PROGRESO_MINIMO_MS, 250)
 
 
+class TestBusquedaPermitida(unittest.TestCase):
+
+    def test_vod_remoto_dividido_no_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertFalse(busqueda_permitida(False, False, True))
+
+    def test_vod_local_dividido_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(False, True, True))
+
+    def test_vod_remoto_unica_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(False, False, False))
+
+    def test_vod_local_unica_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(False, True, False))
+
+    def test_directo_remoto_dividido_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(True, False, True))
+
+    def test_directo_local_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(True, True, True))
+        self.assertTrue(busqueda_permitida(True, True, False))
+
+    def test_directo_remoto_unica_si_permitida(self):
+        from busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(True, False, False))
+
+
+class TestEstadoBusquedaDirectoBorde(unittest.TestCase):
+
+    def test_vod_finito_confirma_sin_progreso(self):
+        bus = EstadoBusqueda(confirmada=10_000)
+        ahora = time.monotonic()
+        bus.solicitar(299_000, ahora)
+        ev, valor = bus.observar(299_500, 300_000, "playing", ahora + 0.5, es_directo=False)
+        self.assertEqual(ev, "confirmado")
+        self.assertEqual(valor, 299_500)
+
+    def test_directo_borde_no_confirma_con_una_muestra_inmovil(self):
+        bus = EstadoBusqueda(confirmada=10_000)
+        ahora = time.monotonic()
+        bus.solicitar(845_000, ahora)
+        ev, _ = bus.observar(845_000, 845_000, "playing", ahora + 0.5, es_directo=True)
+        self.assertEqual(ev, "candidato")
+        self.assertEqual(bus.confirmada, 10_000)
+        ev2, _ = bus.observar(845_000, 845_000, "playing", ahora + 0.6, es_directo=True)
+        self.assertIsNone(ev2)
+        self.assertTrue(bus.pendiente)
+
+    def test_directo_borde_confirma_tras_progreso_suficiente(self):
+        bus = EstadoBusqueda(confirmada=5_000)
+        ahora = time.monotonic()
+        bus.solicitar(845_000, ahora)
+        ev, _ = bus.observar(845_000, 845_000, "playing", ahora + 0.2, es_directo=True)
+        self.assertEqual(ev, "candidato")
+        ev, valor = bus.observar(845_300, 845_000, "playing", ahora + 0.7, es_directo=True)
+        self.assertEqual(ev, "confirmado")
+        self.assertEqual(valor, 845_300)
+
+    def test_directo_borde_vence_sin_progreso(self):
+        bus = EstadoBusqueda(confirmada=0)
+        ahora = 0.0
+        bus.solicitar(845_000, ahora)
+        ev, _ = bus.observar(845_000, 845_000, "playing", ahora + 0.3, es_directo=True)
+        self.assertEqual(ev, "candidato")
+        ev, valor = bus.observar(845_000, 845_000, "playing", ahora + 8.5, es_directo=True)
+        self.assertEqual(ev, "vencido")
+        self.assertEqual(bus.confirmada, 845_000)
+
+
+class TestEstadoInicioReproduccion(unittest.TestCase):
+
+    def test_playing_inmovil_no_anuncia(self):
+        from busqueda_video import EstadoInicioReproduccion
+        est = EstadoInicioReproduccion()
+        est.iniciar()
+        self.assertFalse(est.observar("playing", 1000))
+        self.assertFalse(est.observar("playing", 1000))
+        self.assertFalse(est.anunciado)
+        self.assertTrue(est.requiere)
+
+    def test_dos_muestras_con_avance_anuncian_una_vez(self):
+        from busqueda_video import EstadoInicioReproduccion
+        est = EstadoInicioReproduccion()
+        est.iniciar()
+        self.assertFalse(est.observar("playing", 2000))
+        self.assertTrue(est.observar("playing", 2300))
+        self.assertTrue(est.anunciado)
+        self.assertFalse(est.requiere)
+        self.assertFalse(est.observar("playing", 2600))
+
+    def test_no_playing_no_cuenta(self):
+        from busqueda_video import EstadoInicioReproduccion
+        est = EstadoInicioReproduccion()
+        est.iniciar()
+        self.assertFalse(est.observar("paused", 1000))
+        self.assertFalse(est.observar("buffering", 1000))
+        self.assertFalse(est.observar("playing", 1000))
+        self.assertFalse(est.observar("playing", 1100))
+        self.assertTrue(est.observar("playing", 1300))
+
+    def test_cancelar_no_anuncia(self):
+        from busqueda_video import EstadoInicioReproduccion
+        est = EstadoInicioReproduccion()
+        est.iniciar()
+        est.cancelar()
+        self.assertFalse(est.observar("playing", 1000))
+        self.assertFalse(est.observar("playing", 1300))
+
+
 if __name__ == "__main__":
     unittest.main()
