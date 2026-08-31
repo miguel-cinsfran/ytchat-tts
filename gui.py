@@ -1722,8 +1722,8 @@ class YTChatFrame(wx.Frame):
             try:    self._pendientes_timer.Stop()
             except Exception: pass
             self._pendientes_timer = None
-        hilos_vivos = diagnostico.hilos_vivos_de_la_aplicacion()
-        if apagado.hilos_captura_vivos(hilos_vivos):
+        hilos_previos = diagnostico.hilos_vivos_de_la_aplicacion()
+        if apagado.hilos_captura_vivos(hilos_previos):
             anunciar("Cerrando")
         try:    self.Hide()
         except Exception: pass
@@ -1743,15 +1743,9 @@ class YTChatFrame(wx.Frame):
         except Exception: pass
         try:    _snd.cerrar()
         except Exception: pass
-        if hilos_vivos:
-            self._cierre_inicio = time.monotonic()
-            self._cierre_tope = apagado.TOPE_ESPERA_CIERRE
-            wx.CallLater(200, self._comprobar_cierre)
-        else:
-            diagnostico.logger.log(apagado.nivel_registro_cierre(()),
-                "%s", apagado.componer_resultado_cierre(
-                    (), apagado.TOPE_ESPERA_CIERRE))
-            self.Destroy()
+        self._cierre_inicio = time.monotonic()
+        self._cierre_tope = apagado.TOPE_ESPERA_CIERRE
+        self._comprobar_cierre()
 
     def _actualizar_vigilante_obs_cierre(self):
         vigilante = getattr(self, "_obs_vigilante", None)
@@ -1767,6 +1761,8 @@ class YTChatFrame(wx.Frame):
             return
         diagnostico.logger.log(apagado.nivel_registro_cierre(nombres),
             "%s", apagado.componer_resultado_cierre(nombres, self._cierre_tope))
+        if not nombres:
+            diagnostico.registrar_cierre_fallos()
         self.Destroy()
 
     def _on_timer(self, event):

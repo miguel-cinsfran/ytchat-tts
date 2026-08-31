@@ -82,7 +82,7 @@ class PruebasCableadoMain(unittest.TestCase):
         self.assertEqual(conectar.__self__.llamadas,
                          [("conectar", "directo"), ("desconectar",)])
 
-    def test_inicia_gui_y_marca_cierre_limpio_al_volver(self):
+    def test_iniciar_interfaz_cierra_sonidos_sin_marcar_limpio_al_volver(self):
         orden = []
         conectar = object()
         desconectar = object()
@@ -102,7 +102,27 @@ class PruebasCableadoMain(unittest.TestCase):
             main.iniciar_interfaz({}, object(), object(), object(), object(), iniciar)
 
         self.assertEqual(orden, ["callbacks", ("gui", conectar, desconectar),
-                                 "cierre", "sonido"])
+                                 "sonido"])
+        self.assertNotIn("cierre", orden)
+
+    def test_iniciar_interfaz_no_duplica_marca_limpia_y_cierra_sonidos(self):
+        conectar = object()
+        desconectar = object()
+        registro = Mock()
+
+        def gui_falsa(**kwargs):
+            registro()
+
+        def armar(*a):
+            return conectar, desconectar
+
+        with patch.object(main, "armar_callbacks_captura", side_effect=armar), \
+                patch.object(main.diagnostico, "registrar_cierre_fallos", registro), \
+                patch.object(main._snd, "cerrar") as cerrar:
+            main.iniciar_interfaz({}, object(), object(), object(), object(), gui_falsa)
+
+        self.assertEqual(registro.call_count, 1)
+        cerrar.assert_called_once_with()
 
 
 if __name__ == "__main__":

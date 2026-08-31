@@ -1619,23 +1619,31 @@ class TestCierreVentana(unittest.TestCase):
         hilo.is_alive.return_value = True
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("Chat",)), \
                 mock.patch.object(gui, "anunciar") as anunciar, \
-                mock.patch.object(gui.wx, "CallLater") as call_later:
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
             frame._on_close(None)
 
         anunciar.assert_called_once_with("Cerrando")
         call_later.assert_called_once_with(200, frame._comprobar_cierre)
         frame.Destroy.assert_not_called()
+        registro.assert_not_called()
+        logueo.assert_not_called()
 
     def test_sin_captura_no_anuncia_y_destruye(self):
         frame = self._frame()
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui, "anunciar") as anunciar, \
-                mock.patch.object(gui.wx, "CallLater") as call_later:
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
             frame._on_close(None)
 
         anunciar.assert_not_called()
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
+        logueo.assert_called_once_with(logging.INFO, "%s", "CIERRE captura limpia")
+        registro.assert_called_once_with()
 
     def test_al_cerrar_detiene_el_vigilante_de_interfaz(self):
         frame = self._frame()
@@ -1741,11 +1749,15 @@ class TestCierreVentana(unittest.TestCase):
         hilo.is_alive.return_value = True
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("Chat",)), \
                 mock.patch.object(gui.time, "monotonic", return_value=100.0 + tope - 1.0), \
-                mock.patch.object(gui.wx, "CallLater") as call_later:
+                mock.patch.object(gui.wx, "CallLater") as call_later, \
+                mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
             frame._comprobar_cierre()
 
         call_later.assert_called_once_with(200, frame._comprobar_cierre)
         frame.Destroy.assert_not_called()
+        registro.assert_not_called()
+        logueo.assert_not_called()
 
     def test_comprobar_cierre_sin_hilos_destruye_y_registra_cierre_limpio(self):
         frame = self._frame()
@@ -1754,12 +1766,14 @@ class TestCierreVentana(unittest.TestCase):
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=()), \
                 mock.patch.object(gui.time, "monotonic", return_value=101.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
-                mock.patch.object(gui.diagnostico.logger, "log") as registrar:
+                mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
             frame._comprobar_cierre()
 
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
-        registrar.assert_called_once_with(logging.INFO, "%s", "CIERRE captura limpia")
+        logueo.assert_called_once_with(logging.INFO, "%s", "CIERRE captura limpia")
+        registro.assert_called_once_with()
 
     def test_comprobar_cierre_con_tope_vencido_destruye_y_registra_hilos(self):
         frame = self._frame()
@@ -1772,13 +1786,53 @@ class TestCierreVentana(unittest.TestCase):
         with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", return_value=("TikTok",)), \
                 mock.patch.object(gui.time, "monotonic", return_value=100.0 + tope + 1.0), \
                 mock.patch.object(gui.wx, "CallLater") as call_later, \
-                mock.patch.object(gui.diagnostico.logger, "log") as registrar:
+                mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
             frame._comprobar_cierre()
 
         call_later.assert_not_called()
         frame.Destroy.assert_called_once_with()
-        registrar.assert_called_once_with(
+        logueo.assert_called_once_with(
             logging.WARNING, "%s", f"CIERRE por tope={tope:.1f}s hilos vivos=TikTok")
+        registro.assert_not_called()
+
+    def test_nacimiento_tardio_detecta_reproductor_stop_nacido_en_detener_todo(self):
+        import threading
+        frame = self._frame()
+        senal = threading.Event()
+        hilo_real = None
+
+        def detener_con_nacimiento():
+            nonlocal hilo_real
+            hilo_real = threading.Thread(target=lambda: senal.wait(timeout=5), name="ReproductorStop")
+            hilo_real.start()
+
+        frame._rep_panel.detener_todo.side_effect = detener_con_nacimiento
+        llamadas = []
+
+        def censo_aislado():
+            if not llamadas:
+                llamadas.append(1)
+                return ()
+            return tuple(sorted(h.name for h in threading.enumerate() if h.is_alive() and h.name == "ReproductorStop"))
+
+        try:
+            with mock.patch.object(gui.diagnostico, "hilos_vivos_de_la_aplicacion", side_effect=censo_aislado), \
+                    mock.patch.object(gui, "anunciar") as anunciar, \
+                    mock.patch.object(gui.wx, "CallLater") as call_later, \
+                    mock.patch.object(gui.diagnostico.logger, "log") as logueo, \
+                    mock.patch.object(gui.diagnostico, "registrar_cierre_fallos") as registro:
+                frame._on_close(None)
+                call_later.assert_called_once_with(200, frame._comprobar_cierre)
+                frame.Destroy.assert_not_called()
+                registro.assert_not_called()
+                logueo.assert_not_called()
+                anunciar.assert_not_called()
+        finally:
+            senal.set()
+            if hilo_real is not None:
+                hilo_real.join(timeout=2)
+                self.assertFalse(hilo_real.is_alive())
 
 
 if __name__ == "__main__":

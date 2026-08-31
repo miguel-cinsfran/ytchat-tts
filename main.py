@@ -599,7 +599,7 @@ def armar_callbacks_captura(cola, config, stats, parada):
 
 
 def iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=None):
-    """Arranca la GUI y registra el cierre cuando termina su bucle."""
+    """Arranca la GUI y cierra los sonidos al volver del bucle."""
     if iniciar_gui_fn is None:
         from gui import iniciar_gui as iniciar_gui_fn
     iniciar_captura_cb, detener_captura_cb = armar_callbacks_captura(
@@ -609,7 +609,6 @@ def iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=None):
         iniciar_captura_cb=iniciar_captura_cb,
         detener_captura_cb=detener_captura_cb,
     )
-    diagnostico.registrar_cierre_fallos()
     _snd.cerrar()
 
 
