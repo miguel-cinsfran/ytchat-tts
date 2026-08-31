@@ -498,7 +498,7 @@ class ReproductorPanel(wx.Panel):
         self._gestor_eventos_vlc = None
         self._info = None
         self._audio_local = None
-        self._cache_video_descargando = None
+        self._tarea_cache_video = None
         self._marca_reproduccion = None
         self._marca_extraccion = None
         self._marca_url = None
@@ -975,37 +975,41 @@ class ReproductorPanel(wx.Panel):
             return
         carpeta = _cfg.app_dir() / "cache-video"
         destino = carpeta / f"{video_id}.mp4"
-        self._cache_video_descargando = destino
+        vigente = getattr(self, "_tarea_cache_video", None)
+        if vigente is not None:
+            vigente.cancelacion.set()
+        from tarea_cache_video import TareaCacheVideo
+        tarea = TareaCacheVideo(video_id, gen, destino)
+        self._tarea_cache_video = tarea
 
         def descargar():
             try:
                 carpeta.mkdir(parents=True, exist_ok=True)
                 self._podar_cache_video(carpeta)
-                completa = ytdlp_bin.descargar_video_cache(video_id, destino)
+                completa = ytdlp_bin.descargar_video_cache(
+                    video_id, destino, cancel_event=tarea.cancelacion)
             except Exception as exc:
                 logger.debug("caché de vídeo: %s", exc)
                 completa = False
-            wx.CallAfter(self._cache_video_lista, video_id, gen, destino, completa)
+            wx.CallAfter(self._cache_video_lista, tarea, completa)
 
         diagnostico.crear_hilo(descargar, "ReproductorCacheVideo").start()
 
-    def _cache_video_lista(self, video_id, gen, destino, completa):
-        self._cache_video_descargando = None
-        if (not completa or gen != self._gen or video_id != self._video_id
-                or not destino.is_file()):
-            if gen != self._gen or video_id != self._video_id:
-                try:
-                    destino.unlink()
-                except OSError:
-                    pass
+    def _cache_video_lista(self, tarea, completa):
+        if getattr(self, "_tarea_cache_video", None) is not tarea:
             return
-        self._podar_cache_video(destino.parent)
-        if not destino.is_file():
+        self._tarea_cache_video = None
+        if (not completa or tarea.generacion != self._gen
+                or tarea.video_id != self._video_id
+                or not tarea.destino.is_file()):
+            return
+        self._podar_cache_video(tarea.destino.parent)
+        if not tarea.destino.is_file():
             return
         posicion = self._lectura_confiable()
         pausado = not self._intencion_reproducir
         try:
-            media = self._inst.media_new(str(destino))
+            media = self._inst.media_new(str(tarea.destino))
             for opcion in opciones_medio(False):
                 media.add_option(opcion)
             self._player.set_media(media)
@@ -1211,12 +1215,10 @@ class ReproductorPanel(wx.Panel):
         self._marca_destino_pendiente = None
         self._ultima_posicion_confiable = 0
         self._transporte_pendiente = False
-        if getattr(self, "_cache_video_descargando", None) is not None:
-            try:
-                self._cache_video_descargando.unlink()
-            except OSError:
-                pass
-            self._cache_video_descargando = None
+        tarea = getattr(self, "_tarea_cache_video", None)
+        if tarea is not None:
+            tarea.cancelacion.set()
+            self._tarea_cache_video = None
         self._intencion_reproducir = False
         self._timer_progreso.Stop()
         if self._player is not None:

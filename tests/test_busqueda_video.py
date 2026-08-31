@@ -538,7 +538,7 @@ class TestPendienteSecuencial(unittest.TestCase):
         panel._marca_destino_pendiente = None
         panel._ultima_posicion_confiable = 0
         panel._gen = 0
-        panel._cache_video_descargando = None
+        panel._tarea_cache_video = None
         panel.lbl_estado = mock.Mock()
         panel.btn_play = mock.Mock()
         panel._fijar_tiempo = mock.Mock()
