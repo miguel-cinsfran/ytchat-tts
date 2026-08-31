@@ -48,6 +48,14 @@ class PruebasApagado(unittest.TestCase):
     def test_tope_de_espera_vale_ocho_segundos(self):
         self.assertEqual(apagado.TOPE_ESPERA_CIERRE, 8.0)
 
+    def test_registra_hilos_repetidos_sin_deduplicar(self):
+        self.assertEqual(
+            apagado.componer_resultado_cierre(
+                ("ReproductorCacheVideo", "ReproductorCacheVideo"), 8.0
+            ),
+            "CIERRE por tope=8.0s hilos vivos=ReproductorCacheVideo, ReproductorCacheVideo",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

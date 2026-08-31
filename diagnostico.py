@@ -128,10 +128,10 @@ _bloqueo_hilos = threading.Lock()
 
 
 def hilos_vivos_de_la_aplicacion() -> tuple[str, ...]:
-    """Devuelve los nombres de los hilos vivos registrados, ordenados y sin repetir."""
+    """Devuelve los nombres de los hilos vivos registrados, ordenados, con una entrada por instancia viva."""
     with _bloqueo_hilos:
         vivos = [hilo for hilo in list(_hilos_vivos) if hilo.is_alive()]
-    return tuple(sorted({hilo.name for hilo in vivos}))
+    return tuple(sorted(hilo.name for hilo in vivos))
 
 
 def crear_hilo(target, nombre: str, *, args=(), daemon=True) -> threading.Thread:

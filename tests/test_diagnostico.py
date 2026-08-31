@@ -344,17 +344,79 @@ class DiagnosticoTest(unittest.TestCase):
 
         hilo1 = diagnostico.crear_hilo(tarea1, "HiloDuplicado")
         hilo2 = diagnostico.crear_hilo(tarea2, "HiloDuplicado")
-        hilo1.start()
-        hilo2.start()
-        self.assertTrue(inicio1.wait(timeout=2))
-        self.assertTrue(inicio2.wait(timeout=2))
-        self.assertIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
-        fin1.set()
-        hilo1.join(timeout=2)
-        self.assertIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
-        fin2.set()
-        hilo2.join(timeout=2)
-        self.assertNotIn("HiloDuplicado", diagnostico.hilos_vivos_de_la_aplicacion())
+        try:
+            hilo1.start()
+            hilo2.start()
+            self.assertTrue(inicio1.wait(timeout=2))
+            self.assertTrue(inicio2.wait(timeout=2))
+            self.assertEqual(
+                tuple(
+                    n
+                    for n in diagnostico.hilos_vivos_de_la_aplicacion()
+                    if n == "HiloDuplicado"
+                ),
+                ("HiloDuplicado", "HiloDuplicado"),
+            )
+            fin1.set()
+            hilo1.join(timeout=2)
+            self.assertEqual(
+                tuple(
+                    n
+                    for n in diagnostico.hilos_vivos_de_la_aplicacion()
+                    if n == "HiloDuplicado"
+                ),
+                ("HiloDuplicado",),
+            )
+            fin2.set()
+            hilo2.join(timeout=2)
+            self.assertEqual(
+                tuple(
+                    n
+                    for n in diagnostico.hilos_vivos_de_la_aplicacion()
+                    if n == "HiloDuplicado"
+                ),
+                (),
+            )
+        finally:
+            fin1.set()
+            fin2.set()
+            hilo1.join(timeout=2)
+            hilo2.join(timeout=2)
+
+    def test_hilos_distintos_salen_ordenados(self):
+        inicio1 = threading.Event()
+        inicio2 = threading.Event()
+        fin1 = threading.Event()
+        fin2 = threading.Event()
+
+        def tarea1():
+            inicio1.set()
+            fin1.wait()
+
+        def tarea2():
+            inicio2.set()
+            fin2.wait()
+
+        hilo1 = diagnostico.crear_hilo(tarea1, "ZebraUnicoOrden")
+        hilo2 = diagnostico.crear_hilo(tarea2, "AlfaUnicoOrden")
+        try:
+            hilo1.start()
+            hilo2.start()
+            self.assertTrue(inicio1.wait(timeout=2))
+            self.assertTrue(inicio2.wait(timeout=2))
+            self.assertEqual(
+                tuple(
+                    n
+                    for n in diagnostico.hilos_vivos_de_la_aplicacion()
+                    if n in ("AlfaUnicoOrden", "ZebraUnicoOrden")
+                ),
+                ("AlfaUnicoOrden", "ZebraUnicoOrden"),
+            )
+        finally:
+            fin1.set()
+            fin2.set()
+            hilo1.join(timeout=2)
+            hilo2.join(timeout=2)
 
     def test_crear_hilo_da_de_baja_el_registro_interno_al_terminar(self):
         listo = threading.Event()

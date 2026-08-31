@@ -28,9 +28,9 @@ def hay_que_seguir_esperando(
     return bool(nombres) and transcurrido < tope
 
 
-def componer_resultado_cierre(nombres: set[str] | tuple[str, ...], tope: float) -> str:
+def componer_resultado_cierre(nombres: set[str] | tuple[str, ...] | list[str], tope: float) -> str:
     """Compone el registro del resultado final de la espera."""
-    vivos = tuple(sorted(set(nombres)))
+    vivos = tuple(sorted(nombres))
     if not vivos:
         return "CIERRE captura limpia"
     return f"CIERRE por tope={tope:.1f}s hilos vivos={', '.join(vivos)}"
