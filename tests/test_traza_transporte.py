@@ -3,7 +3,10 @@
 import itertools
 import unittest
 
-from traza_transporte import traza_salto, traza_sin_barra, traza_transporte
+from traza_transporte import (
+    topologia_medio, traza_busqueda_orden, traza_busqueda_desenlace,
+    traza_salto, traza_sin_barra, traza_transporte,
+)
 
 
 class TestTrazaTransporte(unittest.TestCase):
@@ -71,6 +74,41 @@ class TestTrazaTransporte(unittest.TestCase):
             self.assertEqual(
                 [campo.split("=", 1)[0] for campo in linea.split()],
                 ["SALTO_SIN_BARRA", "origen", "dur"])
+
+
+class TestTopologia(unittest.TestCase):
+
+    def test_topologia_etiquetas(self):
+        self.assertEqual(topologia_medio(es_local=True), "local")
+        self.assertEqual(topologia_medio(es_flujo=True), "flujo")
+        self.assertEqual(topologia_medio(tiene_esclavo=True), "dividida")
+        self.assertEqual(topologia_medio(), "unica")
+        self.assertEqual(topologia_medio(es_local=True, tiene_esclavo=True), "local")
+        self.assertEqual(topologia_medio(es_flujo=True, tiene_esclavo=True), "flujo")
+
+    def test_traza_busqueda_orden_contiene_topologia_y_numeros_sin_url(self):
+        linea = traza_busqueda_orden("dividida", "playing", 1000, 60000, 60000, 123)
+        self.assertIn("topologia=dividida", linea)
+        self.assertIn("estado=playing", linea)
+        self.assertIn("confirmada=1000", linea)
+        self.assertIn("destino=60000", linea)
+        self.assertIn("muestra=60000", linea)
+        self.assertIn("edad=123", linea)
+        self.assertNotIn("http", linea)
+        self.assertNotIn("://", linea)
+
+    def test_traza_busqueda_desenlace_todos_resultados(self):
+        for res in ("confirmado", "fallo", "vencido", "cancelado"):
+            linea = traza_busqueda_desenlace("local", "paused", 0, 1000, 0, 10, res)
+            self.assertIn(f"BUSQUEDA_{res.upper()}", linea)
+            self.assertIn("topologia=local", linea)
+            self.assertNotIn("http", linea)
+
+    def test_traza_busqueda_no_filtra_url(self):
+        # asegurar que nunca se pasa URL a la traza
+        linea = traza_busqueda_orden("unica", "playing", 0, 0, 0, 0)
+        for fragmento in ("googlevideo", "ytimg", "m3u8", "signature", "sig="):
+            self.assertNotIn(fragmento, linea.lower())
 
 
 if __name__ == "__main__":

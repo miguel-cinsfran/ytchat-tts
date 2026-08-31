@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import reproductor
+from busqueda_video import EstadoBusqueda
 from tarea_cache_video import TareaCacheVideo
 
 
@@ -30,13 +31,10 @@ class TestReproductorCache(unittest.TestCase):
         panel._player.set_pause = mock.Mock()
         panel._player.set_media = mock.Mock()
         panel._player.get_time = mock.Mock(return_value=1000)
-        panel._lectura_confiable = mock.Mock(return_value=12345)
         panel._marcar_destino = mock.Mock()
         panel._podar_cache_video = mock.Mock()
         panel._cargando = False
-        panel._destino_pendiente = None
-        panel._marca_destino_pendiente = None
-        panel._ultima_posicion_confiable = 0
+        panel._estado_busqueda = EstadoBusqueda(confirmada=0)
         panel._transporte_pendiente = False
         panel._timer_progreso = mock.Mock()
         panel._timer = mock.Mock()
@@ -155,7 +153,7 @@ class TestReproductorCache(unittest.TestCase):
                     self.assertFalse(hilos[1].is_alive())
                     self.assertEqual(len(callbacks), 2)
                     func2, args2, _k2 = callbacks[1]
-                    panel._lectura_confiable.return_value = 999
+                    panel._estado_busqueda = EstadoBusqueda(confirmada=999)
                     panel._inst.media_new = mock.Mock(return_value=mock.Mock(add_option=mock.Mock()))
                     with mock.patch.object(panel, "_podar_cache_video") as podar, \
                          mock.patch("sound_player.reproducir"):
@@ -200,7 +198,7 @@ class TestReproductorCache(unittest.TestCase):
                 self.assertTrue(dest_a.is_file())
                 self.assertTrue(dest_b.is_file())
                 self.assertIs(panel._tarea_cache_video, tarea_b)
-                panel._lectura_confiable.return_value = 999
+                panel._estado_busqueda = EstadoBusqueda(confirmada=999)
                 reproductor.ReproductorPanel._cache_video_lista(panel, tarea_b, True)
                 podar.assert_called_once()
                 panel._player.set_media.assert_called_once()
@@ -323,9 +321,7 @@ class TestReproductorCache(unittest.TestCase):
         real_panel._listo = True
         real_panel._cargando = False
         real_panel._tarea_cache_video = tarea
-        real_panel._destino_pendiente = None
-        real_panel._marca_destino_pendiente = None
-        real_panel._ultima_posicion_confiable = 0
+        real_panel._estado_busqueda = EstadoBusqueda(confirmada=0)
         real_panel._transporte_pendiente = False
         real_panel._intencion_reproducir = True
         real_panel._timer_progreso = mock.Mock()
@@ -381,7 +377,7 @@ class TestReproductorCache(unittest.TestCase):
             medio = mock.Mock()
             medio.add_option = mock.Mock()
             panel._inst.media_new = mock.Mock(return_value=medio)
-            panel._lectura_confiable.return_value = 55555
+            panel._estado_busqueda = EstadoBusqueda(confirmada=55555)
             panel._intencion_reproducir = False
             panel._vol = 42
             panel._muted = True
@@ -396,7 +392,7 @@ class TestReproductorCache(unittest.TestCase):
             panel._player.play.assert_called_once()
             panel._player.set_time.assert_called_once_with(55555)
             panel._player.set_pause.assert_called_once_with(1)
-            panel._marcar_destino.assert_called_once_with(55555)
+            panel._marcar_destino.assert_called_once_with(55555, anunciar_usuario=False)
             snd.assert_called_once_with("transporte_en_curso")
             panel._podar_cache_video.assert_called_once_with(dest.parent)
             self.assertIsNone(panel._tarea_cache_video)
@@ -410,7 +406,7 @@ class TestReproductorCache(unittest.TestCase):
             medio2 = mock.Mock()
             medio2.add_option = mock.Mock()
             panel2._inst.media_new = mock.Mock(return_value=medio2)
-            panel2._lectura_confiable.return_value = 111
+            panel2._estado_busqueda = EstadoBusqueda(confirmada=111)
             panel2._intencion_reproducir = True
             panel2._vol = 80
             panel2._muted = False

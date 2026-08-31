@@ -32,3 +32,31 @@ def traza_salto(origen, pendiente, posicion, delta_ms, destino, duracion) -> str
 def traza_sin_barra(origen, duracion) -> str:
     """Arma la traza de un salto sin duración disponible."""
     return f"SALTO_SIN_BARRA origen={origen} dur={duracion}"
+
+
+def topologia_medio(es_local=False, tiene_esclavo=False, es_flujo=False) -> str:
+    """Etiqueta de topología sin datos sensibles."""
+    if es_flujo:
+        return "flujo"
+    if es_local:
+        return "local"
+    if tiene_esclavo:
+        return "dividida"
+    return "unica"
+
+
+def traza_busqueda_orden(topologia, estado, confirmada, destino, muestra, edad_ms) -> str:
+    """Traza pura de una orden de búsqueda."""
+    return (
+        f"BUSQUEDA_ORDEN topologia={topologia} estado={estado} "
+        f"confirmada={confirmada} destino={destino} muestra={muestra} edad={int(edad_ms)}"
+    )
+
+
+def traza_busqueda_desenlace(topologia, estado, confirmada, destino, muestra, edad_ms,
+                             resultado) -> str:
+    """Traza pura de un desenlace de búsqueda."""
+    return (
+        f"BUSQUEDA_{resultado.upper()} topologia={topologia} estado={estado} "
+        f"confirmada={confirmada} destino={destino} muestra={muestra} edad={int(edad_ms)}"
+    )

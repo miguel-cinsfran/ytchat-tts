@@ -3,11 +3,14 @@
 TOLERANCIA_DESTINO_MS = 1500
 TOLERANCIA_ATRAS_MS = 2000
 CADUCIDAD_DESTINO_MS = 5000
+TOPE_BUSQUEDA_MS = 8000
+PROGRESO_MINIMO_MS = 250
+
+_ESTADOS_FINALES = {"ended", "stopped", "error", "nothingspecial"}
 
 
 def destino_acumulado(destino_pendiente, posicion_actual, delta_ms,
                       duracion_ms) -> int:
-    """Calcula el siguiente salto sin perder pulsaciones en vuelo."""
     base = posicion_actual if destino_pendiente is None else destino_pendiente
     destino = min(max(0, base + delta_ms), duracion_ms)
     if delta_ms > 0 and destino < base:
@@ -17,32 +20,27 @@ def destino_acumulado(destino_pendiente, posicion_actual, delta_ms,
 
 def destino_alcanzado(destino_pendiente, posicion_actual,
                       tolerancia_ms) -> bool:
-    """Indica cuándo la posición real ya puede sustituir al destino pedido."""
     return (destino_pendiente is None
             or abs(posicion_actual - destino_pendiente) <= tolerancia_ms)
 
 
 def posicion_a_mostrar(destino_pendiente, posicion_actual) -> int:
-    """Conserva visible el destino hasta que el reproductor lo alcance."""
     return posicion_actual if destino_pendiente is None else destino_pendiente
 
 
 def posicion_confiable(ultima_confiable, lectura, tolerancia_ms) -> int:
-    """Descarta una lectura que retrocede sin una orden de salto."""
     if ultima_confiable is not None and lectura < ultima_confiable - tolerancia_ms:
         return ultima_confiable
     return lectura
 
 
 def destino_vigente(destino_pendiente, edad_ms, tope_ms):
-    """Conserva un destino pendiente solo durante un tiempo acotado."""
     if destino_pendiente is None or edad_ms > tope_ms:
         return None
     return destino_pendiente
 
 
 def transporte_confirmado(estado, intencion_reproducir) -> bool:
-    """Indica si el estado observado ya confirma la intención pendiente."""
     if intencion_reproducir:
         return estado == "playing"
     return estado == "paused"
@@ -50,7 +48,6 @@ def transporte_confirmado(estado, intencion_reproducir) -> bool:
 
 def accion_play_pausa(estado, hay_medio, intencion_reproducir,
                        orden_pendiente=False) -> str:
-    """Decide el transporte sin depender de enums ni estados transitorios."""
     if not hay_medio:
         return "cargar"
     if estado in {"ended", "stopped", "error", "nothingspecial"}:
@@ -61,5 +58,146 @@ def accion_play_pausa(estado, hay_medio, intencion_reproducir,
         return "pausar"
     if estado == "paused":
         return "reanudar"
-    # Opening y buffering aún no reflejan la orden previa: nunca recargan.
     return "pausar" if intencion_reproducir else "reanudar"
+
+
+class EstadoBusqueda:
+    """Tres conceptos separados para un salto fiable."""
+
+    def __init__(self, confirmada=0):
+        self.confirmada = int(confirmada) if confirmada is not None else 0
+        self.destino = None
+        self.candidato = None
+        self.marca_destino = None
+        self._gen = 0
+        self._ultima_valida = None
+
+    @property
+    def pendiente(self) -> bool:
+        return self.destino is not None
+
+    @property
+    def destino_pendiente(self):
+        return self.destino
+
+    @property
+    def posicion_confirmada(self) -> int:
+        return self.confirmada
+
+    @property
+    def candidato_valor(self):
+        return self.candidato
+
+    @property
+    def generacion(self) -> int:
+        return self._gen
+
+    def solicitar(self, destino, ahora) -> int:
+        self.destino = int(destino)
+        self.candidato = None
+        self.marca_destino = float(ahora)
+        self._ultima_valida = None
+        self._gen += 1
+        return self._gen
+
+    def cancelar(self) -> int:
+        self._gen += 1
+        self.destino = None
+        self.candidato = None
+        self.marca_destino = None
+        self._ultima_valida = None
+        return self._gen
+
+    def edad_ms(self, ahora) -> float:
+        if self.marca_destino is None:
+            return 0
+        return (float(ahora) - float(self.marca_destino)) * 1000
+
+    def posicion_a_mostrar(self, lectura_actual) -> int:
+        if self.pendiente:
+            return self.confirmada
+        if lectura_actual is None:
+            return self.confirmada
+        return int(lectura_actual)
+
+    def observar(self, muestra, duracion, estado, ahora):
+        if self.destino is None:
+            if isinstance(muestra, int) and muestra >= 0:
+                self.confirmada = int(muestra)
+                self._ultima_valida = int(muestra)
+            return (None, None)
+
+        estado_norm = (estado or "").lower()
+
+        if self.marca_destino is not None:
+            edad = (float(ahora) - float(self.marca_destino)) * 1000
+            if edad > TOPE_BUSQUEDA_MS:
+                adopcion = None
+                if isinstance(muestra, int) and muestra >= 0:
+                    adopcion = int(muestra)
+                elif self._ultima_valida is not None:
+                    adopcion = int(self._ultima_valida)
+                self.destino = None
+                self.candidato = None
+                self.marca_destino = None
+                self._ultima_valida = None
+                self._gen += 1
+                if adopcion is not None:
+                    self.confirmada = int(adopcion)
+                return ("vencido", adopcion)
+
+        if estado_norm in _ESTADOS_FINALES:
+            adopcion = None
+            if isinstance(muestra, int) and muestra >= 0:
+                adopcion = int(muestra)
+            elif self._ultima_valida is not None:
+                adopcion = int(self._ultima_valida)
+            self.destino = None
+            self.candidato = None
+            self.marca_destino = None
+            self._ultima_valida = None
+            self._gen += 1
+            if adopcion is not None:
+                self.confirmada = int(adopcion)
+            return ("fallo", adopcion)
+
+        if not isinstance(muestra, int) or muestra < 0:
+            return (None, None)
+
+        if estado_norm != "playing":
+            return (None, None)
+
+        if duracion and duracion > 0:
+            cerca_dest = abs(int(duracion) - int(self.destino)) <= TOLERANCIA_DESTINO_MS
+            cerca_muestra = abs(int(duracion) - int(muestra)) <= TOLERANCIA_DESTINO_MS
+            dentro = abs(int(muestra) - int(self.destino)) <= TOLERANCIA_DESTINO_MS
+            if cerca_dest and cerca_muestra and dentro:
+                self.confirmada = int(muestra)
+                self.destino = None
+                self.candidato = None
+                self.marca_destino = None
+                self._ultima_valida = None
+                self._gen += 1
+                return ("confirmado", int(muestra))
+
+        if abs(int(muestra) - int(self.destino)) > TOLERANCIA_DESTINO_MS:
+            self._ultima_valida = int(muestra)
+            self.candidato = None
+            return (None, None)
+
+        if self.candidato is None:
+            self.candidato = int(muestra)
+            self._ultima_valida = int(muestra)
+            return ("candidato", int(muestra))
+
+        if int(muestra) - int(self.candidato) >= PROGRESO_MINIMO_MS:
+            self.confirmada = int(muestra)
+            self.destino = None
+            self.candidato = None
+            self.marca_destino = None
+            self._ultima_valida = None
+            self._gen += 1
+            return ("confirmado", int(muestra))
+
+        self._ultima_valida = int(muestra)
+        return (None, None)
