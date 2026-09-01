@@ -126,7 +126,8 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("microfono =", texto)
 
     def test_programados_arranca_apagado_y_se_persiste_en_el_ejemplo(self):
-        self.assertEqual(config._DEF["programados_activo"], "false")
+        import config_predeterminada as _pred
+        self.assertEqual(_pred.obtener("programados", "activo"), "false")
         cfg = self._cargar_en(config._CONFIG_FALLBACK)
         self.assertFalse(cfg["programados_activo"])
         texto = (Path(self._tmp.name) / "config.ini").read_text(encoding="utf-8")
@@ -171,15 +172,12 @@ class TestCargarConfiguracion(unittest.TestCase):
 
     def test_inyecta_seccion_descargas_con_defaults(self):
         # Sin [descargas] en el INI, cargar_configuracion debe inyectar los
-        # defaults (mp4, 192, app_dir()/Descargas, false) y devolverlos en el
-        # dict.
-        cfg = self._cargar_en(config._CONFIG_FALLBACK.replace(
-            "[descargas]\nformato = mp4\nbitrate = 192\ncarpeta = Descargas\nenumerar = false\n",
-            ""))
+        # defaults canónicos y devolverlos en el dict.
+        cfg = self._cargar_en("[voz]\nvoz = 0\n")
         self.assertIn("descargas", cfg)
         self.assertEqual(cfg["descargas_formato"], "mp4")
         self.assertEqual(cfg["descargas_bitrate"], 192)
-        self.assertTrue(cfg["descargas_carpeta"].endswith("Descargas"))
+        self.assertEqual(cfg["descargas_carpeta"], "Descargas")
         self.assertFalse(cfg["descargas_enumerar"])
 
     def test_obtener_opciones_descarga_devuelve_defaults_si_no_existe(self):
@@ -201,11 +199,9 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
         self.assertEqual(ruta.read_text(encoding="utf-8"), contenido)
 
-    def test_cargar_configuracion_no_persiste_carpeta_por_defecto(self):
+    def test_cargar_configuracion_persiste_carpeta_predeterminada(self):
         for contenido in (
-            config._CONFIG_FALLBACK.replace(
-                "[descargas]\nformato = mp4\nbitrate = 192\ncarpeta = Descargas\nenumerar = false\n",
-                ""),
+            "[voz]\nvoz = 0\n",
             "[descargas]\nformato = mp4\nbitrate = 192\nenumerar = false\n",
         ):
             with self.subTest(seccion="descargas" in contenido):
@@ -213,9 +209,10 @@ class TestCargarConfiguracion(unittest.TestCase):
                 ruta.write_text(contenido, encoding="utf-8")
                 with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
                     cfg = config.cargar_configuracion()
-                self.assertEqual(cfg["descargas_carpeta"], str(Path(self._tmp.name) / "Descargas"))
-                self.assertNotRegex(
-                    ruta.read_text(encoding="utf-8").lower(), r"(?m)^\s*carpeta\s*="
+                self.assertEqual(cfg["descargas_carpeta"], "Descargas")
+                self.assertRegex(
+                    ruta.read_text(encoding="utf-8").lower(),
+                    r"(?m)^\s*carpeta\s*=\s*descargas\s*$",
                 )
 
     def test_guardar_opciones_descarga_persiste(self):

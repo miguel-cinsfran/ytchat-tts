@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import config_predeterminada
+
 import diagnostico
 
 
@@ -113,39 +115,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
 # Fijos (no editables): F9/F10 velocidad, F11/F12 volumen del TTS, Alt+F4 para
 # cerrar y F6 / Shift+F6 para navegar entre regiones.
 
-ATAJOS_DEFAULTS = {
-    # Reproductor (Ctrl)
-    "rep_play":          "ctrl+p",
-    "rep_retro":         "ctrl+left",
-    "rep_avanz":         "ctrl+right",
-    "rep_detener":       "ctrl+d",
-    "rep_mute":          "ctrl+m",
-    "rep_vol_menos":     "ctrl+down",
-    "rep_vol_mas":       "ctrl+up",
-    "descargas_abrir":   "ctrl+s",
-    "pantalla_completa": "ctrl+f",
-    # Ventanas y paneles (Ctrl+Shift)
-    "abrir_preferencias": "ctrl+shift+p",
-    "abrir_historial":    "ctrl+shift+h",
-    "marcar_incidencia":  "ctrl+shift+i",
-    "abrir_transmision":  "ctrl+shift+t",
-    "obs_micro":          "ctrl+shift+m",
-    # Conexión y chat (Alt)
-    "conectar":          "alt+c",
-    "desconectar":       "alt+d",
-    "enviar_chat":       "alt+enter",
-    "ir_lista":          "alt+l",
-    # Voz / lectura (teclas F)
-    "pausa":             "f5",
-    "detener_tts":       "f8",
-    "velocidad_menos":   "f9",
-    "velocidad_mas":     "f10",
-    "volumen_menos":     "f11",
-    "volumen_mas":       "f12",
-    "silenciar_lectura": "f4",
-    "silenciar_sonidos": "f7",
-    "anunciar_estado":   "f2",
-}
+ATAJOS_DEFAULTS = config_predeterminada.seccion("atajos")
 
 # Estas combinaciones se reservan aunque la gramática editable no admita
 # Alt+F4 ni Shift+F6.
@@ -305,128 +275,7 @@ def detectar_conflictos_atajos(raw: dict | None) -> list[tuple[str, str, str]]:
 
 # ── Carga de config.ini ──────────────────────────────────────────────────────
 
-_DEF = {
-    "voz": "0", "velocidad": "175", "volumen": "1.0",
-    "multivoz": "false", "voz_eventos": "0",
-    "estrategia": "limite", "tamanio_maximo": "15", "umbral_solo_nombre": "0",
-    "reconectar": "true", "espera_entre_intentos": "10", "max_intentos": "5",
-    "formato_prefijo": "nombre_mensaje",
-    "palabras_silenciadas": "", "usuarios_silenciados": "",
-    "limpiar_emojis": "true", "eliminar_urls": "true", "max_longitud_mensaje": "200",
-    "tamanio_fuente_chat": "12", "mostrar_total_superchats": "true",
-    "guardar_historial": "no", "autoplay_reproductor": "true",
-    "filtro_activo": "todos", "silenciar_lectura": "false", "silenciar_sonidos": "false",
-    "mostrar_botones_reproductor": "false", "cache_video_mb": "1024",
-    "mostrar_metadatos": "true",
-    "anunciar_entradas": "false",
-    "programados_activo": "false",
-    # Gestor de descargas (yt-dlp). El formato y la carpeta se eligen en el
-    # diálogo; el bitrate solo aplica a audio (mp3/m4a); enumerar prefijá
-    # 01_, 02_... a los ítems de una playlist.
-    "descargas_formato": "mp4", "descargas_bitrate": "192",
-    "descargas_enumerar": "false",
-    "activo": "false", "puerto": "8730",
-    "microfono": "",
-}
-
-_CONFIG_FALLBACK = """\
-[voz]
-voz = 0
-velocidad = 175
-volumen = 1.0
-# Multi-voz: usar una voz distinta para los eventos (Super Chats, regalos,
-# miembros, entradas). voz_eventos es el indice de esa voz. Editable en
-# Preferencias > Lectura.
-multivoz = false
-voz_eventos = 0
-[cola]
-estrategia = limite
-tamanio_maximo = 15
-umbral_solo_nombre = 0
-[reconexion]
-reconectar = true
-espera_entre_intentos = 10
-max_intentos = 5
-[lectura]
-formato_prefijo = nombre_mensaje
-[filtros]
-palabras_silenciadas =
-usuarios_silenciados =
-[texto]
-limpiar_emojis = true
-eliminar_urls = true
-max_longitud_mensaje = 200
-# Atajos por área: Ctrl = reproductor, Alt = conexión/chat, F = voz/lectura.
-# Editables desde Preferencias > Atajos (salvo F9-F12, fijos).
-[atajos]
-rep_play = ctrl+p
-rep_retro = ctrl+left
-rep_avanz = ctrl+right
-rep_detener = ctrl+d
-rep_mute = ctrl+m
-rep_vol_menos = ctrl+down
-rep_vol_mas = ctrl+up
-conectar = alt+c
-desconectar = alt+d
-enviar_chat = alt+enter
-pausa = f5
-detener_tts = f8
-velocidad_menos = f9
-velocidad_mas = f10
-volumen_menos = f11
-volumen_mas = f12
-silenciar_lectura = f4
-silenciar_sonidos = f7
-anunciar_estado = f2
-[ui]
-tamanio_fuente_chat = 12
-mostrar_total_superchats = true
-autoplay_reproductor = true
-filtro_activo = todos
-silenciar_sonidos = false
-mostrar_botones_reproductor = false
-cache_video_mb = 1024
-mostrar_metadatos = true
-[sesion]
-guardar_historial = no
-silenciar_lectura = false
-[tiktok]
-# Leer por voz quien entra al directo (solo TikTok). En directos grandes puede
-# ser muchisimo, por eso viene desactivado. Editable en Preferencias > Lectura.
-anunciar_entradas = false
-[programados]
-activo = false
-# Registro detallado para diagnosticar problemas de la aplicación.
-[diagnostico]
-registro_detallado = false
-[overlay]
-activo = false
-puerto = 8730
-[obs]
-microfono =
-# Componentes que anuncia F2 (estado de sesion). Editable en
-# Preferencias > Estado (F2). true = se dice; false = no.
-[estado]
-estado = true
-titulo = true
-canal = true
-espectadores = true
-mensajes_leidos = true
-aportes = true
-en_cola = false
-voz = false
-lectura_silenciada = true
-overlay = true
-
-# Gestor de descargas con yt-dlp. Formato: mp4 | webm | mp3 | m4a (mp3/m4a
-# requieren ffmpeg). Bitrate solo aplica a audio. Enumerar prefijá 01_, 02_...
-# a los videos de una playlist. Carpeta portable junto al ejecutable.
-[descargas]
-formato = mp4
-bitrate = 192
-carpeta = Descargas
-enumerar = false
-"""
+_CONFIG_FALLBACK = config_predeterminada.generar_texto()
 
 _SOUNDS_FALLBACK = """\
 [sonidos]
@@ -461,7 +310,12 @@ _TEMA_DEFECTO = "default"
 def _mk_parser() -> configparser.ConfigParser:
     return configparser.ConfigParser(inline_comment_prefixes=("#", ";"), default_section="__none__")
 
-def _gs(p, sec, k):       return p.get(sec, k, fallback=_DEF.get(k, "")).strip()
+
+def _fallback(sec: str, k: str) -> str:
+    return config_predeterminada.obtener(sec, k, "")
+
+
+def _gs(p, sec, k):       return p.get(sec, k, fallback=_fallback(sec, k)).strip()
 def _gi(v, d):
     try:    return int(str(v).strip())
     except Exception: return d
@@ -469,13 +323,23 @@ def _gf(v, d):
     try:    return float(str(v).strip())
     except Exception: return d
 def _pi(p, sec, k, lo=0, hi=None):
-    v = max(lo, _gi(_gs(p, sec, k), int(_DEF.get(k, "0"))))
+    fb = _fallback(sec, k)
+    try:
+        d = int(fb.strip()) if fb.strip() else 0
+    except Exception:
+        d = 0
+    v = max(lo, _gi(_gs(p, sec, k), d))
     return min(hi, v) if hi is not None else v
 def _pf(p, sec, k, lo=0.0, hi=1.0):
-    return max(lo, min(hi, _gf(_gs(p, sec, k), float(_DEF.get(k, "1.0")))))
+    fb = _fallback(sec, k)
+    try:
+        d = float(fb.strip()) if fb.strip() else 1.0
+    except Exception:
+        d = 1.0
+    return max(lo, min(hi, _gf(_gs(p, sec, k), d)))
 def _pb(p, sec, k):
     try:    return p.getboolean(sec, k)
-    except Exception: return _DEF.get(k, "true").strip().lower() in ("true", "yes", "1", "on")
+    except Exception: return _fallback(sec, k).strip().lower() in ("true", "yes", "1", "on")
 def _lista(v: str) -> list:
     return [x.strip().lower() for x in v.split(",") if x.strip()]
 
@@ -639,73 +503,29 @@ def cargar_configuracion() -> dict:
     if p.has_section("atajos"):
         atajos_raw = {k.strip().lower(): (v or "").strip() for k, v in p.items("atajos")}
 
-    # Inyectar en el INI los atajos nuevos ausentes (actualización desde versiones anteriores).
-    atajos_nuevos = [k for k in ATAJOS_DEFAULTS if k not in atajos_raw]
-    if atajos_nuevos:
-        for accion in atajos_nuevos:
-            guardar_opcion(ruta, "atajos", accion, ATAJOS_DEFAULTS[accion])
-            atajos_raw[accion] = ATAJOS_DEFAULTS[accion]
-        logger.info("Atajos nuevos añadidos a config.ini: %s", ", ".join(atajos_nuevos))
+    # Migración genérica: agregar toda sección o clave ausente desde la fuente
+    # canónica, preservando valores existentes incluso vacíos y claves desconocidas.
+    _atajos_faltantes = []
+    for _sec, _claves in config_predeterminada.datos().items():
+        for _clave, _valor_def in _claves.items():
+            if not p.has_option(_sec, _clave):
+                guardar_opcion(ruta, _sec, _clave, _valor_def)
+                if _sec == "atajos":
+                    atajos_raw[_clave] = _valor_def
+                    _atajos_faltantes.append(_clave)
+    if _atajos_faltantes:
+        logger.info("Atajos nuevos añadidos a config.ini: %s", ", ".join(_atajos_faltantes))
 
-    # Inyectar claves nuevas de secciones existentes si faltan.
-    if not p.has_option("ui", "filtro_activo"):
-        guardar_opcion(ruta, "ui", "filtro_activo", "todos")
-    if not p.has_option("ui", "silenciar_sonidos"):
-        guardar_opcion(ruta, "ui", "silenciar_sonidos", "false")
-    if not p.has_option("ui", "autoplay_reproductor"):
-        guardar_opcion(ruta, "ui", "autoplay_reproductor", "true")
-    if not p.has_option("ui", "mostrar_botones_reproductor"):
-        guardar_opcion(ruta, "ui", "mostrar_botones_reproductor", "false")
-    if not p.has_option("ui", "cache_video_mb"):
-        guardar_opcion(ruta, "ui", "cache_video_mb", "1024")
-    if not p.has_option("ui", "mostrar_metadatos"):
-        guardar_opcion(ruta, "ui", "mostrar_metadatos", "true")
-    if not p.has_option("sesion", "silenciar_lectura"):
-        guardar_opcion(ruta, "sesion", "silenciar_lectura", "false")
-    if not p.has_option("tiktok", "anunciar_entradas"):
-        guardar_opcion(ruta, "tiktok", "anunciar_entradas", "false")
-    if not p.has_option("diagnostico", "registro_detallado"):
-        guardar_opcion(ruta, "diagnostico", "registro_detallado", "false")
-    if not p.has_option("voz", "multivoz"):
-        guardar_opcion(ruta, "voz", "multivoz", "false")
-    if not p.has_option("voz", "voz_eventos"):
-        guardar_opcion(ruta, "voz", "voz_eventos", "0")
-    if not p.has_option("overlay", "activo"):
-        guardar_opcion(ruta, "overlay", "activo", "false")
-    if not p.has_option("overlay", "puerto"):
-        guardar_opcion(ruta, "overlay", "puerto", "8730")
-    if not p.has_option("obs", "microfono"):
-        guardar_opcion(ruta, "obs", "microfono", "")
-    if not p.has_option("programados", "activo"):
-        guardar_opcion(ruta, "programados", "activo", "false")
-
-    # Inyectar la sección [descargas] con defaults si falta cualquiera de sus
-    # claves. `obtener_opciones_descarga` también lo hace standalone, pero
-    # aquí garantizamos que cargar_configuracion devuelva `descargas_*` en el
-    # dict para que la GUI lo use sin tener que parsear el INI por su cuenta.
-    if not p.has_section("descargas"):
-        guardar_opcion(ruta, "descargas", "formato", "mp4")
-        guardar_opcion(ruta, "descargas", "bitrate", "192")
-        guardar_opcion(ruta, "descargas", "enumerar", "false")
-    else:
-        if not p.has_option("descargas", "formato"):
-            guardar_opcion(ruta, "descargas", "formato", "mp4")
-        if not p.has_option("descargas", "bitrate"):
-            guardar_opcion(ruta, "descargas", "bitrate", "192")
-        if not p.has_option("descargas", "enumerar"):
-            guardar_opcion(ruta, "descargas", "enumerar", "false")
     desc_op = obtener_opciones_descarga()
 
-    # Estado (F2): un booleano por componente. Si falta la sección, se crea con
-    # los valores por defecto (lo relevante activado; lo técnico apagado).
-    from estado_sesion import COMPONENTES as _EST_COMP, ACTIVOS_DEFECTO as _EST_DEF
-    if not p.has_section("estado"):
-        for comp in _EST_COMP:
-            guardar_opcion(ruta, "estado", comp, "true" if comp in _EST_DEF else "false")
+    # Estado (F2): un booleano por componente.
+    from estado_sesion import COMPONENTES as _EST_COMP
+    # Fallback canónico para estado: true donde la fábrica lo marca así.
+    _estado_defaults = config_predeterminada.seccion("estado")
     estado_toggles = set()
     for comp in _EST_COMP:
         try:    activo = p.getboolean("estado", comp)
-        except Exception: activo = comp in _EST_DEF
+        except Exception: activo = _estado_defaults.get(comp, "false").lower() in ("true", "yes", "1", "on")
         if activo:
             estado_toggles.add(comp)
 

@@ -135,12 +135,12 @@ if not exist "%OUT%\yt-dlp.exe" (
     echo    OK: yt-dlp.exe independiente copiado, %%~zf bytes.
   )
 )
-REM config.ini y sounds.ini van SIEMPRE con los valores por defecto de git,
-REM no con los de esta carpeta: los locales llevan los ajustes personales de
-REM quien construye (velocidad de voz, tema...) y no deben viajar en el ZIP.
-REM Si git no esta disponible, se avisa y se copian los locales como antes.
-git show HEAD:config.ini > "%OUT%\config.ini" 2>nul
-if errorlevel 1 ( echo    AVISO: sin git; config.ini local ^(puede llevar ajustes personales^). & copy /y "config.ini" "%OUT%\" >nul )
+REM config.ini se genera SIEMPRE desde la fuente canonica
+REM config_predeterminada.py. No se copia el config.ini local ni se depende
+REM de git para este archivo. Si falla la generacion, la construccion se detiene.
+call uv run python config_predeterminada.py "%OUT%\config.ini"
+if errorlevel 1 ( echo ERROR: no se pudo generar config.ini desde config_predeterminada.py. & pause & exit /b 1 )
+REM sounds.ini sigue con el tratamiento previo: intentar git, si no local.
 git show HEAD:sounds.ini > "%OUT%\sounds.ini" 2>nul
 if errorlevel 1 ( echo    AVISO: sin git; sounds.ini local ^(puede llevar ajustes personales^). & copy /y "sounds.ini" "%OUT%\" >nul )
 copy /y "LICENSE"    "%OUT%\" >nul

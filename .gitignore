@@ -87,5 +87,10 @@ todosloslogs.txt
 # Cache de win32com, se regenera sola al cargar SAPI5.
 gen_py/
 
+# Configuracion personal: no se versiona, se genera desde la fabrica.
+# La fuente canonica es config_predeterminada.py y la copia legible es
+# config.predeterminado.ini. Ver MD/configuracion-predeterminada.md.
+/config.ini
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/

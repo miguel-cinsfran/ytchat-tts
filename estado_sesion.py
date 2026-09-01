@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import config_predeterminada
+
 
 # Códigos de tipo de conexión → etiqueta legible.
 _TIPO_TXT = {
@@ -72,14 +74,15 @@ COMPONENTES: tuple[str, ...] = (
     "obs_escena",
 )
 
-# Activos por defecto: lo relevante para quien mira un directo. Lo técnico
-# (cola, voz) queda disponible pero apagado, porque el dueño lo ve irrelevante.
-ACTIVOS_DEFECTO: frozenset[str] = frozenset({
-    "estado", "titulo", "canal", "espectadores", "tiempo_directo", "mensajes_leidos", "aportes",
-    "lectura_silenciada",
-    "overlay",
-    "programados",
-})
+# Activos por defecto: derivan de la sección [estado] de la fuente canónica.
+# Lo relevante para quien mira un directo viene activado; lo técnico apagado.
+def _activos_desde_canonica() -> frozenset[str]:
+    sec = config_predeterminada.seccion("estado")
+    return frozenset(k for k, v in sec.items()
+                     if v.strip().lower() in ("true", "yes", "1", "on"))
+
+
+ACTIVOS_DEFECTO: frozenset[str] = _activos_desde_canonica()
 
 # Etiquetas para el editor de Preferencias.
 ETIQUETAS = {

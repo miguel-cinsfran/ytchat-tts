@@ -616,7 +616,8 @@ class PreferenciasDialog(wx.Dialog):
             anunciar("Sin cambios")
 
     def _restablecer_atajos(self, event):
-        for accion, valor in cfg.ATAJOS_DEFAULTS.items():
+        import config_predeterminada as _pred
+        for accion, valor in _pred.seccion("atajos").items():
             if accion in cfg.ATAJOS_FIJOS:
                 continue
             self._valores_atajo[accion] = valor
