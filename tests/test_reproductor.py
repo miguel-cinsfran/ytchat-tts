@@ -432,7 +432,8 @@ class TestEventosVlc(unittest.TestCase):
         with mock.patch.object(reproductor, "_registro_detallado_activo",
                                return_value=False):
             self.assertTrue(panel._asegurar_player())
-        panel._enganchar_eventos_vlc.assert_not_called()
+        panel._enganchar_eventos_vlc.assert_called_once()
+        panel._enganchar_eventos_vlc.reset_mock()
         panel._player = None
         with mock.patch.object(reproductor, "_registro_detallado_activo",
                                return_value=True):
@@ -464,7 +465,8 @@ class TestEventosVlc(unittest.TestCase):
                 "MediaPlayerEndReached", "MediaPlayerEncounteredError",
                 "MediaPlayerBuffering")})
 
-        with mock.patch.object(reproductor, "_vlc", EventType=tipos):
+        with mock.patch.object(reproductor, "_vlc", EventType=tipos), \
+             mock.patch.object(reproductor, "_registro_detallado_activo", return_value=True):
             panel._enganchar_eventos_vlc()
 
         self.assertEqual(gestor.event_attach.call_count, 6)

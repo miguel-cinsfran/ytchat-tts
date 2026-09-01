@@ -25,9 +25,9 @@ import wx
 
 import config as _cfg
 from busqueda_video import (
-    EstadoBusqueda, EstadoInicioReproduccion, TOPE_BUSQUEDA_MS,
-    accion_play_pausa, busqueda_permitida, destino_acumulado,
-    transporte_confirmado,
+    EstadoBusqueda, EstadoInicioReproduccion, OrdenTransporte,
+    TOPE_BUSQUEDA_MS, accion_play_pausa, busqueda_permitida, destino_acumulado,
+    evaluar_transporte,
 )
 import iconos
 import diagnostico
@@ -487,6 +487,7 @@ class ReproductorPanel(wx.Panel):
         self._tiene_esclavo = False
         self._usando_cache_local = False
         self._transporte_pendiente = False
+        self._orden_transporte = None
         self._intencion_reproducir = False
         self._vol = 80
         self._muted = False
@@ -577,12 +578,13 @@ class ReproductorPanel(wx.Panel):
             logger.warning("No se pudo crear el reproductor de VLC: %s", exc)
             return False
         logger.debug("PLAYER_NUEVO")
-        if _registro_detallado_activo():
-            self._enganchar_eventos_vlc()
+        self._enganchar_eventos_vlc()
         return True
 
     def _enganchar_eventos_vlc(self) -> None:
+        detallado = _registro_detallado_activo()
         pct_anterior = None
+        player_origen = self._player
 
         def al_buffer(event):
             nonlocal pct_anterior
@@ -595,7 +597,7 @@ class ReproductorPanel(wx.Panel):
             except Exception:
                 pass
 
-        def al_estado(nombre):
+        def al_estado_traza(nombre):
             def callback(_event):
                 try:
                     logger.debug("VLC_ESTADO %s", nombre)
@@ -603,21 +605,144 @@ class ReproductorPanel(wx.Panel):
                     pass
             return callback
 
-        callbacks = (
-            (_vlc.EventType.MediaPlayerPlaying, al_estado("reproduciendo")),
-            (_vlc.EventType.MediaPlayerPaused, al_estado("pausado")),
-            (_vlc.EventType.MediaPlayerStopped, al_estado("detenido")),
-            (_vlc.EventType.MediaPlayerEndReached, al_estado("fin")),
-            (_vlc.EventType.MediaPlayerEncounteredError, al_estado("error")),
-            (_vlc.EventType.MediaPlayerBuffering, al_buffer),
-        )
-        self._callbacks_vlc = callbacks
+        def al_transporte(estado_norm, nombre_traza):
+            ident = player_origen
+
+            def callback(_event):
+                if detallado:
+                    try:
+                        logger.debug("VLC_ESTADO %s", nombre_traza)
+                    except Exception:
+                        pass
+                try:
+                    wx.CallAfter(self._evaluar_transporte_desde_evento, ident, estado_norm)
+                except Exception:
+                    pass
+
+            return callback
+
+        if _vlc is None or not hasattr(_vlc, "EventType"):
+            self._callbacks_vlc = ()
+            try:
+                self._gestor_eventos_vlc = self._player.event_manager() if self._player is not None else None
+            except Exception:
+                self._gestor_eventos_vlc = None
+            return
+        callbacks = []
+        callbacks.append((_vlc.EventType.MediaPlayerPlaying, al_transporte("playing", "reproduciendo")))
+        callbacks.append((_vlc.EventType.MediaPlayerPaused, al_transporte("paused", "pausado")))
+        if detallado:
+            callbacks.extend([
+                (_vlc.EventType.MediaPlayerStopped, al_estado_traza("detenido")),
+                (_vlc.EventType.MediaPlayerEndReached, al_estado_traza("fin")),
+                (_vlc.EventType.MediaPlayerEncounteredError, al_estado_traza("error")),
+                (_vlc.EventType.MediaPlayerBuffering, al_buffer),
+            ])
+        self._callbacks_vlc = tuple(callbacks)
         try:
             self._gestor_eventos_vlc = self._player.event_manager()
             for tipo, callback in callbacks:
                 self._gestor_eventos_vlc.event_attach(tipo, callback)
         except Exception as exc:
             logger.debug("No se pudieron enganchar los eventos de VLC: %s", exc)
+
+    def _evaluar_transporte_desde_evento(self, player_origen, estado_evento) -> None:
+        try:
+            if player_origen is not self._player:
+                return
+        except Exception:
+            return
+        self._evaluar_transporte(estado_forzado=estado_evento)
+
+    def _cancelar_transporte(self) -> None:
+        self._orden_transporte = None
+        self._transporte_pendiente = False
+
+    def _evaluar_transporte(self, estado_forzado=None) -> None:
+        orden = getattr(self, "_orden_transporte", None)
+        if orden is None:
+            return
+        estado = estado_forzado if estado_forzado is not None else self._estado_vlc_actual()
+        estado_norm = (estado or "").lower()
+        ahora = time.monotonic()
+        desenlace = evaluar_transporte(orden, estado_norm, ahora)
+        if desenlace == "pendiente":
+            return
+        # finaliza la transacción
+        intencion_previa = bool(orden.intencion_reproducir)
+        edad_ms = int((ahora - float(orden.instante)) * 1000) if orden.instante is not None else 0
+        self._cancelar_transporte()
+        if desenlace == "confirmada":
+            if not intencion_previa:
+                # pausa confirmada
+                self._intencion_reproducir = False
+                try:
+                    self._mostrar_pausa(False)
+                except Exception:
+                    pass
+                try:
+                    if not getattr(self._estado_busqueda, "pendiente", False):
+                        self._timer.Stop()
+                except Exception:
+                    pass
+                anunciar("Pausa")
+                logger.debug("TRANSPORTE desenlace=confirmada intencion=pausa estado=%s edad=%d", estado_norm, edad_ms)
+            else:
+                # reanudación confirmada
+                self._intencion_reproducir = True
+                try:
+                    self._mostrar_pausa(True)
+                except Exception:
+                    pass
+                try:
+                    self._timer.Start(500)
+                except Exception:
+                    pass
+                anunciar("Reproduciendo")
+                logger.debug("TRANSPORTE desenlace=confirmada intencion=reproducir estado=%s edad=%d", estado_norm, edad_ms)
+        else:
+            # fallida por plazo o estado final
+            # reconciliar con estado real
+            estado_real = self._estado_vlc_actual()
+            estado_real_norm = (estado_real or "").lower()
+            if estado_real_norm == "playing":
+                self._intencion_reproducir = True
+                try:
+                    self._mostrar_pausa(True)
+                except Exception:
+                    pass
+                try:
+                    self._timer.Start(500)
+                except Exception:
+                    pass
+            elif estado_real_norm == "paused":
+                self._intencion_reproducir = False
+                try:
+                    self._mostrar_pausa(False)
+                except Exception:
+                    pass
+                try:
+                    if not getattr(self._estado_busqueda, "pendiente", False):
+                        self._timer.Stop()
+                    else:
+                        self._timer.Start(500)
+                except Exception:
+                    pass
+            else:
+                # estado transitorio o final: mantener botón según estado real si es determinable
+                if estado_real_norm == "paused":
+                    self._intencion_reproducir = False
+                elif estado_real_norm == "playing":
+                    self._intencion_reproducir = True
+                # si hay búsqueda pendiente, mantener temporizador
+                try:
+                    if getattr(self._estado_busqueda, "pendiente", False):
+                        self._timer.Start(500)
+                except Exception:
+                    pass
+            mensaje = "No se pudo pausar" if not intencion_previa else "No se pudo reanudar"
+            anunciar(mensaje)
+            logger.debug("TRANSPORTE desenlace=fallida intencion=%s estado=%s edad=%d", "pausa" if not intencion_previa else "reproducir", estado_norm, edad_ms)
 
     def _fijar_salida(self, hwnd):
         try:
@@ -970,7 +1095,7 @@ class ReproductorPanel(wx.Panel):
         self._estado_busqueda = EstadoBusqueda(confirmada=0)
         self._tiene_esclavo = False
         self._usando_cache_local = False
-        self._transporte_pendiente = False
+        self._cancelar_transporte()
         self._intencion_reproducir = reproducir
         self._cargando = True
         self.lbl_estado.SetLabel("Cargando vídeo…")
@@ -1153,7 +1278,7 @@ class ReproductorPanel(wx.Panel):
         self._cancelar_busqueda()
         self._tiene_esclavo = False
         self._usando_cache_local = False
-        self._transporte_pendiente = False
+        self._cancelar_transporte()
         self._intencion_reproducir = reproducir
         try:
             media = self._inst.media_new(self._url_flujo)
@@ -1233,15 +1358,33 @@ class ReproductorPanel(wx.Panel):
             if aviso:
                 anunciar(aviso)
             return
-        st = self._player.get_state()
-        estado = getattr(st, "name", str(st)).rsplit(".", 1)[-1].lower()
-        if getattr(self, "_transporte_pendiente", False) and transporte_confirmado(
-                estado, self._intencion_reproducir):
-            self._transporte_pendiente = False
+        estado = self._estado_vlc_actual()
+        orden = getattr(self, "_orden_transporte", None)
+        if orden is not None:
+            desenlace_prev = evaluar_transporte(orden, estado, time.monotonic())
+            if desenlace_prev == "pendiente":
+                try:
+                    puede_pausar = bool(self._player.can_pause())
+                except Exception:
+                    puede_pausar = None
+                try:
+                    es_buscable = bool(self._player.is_seekable())
+                except Exception:
+                    es_buscable = None
+                logger.debug("%s", traza_transporte(
+                    estado, "en_curso", bool(self._video_id or self._url_flujo),
+                    self._intencion_reproducir, puede_pausar, es_buscable))
+                import sound_player as _snd
+                _snd.reproducir("transporte_en_curso")
+                return
+            else:
+                # finaliza la transacción pendiente antes de solicitar otra
+                self._evaluar_transporte()
+                estado = self._estado_vlc_actual()
         accion = accion_play_pausa(
             estado, bool(self._video_id or self._url_flujo),
             self._intencion_reproducir,
-            getattr(self, "_transporte_pendiente", False))
+            False)
         try:
             puede_pausar = bool(self._player.can_pause())
         except Exception:
@@ -1258,11 +1401,13 @@ class ReproductorPanel(wx.Panel):
             _snd.reproducir("transporte_en_curso")
         elif accion == "pausar":
             self._player.set_pause(1)
-            self._intencion_reproducir = False
+            self._orden_transporte = OrdenTransporte(intencion_reproducir=False, instante=time.monotonic())
             self._transporte_pendiente = True
-            self._mostrar_pausa(False)
-            self._timer.Stop()
-            anunciar("Pausa")
+            try:
+                self._timer.Start(500)
+            except Exception:
+                pass
+            anunciar("Pausando")
         elif accion == "reanudar":
             # En un directo de TikTok (flujo en vivo, sin línea de tiempo)
             # «reanudar» dejaría el vídeo retrasado; recargamos para volver al
@@ -1271,11 +1416,13 @@ class ReproductorPanel(wx.Panel):
                 self._reproducir_flujo()
             else:
                 self._player.set_pause(0)
-                self._intencion_reproducir = True
+                self._orden_transporte = OrdenTransporte(intencion_reproducir=True, instante=time.monotonic())
                 self._transporte_pendiente = True
-                self._mostrar_pausa(True)
-                self._timer.Start(500)
-                anunciar("Reproduciendo")
+                try:
+                    self._timer.Start(500)
+                except Exception:
+                    pass
+                anunciar("Reanudando")
         elif accion == "cargar":
             if self._video_id:
                 self.cargar(reproducir=True)
@@ -1298,7 +1445,7 @@ class ReproductorPanel(wx.Panel):
             self._estado_inicio.cancelar()
         self._tiene_esclavo = False
         self._usando_cache_local = False
-        self._transporte_pendiente = False
+        self._cancelar_transporte()
         tarea = getattr(self, "_tarea_cache_video", None)
         if tarea is not None:
             tarea.cancelacion.set()
@@ -1435,6 +1582,12 @@ class ReproductorPanel(wx.Panel):
             anunciar(f"Moviendo a {_fmt_hablado(destino)}")
         dur = int(self._player.get_length()) if self._player else 0
         self._fijar_tiempo(bus.confirmada, dur, mover_slider=True, anunciar_t=False)
+        # asegurar observación periódica aunque el medio esté pausado
+        try:
+            if bus.pendiente:
+                self._timer.Start(500)
+        except Exception:
+            pass
         bus_ref = bus
         def caducar():
             if bus_ref.generacion != gen:
@@ -1598,7 +1751,17 @@ class ReproductorPanel(wx.Panel):
                 else:
                     self.lbl_estado.SetLabel("Reproduciendo.")
                     anunciar("Reproduciendo")
+        self._evaluar_transporte()
         self._evaluar_busqueda()
+        try:
+            estado_final = self._estado_vlc_actual()
+        except Exception:
+            estado_final = ""
+        if estado_final == "paused" and getattr(self, "_orden_transporte", None) is None and not getattr(self._estado_busqueda, "pendiente", False):
+            try:
+                self._timer.Stop()
+            except Exception:
+                pass
         if self._estado_vlc_actual() == "ended":
             self._detener(silencioso=True)
             anunciar("Fin del vídeo")

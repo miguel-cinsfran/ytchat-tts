@@ -1,12 +1,43 @@
 """Decisiones puras para la posición y el transporte del reproductor."""
 
+from dataclasses import dataclass
+
 TOLERANCIA_DESTINO_MS = 1500
 TOLERANCIA_ATRAS_MS = 2000
 CADUCIDAD_DESTINO_MS = 5000
 TOPE_BUSQUEDA_MS = 8000
 PROGRESO_MINIMO_MS = 250
+PLAZO_TRANSPORTE_MS = 8000
 
 _ESTADOS_FINALES = {"ended", "stopped", "error", "nothingspecial"}
+
+
+@dataclass(frozen=True, slots=True)
+class OrdenTransporte:
+    """Orden inmutable de transporte."""
+
+    intencion_reproducir: bool
+    instante: float
+
+
+def evaluar_transporte(orden, estado, ahora) -> str:
+    """Devuelve pendiente, confirmada o fallida para una orden de transporte."""
+    if orden is None:
+        return "fallida"
+    estado_norm = (estado or "").lower()
+    if estado_norm in _ESTADOS_FINALES:
+        return "fallida"
+    if estado_norm == "playing" and bool(orden.intencion_reproducir):
+        return "confirmada"
+    if estado_norm == "paused" and not bool(orden.intencion_reproducir):
+        return "confirmada"
+    try:
+        edad_ms = (float(ahora) - float(orden.instante)) * 1000
+    except Exception:
+        edad_ms = 0
+    if edad_ms >= PLAZO_TRANSPORTE_MS:
+        return "fallida"
+    return "pendiente"
 
 
 def busqueda_permitida(es_directo, es_local, tiene_esclavo) -> bool:
