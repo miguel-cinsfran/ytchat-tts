@@ -39,6 +39,7 @@ from traza_transporte import (
 )
 import ytdlp_bin
 import esclavo_audio
+import reproductor_ciclo
 from gui import anunciar, nombre_accesible, _T, _tc
 
 logger = diagnostico.obtener_logger(__name__)
@@ -511,6 +512,7 @@ class ReproductorPanel(wx.Panel):
         self._ultimo_aviso_progreso = None
         self._fs = None        # ventana de pantalla completa, si está activa
         self._precalentamiento_cancelado = False
+        self._ciclo = reproductor_ciclo.CicloReproductor()
 
         self.SetBackgroundColour(_T.bg)
         self.SetForegroundColour(_T.text)
@@ -567,6 +569,8 @@ class ReproductorPanel(wx.Panel):
     def _asegurar_player(self) -> bool:
         # La instancia (lenta) puede venir ya precalentada; el reproductor y el
         # set_hwnd son rápidos y deben crearse aquí, en el hilo de la GUI.
+        if getattr(self, "_ciclo", None) is not None and self._ciclo.en_retirada:
+            return False
         if self._player is not None:
             return True
         if not self._asegurar_instancia():
@@ -580,6 +584,32 @@ class ReproductorPanel(wx.Panel):
         logger.debug("PLAYER_NUEVO")
         self._enganchar_eventos_vlc()
         return True
+
+    def _mostrar_estado_cerrando(self, debe_anunciar: bool) -> None:
+        try:
+            if hasattr(self, "lbl_estado"):
+                self.lbl_estado.SetLabel("Cerrando la reproducción anterior.")
+        except Exception:
+            pass
+        if debe_anunciar:
+            try:
+                anunciar("Cerrando la reproducción anterior")
+            except Exception:
+                pass
+
+    def _al_retirar(self, rid: int) -> None:
+        ciclo = getattr(self, "_ciclo", None)
+        if ciclo is None:
+            return
+        if not ciclo.finalizar_retirada(rid):
+            return
+        pendiente = ciclo.tomar_pendiente()
+        if pendiente is None:
+            return
+        if pendiente.tipo == "video":
+            self.set_video(pendiente.valor, autoplay=pendiente.autoplay)
+        elif pendiente.tipo == "flujo":
+            self.set_flujo(pendiente.valor, autoplay=pendiente.autoplay)
 
     def _enganchar_eventos_vlc(self) -> None:
         detallado = _registro_detallado_activo()
@@ -1007,6 +1037,11 @@ class ReproductorPanel(wx.Panel):
         self._url_flujo = ""
         if not self._listo:
             return
+        ciclo = getattr(self, "_ciclo", None)
+        if ciclo is not None and ciclo.en_retirada:
+            debe = ciclo.diferir_video(video_id or "", autoplay)
+            self._mostrar_estado_cerrando(debe)
+            return
         self._detener(silencioso=True)
         self._info = None
         self._calidad_sel = None
@@ -1022,6 +1057,11 @@ class ReproductorPanel(wx.Panel):
         self._video_id = ""
         self._url_flujo = (url or "").strip()
         if not self._listo:
+            return
+        ciclo = getattr(self, "_ciclo", None)
+        if ciclo is not None and ciclo.en_retirada:
+            debe = ciclo.diferir_flujo(url or "", autoplay)
+            self._mostrar_estado_cerrando(debe)
             return
         self._detener(silencioso=True)
         self._info = None
@@ -1043,6 +1083,9 @@ class ReproductorPanel(wx.Panel):
         if self._listo:
             if self._fs:
                 self.alternar_pantalla_completa()
+            ciclo = getattr(self, "_ciclo", None)
+            if ciclo is not None and ciclo.en_retirada:
+                ciclo.cancelar_pendiente()
             # Parada en segundo plano: stop() de un flujo en vivo puede tardar
             # varios segundos y, al llamarse desde el hilo de la GUI (desconexión),
             # congelaba la ventana hasta que terminaba.
@@ -1079,6 +1122,11 @@ class ReproductorPanel(wx.Panel):
     # ── Carga / reproducción ──────────────────────────────────────────────────
 
     def cargar(self, reproducir: bool = True):
+        ciclo = getattr(self, "_ciclo", None)
+        if ciclo is not None and ciclo.en_retirada:
+            debe = ciclo.diferir_video(self._video_id or "", reproducir)
+            self._mostrar_estado_cerrando(debe)
+            return
         if not self._listo or not self._asegurar_player():
             anunciar("El reproductor no está disponible.")
             return
@@ -1272,6 +1320,11 @@ class ReproductorPanel(wx.Panel):
     def _reproducir_flujo(self, reproducir: bool = True):
         """Arranca la URL de flujo directa en VLC (mismo camino final que
         _reproducir_calidad, pero sin pasar por la info de yt-dlp)."""
+        ciclo = getattr(self, "_ciclo", None)
+        if ciclo is not None and ciclo.en_retirada:
+            debe = ciclo.diferir_flujo(self._url_flujo or "", reproducir)
+            self._mostrar_estado_cerrando(debe)
+            return
         if not self._url_flujo or not self._asegurar_player():
             anunciar("El reproductor no está disponible.")
             return
@@ -1454,27 +1507,48 @@ class ReproductorPanel(wx.Panel):
         self._timer_progreso.Stop()
         if self._player is not None:
             if en_segundo_plano:
-                # Soltar el player en un hilo: stop()+release() de un flujo en
-                # vivo puede bloquear segundos. Lo dejamos en None para que el
-                # siguiente uso cree uno nuevo (sin carreras con el que se cierra).
-                player = self._player
-                gestor_eventos = self._gestor_eventos_vlc
-                # El hilo de cierre no debe tocar la ventana de wx.
-                try:
-                    player.set_hwnd(0)
-                except Exception as exc:
-                    logger.debug("set_hwnd al cerrar: %s", exc)
-                self._player = None
-                self._gestor_eventos_vlc = None
-                def _cerrar(gestor=gestor_eventos):
-                    try:    player.stop()
-                    except Exception: pass
-                    try:    player.release()
-                    except Exception: pass
-                    # Mientras libVLC pueda llamar callbacks, el gestor conserva
-                    # vivo el trampolín de ctypes que usa python-vlc.
-                    _ = gestor
-                diagnostico.crear_hilo(_cerrar, "ReproductorStop").start()
+                ciclo = getattr(self, "_ciclo", None)
+                if ciclo is not None and ciclo.en_retirada:
+                    try:
+                        self._player.stop()
+                    except Exception:
+                        pass
+                else:
+                    ciclo_local = ciclo
+                    rid = ciclo_local.iniciar_retirada() if ciclo_local is not None else 0
+                    player = self._player
+                    gestor_eventos = self._gestor_eventos_vlc
+                    # El hilo de cierre no debe tocar la ventana de wx.
+                    try:
+                        player.set_hwnd(0)
+                    except Exception as exc:
+                        logger.debug("set_hwnd al cerrar: %s", exc)
+                    self._player = None
+                    self._gestor_eventos_vlc = None
+
+                    def _cerrar(gestor=gestor_eventos, rid=rid):
+                        try:
+                            player.stop()
+                        except Exception:
+                            pass
+                        try:
+                            player.release()
+                        except Exception:
+                            pass
+                        # Mientras libVLC pueda llamar callbacks, el gestor conserva
+                        # vivo el trampolín de ctypes que usa python-vlc.
+                        _ = gestor
+                        try:
+                            app = wx.GetApp()
+                        except Exception:
+                            app = None
+                        if app is not None:
+                            try:
+                                wx.CallAfter(self._al_retirar, rid)
+                            except Exception:
+                                pass
+
+                    diagnostico.crear_hilo(_cerrar, "ReproductorStop").start()
             else:
                 try:    self._player.stop()
                 except Exception: pass
