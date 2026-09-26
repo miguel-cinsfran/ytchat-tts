@@ -97,3 +97,6 @@ gen_py/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Índice local de búsqueda
+.tgrep/
