@@ -152,6 +152,13 @@ Dirección directa:
 > botón **Publicar app** que quita la caducidad; a cambio, la primera vez
 > aparece un aviso de "app no verificada" que hay que aceptar a mano.
 > Cualquiera de las dos opciones sirve.
+>
+> Para que **Publicar app** se active, Google pide antes, en la página
+> **Información de marca**, una página principal, un enlace a una política de
+> privacidad y el dominio de esos enlaces en **Dominios autorizados**. Sirven
+> la dirección del repositorio en GitHub como página principal,
+> `https://github.com/miguel-cinsfran/ytchat-tts/blob/main/docs/PRIVACIDAD.md`
+> como política y `github.com` como dominio.
 
 ## Paso 5 — Crear el cliente OAuth
 
