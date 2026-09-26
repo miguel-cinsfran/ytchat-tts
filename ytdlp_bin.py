@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 
 import diagnostico
 import ffmpeg_bin
+import paths
 from esclavo_audio import TAMANIO_MINIMO
 from progreso_ytdlp import PLANTILLA, analizar_linea_progreso
 
@@ -23,7 +24,7 @@ URL_API_RELEASES = (
     "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 )
 USER_AGENT = "ytchat-tts/2.0"
-NOMBRE_BINARIO = "yt-dlp.exe"
+NOMBRE_BINARIO = paths.NOMBRE_YTDLP
 NOMBRE_FIRMAS = "SHA2-256SUMS"
 SUBDIRECTORIO_DATOS = "YTChat TTS"
 TIEMPO_ESPERA = 30
@@ -76,7 +77,7 @@ def _ruta_actualizada() -> Path:
 def _ruta_del_paquete() -> Path | None:
     if not getattr(sys, "frozen", False):
         return None
-    return Path(sys.executable).resolve().parent / NOMBRE_BINARIO
+    return paths.ytdlp_empaquetado()
 
 
 def ruta_ytdlp() -> str | None:

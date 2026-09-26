@@ -20,6 +20,8 @@ import sys
 from collections import OrderedDict
 from pathlib import Path
 
+import paths
+
 # Orden canónico: sección -> lista ordenada de (clave, valor)
 _ORDEN: list[tuple[str, list[tuple[str, str]]]] = [
     ("voz", [
@@ -247,4 +249,4 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         escribir(Path(sys.argv[1]))
     else:
-        escribir(Path(__file__).with_name("config.predeterminado.ini"))
+        escribir(paths.config_predeterminada_ini())

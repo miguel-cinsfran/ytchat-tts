@@ -15,12 +15,12 @@ import threading
 from pathlib import Path
 
 import archivos
-import config
 import diagnostico
+import paths
 
 logger = diagnostico.obtener_logger(__name__)
 
-NOMBRE_ARCHIVO = "credenciales.json"
+NOMBRE_ARCHIVO = paths.NOMBRE_CREDENCIALES
 
 # guardar_campo es leer-modificar-escribir y lo llaman hilos de trabajo (el
 # refresco del token OAuth, la GUI): sin candado, dos guardados cruzados
@@ -38,7 +38,7 @@ _DEFECTO = {
 
 
 def ruta() -> Path:
-    return config.app_dir() / NOMBRE_ARCHIVO
+    return paths.credenciales()
 
 
 def cargar() -> dict:

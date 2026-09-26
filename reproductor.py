@@ -32,6 +32,7 @@ from busqueda_video import (
 )
 import iconos
 import diagnostico
+import paths
 import progreso
 from traza_transporte import (
     topologia_medio, traza_busqueda_desenlace, traza_busqueda_muestra,
@@ -58,9 +59,9 @@ def _registrar_tiempo_precalentamiento(tramo: str, inicio: float, fin: float) ->
 
 def _carpeta_vlc_empaquetada() -> str | None:
     if getattr(sys, "frozen", False):
-        base = os.path.join(os.path.dirname(sys.executable), "vlc")
-        if os.path.exists(os.path.join(base, "libvlc.dll")):
-            return base
+        carpeta = paths.carpeta_vlc_empaquetada()
+        if os.path.exists(carpeta / "libvlc.dll"):
+            return str(carpeta)
     return None
 
 
@@ -128,8 +129,7 @@ def vlc_disponible() -> bool:
 
 def ytdlp_disponible() -> bool:
     if getattr(sys, "frozen", False):
-        base = os.path.join(os.path.dirname(sys.executable), "_internal", "yt_dlp")
-        return os.path.isdir(base)
+        return (paths.carpeta_interna() / "yt_dlp").is_dir()
     try:
         return importlib.util.find_spec("yt_dlp") is not None
     except Exception:
@@ -175,7 +175,7 @@ def aviso_de_corte(pct, pct_anterior) -> str:
 def _registro_detallado_activo() -> bool:
     try:
         parser = _cfg._mk_parser()
-        parser.read(_cfg.app_dir() / "config.ini", encoding="utf-8")
+        parser.read(paths.config_ini(), encoding="utf-8")
         return parser.getboolean("diagnostico", "registro_detallado",
                                  fallback=False)
     except Exception:
@@ -214,7 +214,7 @@ def _preparar_audio_local(info: dict, video_id: str):
     if info.get("is_live"):
         return None
     try:
-        carpeta = _cfg.app_dir() / "cache-audio"
+        carpeta = paths.cache_audio()
         carpeta.mkdir(parents=True, exist_ok=True)
         entradas = tuple((ruta, ruta.stat().st_mtime) for ruta in carpeta.iterdir()
                          if ruta.is_file())
@@ -1280,7 +1280,7 @@ class ReproductorPanel(wx.Panel):
     def _descargar_video_cache(self, video_id, gen):
         if int(getattr(self, "_config", {}).get("cache_video_mb", 1024)) <= 0:
             return
-        carpeta = _cfg.app_dir() / "cache-video"
+        carpeta = paths.cache_video()
         destino = carpeta / f"{video_id}.mp4"
         vigente = getattr(self, "_tarea_cache_video", None)
         if vigente is not None:

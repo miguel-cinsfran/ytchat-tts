@@ -1,6 +1,6 @@
 """Tests de carga de config.ini (config.cargar_configuracion).
 
-Se redirige app_dir() a un directorio temporal para no tocar el config.ini
+Se redirigen las rutas a un directorio temporal para no tocar el config.ini
 real del proyecto.
 """
 
@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 import config
+from tests.rutas_temporales import redirigir_rutas
 
 
 class TestCargarConfiguracion(unittest.TestCase):
@@ -18,7 +19,7 @@ class TestCargarConfiguracion(unittest.TestCase):
     def _cargar_en(self, contenido: str) -> dict:
         tmp = Path(self._tmp.name)
         (tmp / "config.ini").write_text(contenido, encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=tmp):
+        with redirigir_rutas(tmp):
             return config.cargar_configuracion()
 
     def setUp(self):
@@ -42,7 +43,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("googleapiclient", silenciadas)
 
     def test_configurar_logging_bloquea_debug_de_websockets(self):
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+        with redirigir_rutas(self._tmp.name), \
              mock.patch.object(config, "RotatingFileHandler"):
             config.configurar_logging()
         self.assertFalse(
@@ -51,7 +52,7 @@ class TestCargarConfiguracion(unittest.TestCase):
     def test_configurar_logging_conserva_warning_en_ytchat_log(self):
         """Si este nivel sube, el cierre por tope deja de llegar al archivo y se
         pierde la única pista disponible sobre la corrupción de heap al cerrar."""
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             config.configurar_logging()
         manejador = next(manejador for manejador in self._root.handlers
                          if getattr(manejador, "baseFilename", "").endswith("ytchat.log"))
@@ -59,7 +60,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(manejador.level, logging.WARNING)
 
     def test_configurar_logging_es_idempotente(self):
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+        with redirigir_rutas(self._tmp.name), \
              mock.patch.object(config, "RotatingFileHandler"):
             config.configurar_logging()
             cuantos = len(self._root.handlers)
@@ -90,7 +91,7 @@ class TestCargarConfiguracion(unittest.TestCase):
 
     def test_regenera_si_falta(self):
         tmp = Path(self._tmp.name)
-        with mock.patch.object(config, "app_dir", return_value=tmp):
+        with redirigir_rutas(tmp):
             cfg = config.cargar_configuracion()
         self.assertTrue((tmp / "config.ini").exists())
         self.assertEqual(cfg["formato_prefijo"], "nombre_mensaje")
@@ -100,7 +101,7 @@ class TestCargarConfiguracion(unittest.TestCase):
     def test_registro_detallado_ausente_no_activa_manejador(self):
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[diagnostico]\n", encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+        with redirigir_rutas(self._tmp.name), \
              mock.patch.object(config.logging, "getLogger") as obtener_logger, \
              mock.patch.object(config, "RotatingFileHandler"), \
              mock.patch.object(config.diagnostico, "crear_manejador_detallado") as crear:
@@ -108,7 +109,7 @@ class TestCargarConfiguracion(unittest.TestCase):
             crear.assert_not_called()
 
     def test_registro_detallado_si_falla_lectura_no_activa_manejador(self):
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)), \
+        with redirigir_rutas(self._tmp.name), \
              mock.patch.object(config.logging, "getLogger") as obtener_logger, \
              mock.patch.object(config, "RotatingFileHandler"), \
              mock.patch.object(config.configparser.ConfigParser, "read",
@@ -120,7 +121,7 @@ class TestCargarConfiguracion(unittest.TestCase):
     def test_registro_detallado_ausente_se_persiste_apagado(self):
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[diagnostico]\n", encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             config.cargar_configuracion()
         texto = ruta.read_text(encoding="utf-8")
         self.assertIn("registro_detallado = false", texto)
@@ -128,7 +129,7 @@ class TestCargarConfiguracion(unittest.TestCase):
     def test_registro_detallado_true_se_conserva(self):
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[diagnostico]\nregistro_detallado = true\n", encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             config.cargar_configuracion()
         texto = ruta.read_text(encoding="utf-8")
         self.assertIn("registro_detallado = true", texto)
@@ -208,13 +209,13 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(cfg["descargas_formato"], "mp4")
         self.assertEqual(cfg["descargas_bitrate"], 192)
         # En el INI queda «Descargas»; el dict ya trae la ruta resuelta
-        # contra app_dir(), que es la que usa el gestor de descargas.
+        # contra la carpeta de datos, que es la que usa el gestor de descargas.
         self.assertEqual(cfg["descargas_carpeta"], str(Path(self._tmp.name) / "Descargas"))
         self.assertFalse(cfg["descargas_enumerar"])
 
     def test_obtener_opciones_descarga_devuelve_defaults_si_no_existe(self):
         import config
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             op = config.obtener_opciones_descarga()
         self.assertEqual(op["formato"], "mp4")
         self.assertEqual(op["bitrate"], 192)
@@ -226,16 +227,16 @@ class TestCargarConfiguracion(unittest.TestCase):
         ruta = Path(self._tmp.name) / "config.ini"
         contenido = "[descargas]\nformato = mp4\nbitrate = 192\nenumerar = false\n"
         ruta.write_text(contenido, encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             op = config.obtener_opciones_descarga()
         self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
         self.assertEqual(ruta.read_text(encoding="utf-8"), contenido)
 
-    def test_obtener_opciones_resuelve_carpeta_relativa_contra_app_dir(self):
+    def test_obtener_opciones_resuelve_carpeta_relativa_contra_datos(self):
         import config
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[descargas]\ncarpeta = Descargas\n", encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             op = config.obtener_opciones_descarga()
         self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
 
@@ -244,7 +245,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         ruta = Path(self._tmp.name) / "config.ini"
         absoluta = Path(self._tmp.name) / "otra"
         ruta.write_text(f"[descargas]\ncarpeta = {absoluta}\n", encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             op = config.obtener_opciones_descarga()
         self.assertEqual(op["carpeta"], str(absoluta))
 
@@ -256,10 +257,10 @@ class TestCargarConfiguracion(unittest.TestCase):
             with self.subTest(seccion="descargas" in contenido):
                 ruta = Path(self._tmp.name) / "config.ini"
                 ruta.write_text(contenido, encoding="utf-8")
-                with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+                with redirigir_rutas(self._tmp.name):
                     cfg = config.cargar_configuracion()
                 # En el INI queda «Descargas»; el dict ya trae la ruta resuelta
-                # contra app_dir(), que es la que usa el gestor de descargas.
+                # contra la carpeta de datos, que es la que usa el gestor de descargas.
                 self.assertEqual(cfg["descargas_carpeta"],
                                  str(Path(self._tmp.name) / "Descargas"))
                 self.assertRegex(
@@ -269,7 +270,7 @@ class TestCargarConfiguracion(unittest.TestCase):
 
     def test_guardar_opciones_descarga_persiste(self):
         import config
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             (Path(self._tmp.name) / "config.ini").write_text(
                 config._CONFIG_FALLBACK, encoding="utf-8")
             config.guardar_opciones_descarga(
@@ -282,7 +283,7 @@ class TestCargarConfiguracion(unittest.TestCase):
 
     def test_guardar_opciones_descarga_normaliza_invalidos(self):
         import config
-        with mock.patch.object(config, "app_dir", return_value=Path(self._tmp.name)):
+        with redirigir_rutas(self._tmp.name):
             (Path(self._tmp.name) / "config.ini").write_text(
                 config._CONFIG_FALLBACK, encoding="utf-8")
             # enumerar en el dict es bool, no string. Pasamos un valor truthy

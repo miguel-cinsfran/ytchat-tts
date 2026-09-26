@@ -9,6 +9,7 @@ from unittest import mock
 import reproductor
 from busqueda_video import EstadoBusqueda
 from tarea_cache_video import TareaCacheVideo
+from tests.rutas_temporales import redirigir_rutas
 
 
 class TestReproductorCache(unittest.TestCase):
@@ -67,7 +68,7 @@ class TestReproductorCache(unittest.TestCase):
             try:
                 with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
                      mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
-                     mock.patch.object(reproductor._cfg, "app_dir", return_value=Path(tmp)), \
+                     redirigir_rutas(tmp), \
                      mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", side_effect=fake_descargar):
                     panel._descargar_video_cache(panel._video_id, panel._gen)
                     tarea_a = panel._tarea_cache_video
@@ -123,7 +124,7 @@ class TestReproductorCache(unittest.TestCase):
             try:
                 with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
                      mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
-                     mock.patch.object(reproductor._cfg, "app_dir", return_value=Path(tmp)), \
+                     redirigir_rutas(tmp), \
                      mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", side_effect=fake_descargar):
                     panel._descargar_video_cache("VID_A_12345", 5)
                     tarea_a = panel._tarea_cache_video
@@ -254,7 +255,7 @@ class TestReproductorCache(unittest.TestCase):
             try:
                 with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
                      mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
-                     mock.patch.object(reproductor._cfg, "app_dir", return_value=Path(tmp)), \
+                     redirigir_rutas(tmp), \
                      mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", side_effect=fake_descargar):
                     panel._descargar_video_cache(panel._video_id, panel._gen)
                     tarea = panel._tarea_cache_video
@@ -296,7 +297,7 @@ class TestReproductorCache(unittest.TestCase):
 
             with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
                  mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
-                 mock.patch.object(reproductor._cfg, "app_dir", return_value=Path(tmp)), \
+                 redirigir_rutas(tmp), \
                  mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", return_value=True):
                 panel._descargar_video_cache("VID_A_12345", 0)
                 tarea_a = panel._tarea_cache_video
@@ -439,7 +440,7 @@ class TestReproductorCache(unittest.TestCase):
         try:
             with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
                  mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
-                 mock.patch.object(reproductor._cfg, "app_dir", return_value=Path(tempfile.gettempdir()) / "ytchat-test-cache2"), \
+                 redirigir_rutas(Path(tempfile.gettempdir()) / "ytchat-test-cache2"), \
                  mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", side_effect=fake_descargar):
                 panel._descargar_video_cache(panel._video_id, panel._gen)
                 for t in hilos:

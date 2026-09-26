@@ -28,7 +28,8 @@ from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 import diagnostico
-from config import app_dir, obtener_opciones_descarga
+from config import obtener_opciones_descarga
+import paths
 import ffmpeg_bin
 import ytdlp_bin
 from progreso_ytdlp import PLANTILLA, analizar_linea_progreso
@@ -176,7 +177,7 @@ def construir_outtmpl(opciones: dict, enumerar: bool) -> str:
     resultado es una playlist; en vídeos sueltos el prefijo no aparece (el
     condicional «&…|» de yt-dlp; un %(playlist_index)02d a secas daba «NA - »).
     """
-    carpeta = str(opciones.get("carpeta") or (app_dir() / "Descargas"))
+    carpeta = str(opciones.get("carpeta") or paths.descargas_por_defecto())
     if enumerar:
         nombre = "%(playlist_index&{:02d} - |)s%(title)s [%(id)s].%(ext)s"
     else:

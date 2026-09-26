@@ -4,10 +4,9 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest import mock
 
-import config
 import credenciales
+from tests.rutas_temporales import redirigir_rutas
 
 
 class TestCredenciales(unittest.TestCase):
@@ -15,11 +14,10 @@ class TestCredenciales(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        # credenciales.ruta() usa config.app_dir()
-        self._patch = mock.patch.object(config, "app_dir",
-                                        return_value=Path(self._tmp.name))
-        self._patch.start()
-        self.addCleanup(self._patch.stop)
+        # credenciales.ruta() sale de paths: se redirigen sus raíces.
+        self._rutas = redirigir_rutas(self._tmp.name)
+        self._rutas.__enter__()
+        self.addCleanup(self._rutas.__exit__, None, None, None)
 
     def test_cargar_sin_archivo_devuelve_defaults(self):
         d = credenciales.cargar()

@@ -25,6 +25,7 @@ import wx
 
 import diagnostico
 import config as cfg
+import paths
 from descargas import frase_aviso_descarga, gestor, recortar_url_registro
 import historial_descargas
 from gui import anunciar, nombre_accesible, caja_de_grupo, _T, _tc
@@ -81,7 +82,7 @@ _registrados: set[str] = set()
 
 
 def _ruta_historial():
-    return cfg.app_dir() / "historial_descargas.json"
+    return paths.historial_descargas()
 
 
 def registrar_historial(item, estado: str, ruta=None) -> dict | None:
@@ -216,7 +217,7 @@ class GestorDescargasDialog(wx.Dialog):
         lbl_carp.SetForegroundColour(_T.text)
         fila_carp.Add(lbl_carp, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
         self.dir_carpeta = wx.DirPickerCtrl(
-            padre, path=self._opciones.get("carpeta") or str(cfg.app_dir() / "Descargas"),
+            padre, path=self._opciones.get("carpeta") or str(paths.descargas_por_defecto()),
             name="Carpeta destino", message="Elige la carpeta de descargas")
         _tc(self.dir_carpeta)
         nombrar_selector_carpeta(self.dir_carpeta)
@@ -328,7 +329,7 @@ class GestorDescargasDialog(wx.Dialog):
                    if 0 <= idx < len(_FORMATOS_OPCIONES) else "mp4")
         try:    bitrate = _BITRATE_OPCIONES[self.cho_bitrate.GetSelection()]
         except Exception: bitrate = 192
-        carpeta = self.dir_carpeta.GetPath() or str(cfg.app_dir() / "Descargas")
+        carpeta = self.dir_carpeta.GetPath() or str(paths.descargas_por_defecto())
         enumerar = bool(self.chk_enumerar.GetValue())
         return {"formato": formato, "bitrate": bitrate,
                 "carpeta": carpeta, "enumerar": enumerar}

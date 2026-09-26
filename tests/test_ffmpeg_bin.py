@@ -7,8 +7,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import config
 import ffmpeg_bin
+import paths
+from tests.rutas_temporales import redirigir_rutas
 
 
 def _imageio(ruta):
@@ -28,23 +29,23 @@ class PruebasRutaFfmpeg(unittest.TestCase):
             copia = Path(carpeta) / ffmpeg_bin.NOMBRE_BINARIO
             copia.write_bytes(b"ffmpeg")
             with mock.patch.object(sys, "frozen", True, create=True), \
-                    mock.patch.object(config, "app_dir", return_value=Path(carpeta)), \
+                    redirigir_rutas(carpeta), \
                     mock.patch.dict(sys.modules, {"imageio_ffmpeg": _imageio("otro")}):
                 self.assertEqual(ffmpeg_bin.ruta_ffmpeg(), str(copia))
 
     def test_empaquetada_sin_copia_cae_a_las_otras_fuentes(self):
         with tempfile.TemporaryDirectory() as carpeta:
             with mock.patch.object(sys, "frozen", True, create=True), \
-                    mock.patch.object(config, "app_dir", return_value=Path(carpeta)), \
+                    redirigir_rutas(carpeta), \
                     mock.patch.dict(sys.modules, {"imageio_ffmpeg": _imageio("de-imageio")}):
                 self.assertEqual(ffmpeg_bin.ruta_ffmpeg(), "de-imageio")
 
     def test_en_desarrollo_no_mira_la_carpeta_de_la_app(self):
         with mock.patch.object(sys, "frozen", False, create=True), \
-                mock.patch.object(config, "app_dir") as app_dir, \
+                mock.patch.object(paths, "ffmpeg_empaquetado") as empaquetado, \
                 mock.patch.dict(sys.modules, {"imageio_ffmpeg": _imageio("de-imageio")}):
             self.assertEqual(ffmpeg_bin.ruta_ffmpeg(), "de-imageio")
-        app_dir.assert_not_called()
+        empaquetado.assert_not_called()
 
     def test_sin_imageio_usa_el_path(self):
         with mock.patch.object(sys, "frozen", False, create=True), \

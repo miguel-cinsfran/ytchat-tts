@@ -13,6 +13,7 @@ from unittest import mock
 from overlay_datos import evento_de_mensaje
 from overlay_servidor import OverlayPuertoOcupadoError, OverlayServidor
 import overlay_servidor
+from tests.rutas_temporales import redirigir_rutas
 
 
 def puerto_libre():
@@ -237,7 +238,7 @@ class OverlayServidorTests(unittest.TestCase):
         def abrir(ruta, *args, **kwargs):
             self.assertEqual(ruta, ruta_esperada)
             return io.BytesIO(b"paquete")
-        with mock.patch.object(overlay_servidor.config, "app_dir", return_value=carpeta), \
+        with redirigir_rutas(carpeta), \
                 mock.patch.object(Path, "open", new=abrir):
             self.assertEqual(overlay_servidor._leer_pagina(), b"paquete")
 

@@ -25,7 +25,8 @@ from config import (
     FILTROS,
 )
 from config import (parsear_atajos, detectar_conflictos_atajos,
-                    app_dir, guardar_opcion)
+                    guardar_opcion)
+import paths
 import deteccion
 import metadatos
 import estado_sesion
@@ -70,7 +71,7 @@ MENSAJE_INICIAL = ("Sin conectar. Pega un enlace de YouTube (directo o vídeo) o
                    "de un directo de TikTok y pulsa Conectar (Alt+C). En YouTube "
                    "podrás leer el chat y los comentarios; en TikTok, el chat del "
                    "directo.")
-RUTA_CONFIG = None  # se asigna en iniciar_gui() con app_dir()
+RUTA_CONFIG = None  # se asigna en iniciar_gui() con paths.config_ini()
 _URL_RE         = re.compile(r'https?://[^\s<>"\']+', re.IGNORECASE)
 
 # Índices de las páginas del notebook (solo chat y comentarios; el reproductor
@@ -478,7 +479,7 @@ class YTChatFrame(wx.Frame):
         self._video_id_sesion = ""   # vídeo de YouTube de la conexión vigente
         self._causa_sin_chat = ""
         self._mensajes_programados = programados.cargar(
-            app_dir() / "mensajes_programados.json")
+            paths.mensajes_programados())
         self._programados_reloj_iniciado = False
         self._programados_ultimo_envio = None
         self._programado_en_curso = False
@@ -1158,7 +1159,7 @@ class YTChatFrame(wx.Frame):
     # ── Historial de directos ────────────────────────────────────────────────
 
     def _ruta_historial(self):
-        return app_dir() / "historial_lives.json"
+        return paths.historial_lives()
 
     def registrar_historial(self, plataforma: str, clave: str, url: str,
                             titulo: str, canal: str, directo: bool = False) -> None:
@@ -1759,7 +1760,7 @@ class YTChatFrame(wx.Frame):
             self.lb_chat.SetFocus()
 
         actualizado = alias.poner(mapa, autor, nuevo)
-        alias.guardar(app_dir() / "alias.json", actualizado)
+        alias.guardar(paths.alias(), actualizado)
         alias.usar(actualizado)
         self._rebuild_listbox()
         anunciar(f"Alias guardado, {actualizado[alias.clave(autor)]}"
@@ -2520,7 +2521,7 @@ def iniciar_gui(config, cola, stats, worker, parada,
                 detener_captura_cb=None) -> None:
     global _gui_frame, RUTA_CONFIG
 
-    RUTA_CONFIG = app_dir() / "config.ini"
+    RUTA_CONFIG = paths.config_ini()
     _ao2_init()
 
     app = AplicacionYTChat(redirect=False)

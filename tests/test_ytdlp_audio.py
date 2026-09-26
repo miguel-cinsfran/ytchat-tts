@@ -11,8 +11,7 @@ import ytdlp_bin
 class PruebasDescargarAudio(unittest.TestCase):
 
     def setUp(self):
-        self.temporal = tempfile.TemporaryDirectory(
-            dir=Path(__file__).resolve().parents[1])
+        self.temporal = tempfile.TemporaryDirectory()
         self.destino = Path(self.temporal.name) / "audio.webm"
 
     def tearDown(self):

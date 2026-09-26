@@ -14,20 +14,18 @@ Orden de búsqueda:
 
 from __future__ import annotations
 
-import os
 import shutil
 import sys
 
-NOMBRE_BINARIO = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+import paths
+
+NOMBRE_BINARIO = paths.NOMBRE_FFMPEG
 
 
 def ruta_ffmpeg() -> str | None:
     """Ruta al ejecutable de ffmpeg, o None si no hay ninguno."""
     if getattr(sys, "frozen", False):
-        # Import perezoso: config importa diagnostico, que importa ytdlp_bin,
-        # que importa este módulo; a nivel de módulo cerraría el ciclo.
-        import config
-        candidato = config.app_dir() / NOMBRE_BINARIO
+        candidato = paths.ffmpeg_empaquetado()
         if candidato.is_file():
             return str(candidato)
     try:

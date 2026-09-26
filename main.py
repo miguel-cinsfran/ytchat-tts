@@ -21,10 +21,11 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="pytchat")
 warnings.filterwarnings("ignore", message=".*get_event_loop.*")
 
 from config import (
-    APP_NAME, APP_VERSION, app_dir,
+    APP_NAME, APP_VERSION,
     TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO, TIPO_ENTRADA,
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
+import paths
 
 from tts_worker import TTSWorker, sanitizar, construir_tts
 import sound_player as _snd
@@ -667,7 +668,7 @@ def main():
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
     configurar_logging()
     diagnostico.instalar_capturadores(
-        app_dir() / "ytchat-fallos.log", version=APP_VERSION)
+        paths.log_fallos(), version=APP_VERSION)
     diagnostico.registrar_entorno_en_hilo(APP_VERSION)
 
     if not _verificar_instancia_unica():
@@ -688,7 +689,7 @@ def main():
         sys.exit(0)
 
     config = cargar_configuracion()
-    alias.usar(alias.cargar(app_dir() / "alias.json"))
+    alias.usar(alias.cargar(paths.alias()))
 
     config.setdefault("silenciados_runtime", set())
     config.setdefault("silenciados_ocultar", set())

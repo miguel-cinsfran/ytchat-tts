@@ -7,7 +7,7 @@ import queue
 import secrets
 import threading
 
-import config
+import paths
 
 INTERVALO_LATIDO = 15
 # Eventos que un espectador puede dejar sin leer antes de que se le corte.
@@ -181,8 +181,7 @@ class OverlayServidor:
 
 
 def _leer_pagina():
-    from pathlib import Path
-    ruta = config.app_dir() / "web" / "chat.html"
+    ruta = paths.pagina_overlay()
     with ruta.open("rb") as archivo:
         return archivo.read()
 

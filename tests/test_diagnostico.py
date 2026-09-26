@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import config
 import diagnostico
+from tests.rutas_temporales import redirigir_rutas
 
 
 MODULOS_OMITIDOS = {
@@ -250,7 +251,7 @@ class DiagnosticoTest(unittest.TestCase):
             for manejador in previos:
                 raiz.removeHandler(manejador)
             try:
-                with patch.object(config, "app_dir", return_value=Path(tmp)):
+                with redirigir_rutas(tmp):
                     config.configurar_logging()
                 self.assertTrue(any(
                     isinstance(m, logging.handlers.RotatingFileHandler)

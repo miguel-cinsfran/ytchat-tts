@@ -23,11 +23,11 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import logging
-import os
 import re
 import sys
 
 import diagnostico
+import paths
 from config import TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_MIEMBRO, TIPO_ENTRADA
 
 logger = diagnostico.obtener_logger(__name__)
@@ -89,8 +89,7 @@ def _parchear_extended_user() -> None:
 def disponible() -> bool:
     """¿Está instalada TikTokLive? Sin importarla, para no frenar el arranque."""
     if getattr(sys, "frozen", False):
-        base = os.path.join(os.path.dirname(sys.executable), "_internal", "TikTokLive")
-        return os.path.isdir(base)
+        return (paths.carpeta_interna() / "TikTokLive").is_dir()
     try:
         return importlib.util.find_spec("TikTokLive") is not None
     except Exception:

@@ -4,13 +4,13 @@ import unittest
 from unittest import mock
 
 import reproductor
+from tests.rutas_temporales import redirigir_rutas
 
 
 class PruebasEsclavoReproductor(unittest.TestCase):
 
     def setUp(self):
-        self.temporal = tempfile.TemporaryDirectory(
-            dir=Path(__file__).resolve().parents[1])
+        self.temporal = tempfile.TemporaryDirectory()
         self.carpeta = Path(self.temporal.name)
 
     def tearDown(self):
@@ -105,7 +105,7 @@ class PruebasEsclavoReproductor(unittest.TestCase):
         with mock.patch.object(reproductor, "_info_video", return_value=self._info_con_esclavo()), \
                 mock.patch.object(reproductor.diagnostico, "crear_hilo", return_value=hilo) as crear, \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar, \
-                mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+                 redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", return_value=False) as descargar:
             panel.cargar()
             descargar.assert_not_called()
@@ -123,14 +123,14 @@ class PruebasEsclavoReproductor(unittest.TestCase):
         panel._reproducir_calidad.assert_called_once()
 
     def test_excepcion_de_descarga_no_interrumpe(self):
-        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+        with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio",
                                   side_effect=OSError("fallo")):
             self.assertIsNone(reproductor._preparar_audio_local(
                 self._info_con_esclavo(), "A" * 11))
 
     def test_poda_usa_tope_tres(self):
-        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+        with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.esclavo_audio, "sobrantes_de_cache",
                                   return_value=()) as podar, \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", return_value=False):
@@ -143,7 +143,7 @@ class PruebasEsclavoReproductor(unittest.TestCase):
                 aviso_progreso(porcentaje)
             return False
 
-        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+        with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar:
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
@@ -159,7 +159,7 @@ class PruebasEsclavoReproductor(unittest.TestCase):
                 aviso_progreso(porcentaje)
             return False
 
-        with mock.patch.object(reproductor._cfg, "app_dir", return_value=self.carpeta), \
+        with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar:
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)

@@ -13,6 +13,7 @@ from pathlib import Path
 import config_predeterminada
 
 import diagnostico
+import paths
 
 
 LIBRERIAS_SILENCIADAS = (
@@ -49,9 +50,9 @@ FILTROS = [
 # _MEIPASS. Esta función resuelve la ruta correcta en ambos contextos.
 
 def app_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).parent
+    # Se conserva por las herramientas fuera de la app que la usan. El código
+    # de la aplicación obtiene sus rutas de `paths`, no de aquí.
+    return paths.carpeta_instalacion()
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
     ch._ytchat_propio = True
     root.addHandler(ch)
 
-    log_path = app_dir() / "ytchat.log"
+    log_path = paths.log_principal()
     try:
         fh = RotatingFileHandler(log_path, maxBytes=1_048_576, backupCount=1, encoding="utf-8")
         fh.setLevel(logging.WARNING)
@@ -89,7 +90,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
     detallado = False
     try:
         p_diag = _mk_parser()
-        p_diag.read(app_dir() / "config.ini", encoding="utf-8")
+        p_diag.read(paths.config_ini(), encoding="utf-8")
         detallado = p_diag.getboolean("diagnostico", "registro_detallado",
                                      fallback=False)
     except Exception as exc:
@@ -98,7 +99,7 @@ def configurar_logging(nivel_consola: int = logging.INFO) -> None:
     if detallado:
         try:
             root.addHandler(diagnostico.crear_manejador_detallado(
-                app_dir() / "ytchat-debug.log"))
+                paths.log_detallado()))
         except Exception as exc:
             logger.warning(
                 "No se pudo crear ytchat-debug.log: %s", exc)
@@ -411,8 +412,8 @@ def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> N
 # único origen de verdad, sin tener que duplicar la carga de config.ini.
 #
 # Formato por defecto: mp4 muxed (mejor compat con NVDA, sin audio separado).
-# Carpeta por defecto: `app_dir() / "Descargas"` (portable, escribible sin
-# permisos de admin). Si el INI trae la clave vacía, también se rellena.
+# Carpeta por defecto: `paths.descargas_por_defecto()` (portable, escribible
+# sin permisos de admin). Si el INI trae la clave vacía, también se rellena.
 
 _FORMATOS_VALIDOS = ("mp4", "webm", "mp3", "m4a")
 _BITRATES_VALIDOS = (192, 256, 320)
@@ -425,22 +426,22 @@ def obtener_opciones_descarga() -> dict:
     (que conserva comentarios y orden) y se devuelve el dict ya con defaults.
     Funciona standalone: NO requiere haber llamado a `cargar_configuracion`.
     """
-    ruta = app_dir() / "config.ini"
+    ruta = paths.config_ini()
     p = _mk_parser()
     if ruta.exists():
         try:    p.read(ruta, encoding="utf-8")
         except configparser.Error: pass
 
-    # Carpeta: si está vacía o no existe, usar app_dir() / "Descargas".
+    # Carpeta: si está vacía o no existe, usar la de descargas por defecto.
     carpeta_raw = (p.get("descargas", "carpeta", fallback="").strip()
                    if p.has_section("descargas") else "")
     if not carpeta_raw:
-        carpeta = str(app_dir() / "Descargas")
+        carpeta = str(paths.descargas_por_defecto())
     elif not Path(carpeta_raw).anchor:
         # El valor predeterminado es «Descargas» a secas: yt-dlp lo resolvía
         # contra el directorio de trabajo del proceso, que con un acceso
         # directo o desde una consola no es la carpeta de la app.
-        carpeta = str(app_dir() / carpeta_raw)
+        carpeta = str(paths.carpeta_datos() / carpeta_raw)
     else:
         carpeta = carpeta_raw
 
@@ -471,7 +472,7 @@ def obtener_opciones_descarga() -> dict:
 def guardar_opciones_descarga(op: dict) -> None:
     """Persiste todas las opciones de descarga de una vez. Valida y normaliza
     los valores antes de escribir."""
-    ruta = app_dir() / "config.ini"
+    ruta = paths.config_ini()
     if not ruta.exists():
         # Si por algo no existe, crearlo con el fallback y volver a llamar.
         try:    ruta.write_text(_CONFIG_FALLBACK, encoding="utf-8")
@@ -486,7 +487,7 @@ def guardar_opciones_descarga(op: dict) -> None:
     except Exception: bitrate = 192
     if bitrate not in _BITRATES_VALIDOS:
         bitrate = 192
-    carpeta = str(op.get("carpeta") or (app_dir() / "Descargas")).strip()
+    carpeta = str(op.get("carpeta") or paths.descargas_por_defecto()).strip()
     enumerar = bool(op.get("enumerar", False))
 
     guardar_opcion(ruta, "descargas", "formato", formato)
@@ -496,7 +497,7 @@ def guardar_opciones_descarga(op: dict) -> None:
 
 
 def cargar_configuracion() -> dict:
-    ruta = app_dir() / "config.ini"
+    ruta = paths.config_ini()
     if not ruta.exists():
         logger.warning("config.ini no encontrado. Creando con valores por defecto.")
         try:    ruta.write_text(_CONFIG_FALLBACK, encoding="utf-8")
@@ -602,8 +603,7 @@ def cargar_configuracion() -> dict:
 
 def cargar_sonidos() -> dict:
     """Devuelve dict para `sound_player.cargar()`."""
-    base = app_dir()
-    ruta = base / "sounds.ini"
+    ruta = paths.sounds_ini()
     if not ruta.exists():
         logger.warning("sounds.ini no encontrado. Creando con valores por defecto.")
         try:    ruta.write_text(_SOUNDS_FALLBACK, encoding="utf-8")
@@ -627,7 +627,7 @@ def cargar_sonidos() -> dict:
                         or _TEMA_DEFECTO)
         except Exception: pass
 
-    carpeta_tema = base / "sounds" / _TEMAS_DIR / tema
+    carpeta_tema = paths.carpeta_sonidos() / _TEMAS_DIR / tema
 
     eventos: dict[str, Path | None] = {}
     for ev in _EVENTOS_SONIDO:
@@ -636,7 +636,7 @@ def cargar_sonidos() -> dict:
         if raw:
             ruta_ev = Path(raw)
             if not ruta_ev.is_absolute():
-                ruta_ev = base / ruta_ev
+                ruta_ev = paths.carpeta_datos() / ruta_ev
             eventos[ev] = ruta_ev
             continue
         # 2) Si no, el archivo del tema: sounds/themes/<tema>/<evento>.wav
@@ -649,7 +649,7 @@ def cargar_sonidos() -> dict:
 
 def listar_temas_sonido() -> list[str]:
     """Nombres de carpeta dentro de sounds/themes/ (cada una es un tema)."""
-    carpeta = app_dir() / "sounds" / _TEMAS_DIR
+    carpeta = paths.carpeta_sonidos() / _TEMAS_DIR
     try:
         temas = sorted(d.name for d in carpeta.iterdir() if d.is_dir())
     except Exception:
@@ -661,7 +661,7 @@ def listar_temas_sonido() -> list[str]:
 
 def tema_sonido_actual() -> str:
     """Lee el tema activo de sounds.ini (o el por defecto)."""
-    ruta = app_dir() / "sounds.ini"
+    ruta = paths.sounds_ini()
     p = _mk_parser()
     try:
         p.read(ruta, encoding="utf-8")

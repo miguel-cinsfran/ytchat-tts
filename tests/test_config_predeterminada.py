@@ -9,6 +9,7 @@ from unittest import mock
 import config
 import config_predeterminada as pred
 import estado_sesion
+from tests.rutas_temporales import redirigir_rutas
 
 
 class TestArchivoIdentico(unittest.TestCase):
@@ -40,7 +41,7 @@ class TestPrimeraEjecucion(unittest.TestCase):
     def test_primera_ejecucion_crea_exactamente_canonica(self):
         tmp = Path(self._tmp.name)
         self.assertFalse((tmp / "config.ini").exists())
-        with mock.patch.object(config, "app_dir", return_value=tmp):
+        with redirigir_rutas(tmp):
             cfg = config.cargar_configuracion()
         self.assertTrue((tmp / "config.ini").exists())
         texto = (tmp / "config.ini").read_text(encoding="utf-8")
@@ -76,7 +77,7 @@ class TestMigracion(unittest.TestCase):
             "clave_desconocida = valor_raro\n"
         )
         (tmp / "config.ini").write_text(contenido, encoding="utf-8")
-        with mock.patch.object(config, "app_dir", return_value=tmp):
+        with redirigir_rutas(tmp):
             cfg = config.cargar_configuracion()
         texto = (tmp / "config.ini").read_text(encoding="utf-8")
         # conserva valor distinto

@@ -17,6 +17,7 @@ import wx
 
 import diagnostico
 import config as cfg
+import paths
 import atajos_captura
 import estado_sesion
 import obs_cliente
@@ -113,7 +114,7 @@ class PreferenciasDialog(wx.Dialog):
                          style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
                          name="DialogoPreferencias")
         self._config = config
-        self._ruta = cfg.app_dir() / "config.ini"
+        self._ruta = paths.config_ini()
         self._capturando_atajo = None
         self._iniciar_programados()
         self._cambios = False
@@ -758,7 +759,7 @@ class PreferenciasDialog(wx.Dialog):
         return p
 
     def _iniciar_programados(self):
-        self._ruta_programados = cfg.app_dir() / "mensajes_programados.json"
+        self._ruta_programados = paths.mensajes_programados()
         self._mensajes_programados = programados.cargar(self._ruta_programados)
 
     def _pag_programados(self, parent):
@@ -1023,7 +1024,7 @@ class PreferenciasDialog(wx.Dialog):
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():
-            cfg.guardar_opcion(cfg.app_dir() / "sounds.ini", "sonidos", "tema", tema)
+            cfg.guardar_opcion(paths.sounds_ini(), "sonidos", "tema", tema)
             try:    _snd.cargar(cfg.cargar_sonidos())
             except Exception as exc: logger.warning("recargar sonidos: %s", exc)
             self._cambios = True

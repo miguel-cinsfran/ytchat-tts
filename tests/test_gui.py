@@ -12,12 +12,14 @@ import gui
 import gui_comentarios
 import gui_preferencias
 import config
+import paths
 import reproductor
 import apagado
 import alias
 import programados
 import ytdlp_bin
 from lista_chat import MensajeChat, ListaChat
+from tests.rutas_temporales import redirigir_rutas
 
 
 class TestInicioGui(unittest.TestCase):
@@ -66,7 +68,7 @@ class TestInicioGui(unittest.TestCase):
 
         with mock.patch.object(gui, "AplicacionYTChat", return_value=aplicacion), \
                 mock.patch.object(gui, "YTChatFrame", return_value=frame), \
-                mock.patch.object(gui, "app_dir", return_value=Path(".")), \
+                redirigir_rutas("."), \
                 mock.patch.object(gui, "_ao2_init"), \
                 mock.patch.object(gui, "_listar_voces_sapi5", return_value=[]), \
                 mock.patch.object(gui._snd, "reproducir"), \
@@ -83,7 +85,7 @@ class TestInicioGui(unittest.TestCase):
 
         with mock.patch.object(gui, "AplicacionYTChat", return_value=aplicacion), \
                 mock.patch.object(gui, "YTChatFrame", return_value=frame), \
-                mock.patch.object(gui, "app_dir", return_value=Path(".")), \
+                redirigir_rutas("."), \
                 mock.patch.object(gui, "_ao2_init"), \
                 mock.patch.object(gui, "_listar_voces_sapi5", return_value=[]), \
                 mock.patch.object(gui._snd, "reproducir"), \
@@ -877,7 +879,7 @@ class TestAliasDesdeElChat(unittest.TestCase):
 
         self.assertEqual(alias.visible(self.autor), "Carlos")
         guardar.assert_called_once_with(
-            gui.app_dir() / "alias.json", {self.autor.lower(): "Carlos"})
+            paths.alias(), {self.autor.lower(): "Carlos"})
         frame._rebuild_listbox.assert_called_once_with()
         frame.lb_chat.SetFocus.assert_called_once_with()
         self.assertTrue(dialogo.destruido)
@@ -894,7 +896,7 @@ class TestAliasDesdeElChat(unittest.TestCase):
             frame._editar_alias_autor(self.autor)
 
         self.assertEqual(alias.visible(self.autor), self.autor)
-        guardar.assert_called_once_with(gui.app_dir() / "alias.json", {})
+        guardar.assert_called_once_with(paths.alias(), {})
         frame._rebuild_listbox.assert_called_once_with()
         anunciar.assert_called_once_with("Alias quitado")
         alias.usar({})
@@ -1194,10 +1196,9 @@ class TestCategoriasDePreferencias(unittest.TestCase):
     def setUp(self):
         self.app = gui.wx.App(False) if not gui.wx.App.Get() else gui.wx.App.Get()
         self.ruta = Path.cwd()
-        self.parche_ruta = mock.patch.object(
-            gui_preferencias.cfg, "app_dir", return_value=self.ruta)
-        self.parche_ruta.start()
-        self.addCleanup(self.parche_ruta.stop)
+        self.parche_ruta = redirigir_rutas(self.ruta)
+        self.parche_ruta.__enter__()
+        self.addCleanup(self.parche_ruta.__exit__, None, None, None)
 
     def _dialogo(self):
         with mock.patch.object(gui, "_listar_voces_sapi5", return_value=["Voz de prueba"]):
@@ -1371,10 +1372,9 @@ class TestGuardadoDeNuevasPreferencias(unittest.TestCase):
         self.ruta = Path(self.tmp.name)
         (self.ruta / "config.ini").write_text(config._CONFIG_FALLBACK,
                                                 encoding="utf-8")
-        parche = mock.patch.object(gui_preferencias.cfg, "app_dir",
-                                   return_value=self.ruta)
-        parche.start()
-        self.addCleanup(parche.stop)
+        parche = redirigir_rutas(self.ruta)
+        parche.__enter__()
+        self.addCleanup(parche.__exit__, None, None, None)
 
     def _dialogo(self, configuracion=None):
         with mock.patch.object(gui, "_listar_voces_sapi5", return_value=["Voz de prueba"]):
