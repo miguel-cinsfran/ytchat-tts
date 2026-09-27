@@ -46,6 +46,8 @@ historial_lives.json
 # Registro y carpeta del gestor de descargas (URLs, rutas y vídeos enteros)
 /historial_descargas.json
 /Descargas/
+# Datos del usuario desde la 2.1: configuracion, credenciales, historiales, logs y caches.
+/data/
 
 # Andamiaje de trabajo con agentes: no se versiona.
 # Viaja si se copia la carpeta, no con un git clone.
