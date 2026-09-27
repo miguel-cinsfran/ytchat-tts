@@ -2067,7 +2067,7 @@ def escenario_dos_conexiones(app: Aplicacion, args, res: Resultado):
 def escenario_overlay(app: Aplicacion, args, res: Resultado):
     """El panel de chat para transmitir: interruptor, servicio y estado.
 
-    La fase 3 de `smoke_test.py` no llega a este diálogo, y las pruebas unitarias no arrancan la aplicación entera, que es donde se ve si el interruptor está cableado de verdad.
+    La fase 3 de `scripts/smoke_test.py` no llega a este diálogo, y las pruebas unitarias no arrancan la aplicación entera, que es donde se ve si el interruptor está cableado de verdad.
 
     Comprueba lo único que el dueño no puede mirar: que cuando dice que está
     activo, esté sirviendo la página de verdad.

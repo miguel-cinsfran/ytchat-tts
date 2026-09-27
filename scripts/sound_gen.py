@@ -5,7 +5,7 @@ un WAV por evento, nombrado igual que el evento (p. ej. `mensaje_nuevo.wav`).
 Así un usuario puede crear su propio tema simplemente dejando archivos con esos
 mismos nombres en `sounds/themes/<su_tema>/` y seleccionándolo en `sounds.ini`.
 
-Uso:  python sound_gen.py  [--forzar]  [--destino CARPETA]
+Uso:  python scripts/sound_gen.py  [--forzar]  [--destino CARPETA]
 """
 
 import math
@@ -19,8 +19,10 @@ BITS     = 16
 CANALES  = 2         # Estéreo real: permite un leve paneo por evento para que
                      # el oído los ubique sin pensar (útil sin lectura visual).
 AMP      = 0.55      # Margen sobre 1.0 para evitar clipping al sumar ondas.
+# Raíz del repositorio: la carpeta padre de scripts/.
+RAIZ = Path(__file__).resolve().parent.parent
 # Carpeta base de temas. Cada tema es una subcarpeta con un <evento>.wav.
-THEMES_DIR = Path(__file__).parent / "sounds" / "themes"
+THEMES_DIR = RAIZ / "sounds" / "themes"
 
 C4, D4, E4, F4, G4, A4, B4 = 261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88
 C5, D5, E5, F5, G5, A5, B5 = 523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77

@@ -177,7 +177,7 @@ def _sin_comentarios(texto: str) -> str:
 class TestGuardaRutas(unittest.TestCase):
     """Ningún módulo arma rutas por su cuenta: todo sale de paths."""
 
-    EXCLUIDOS = {"paths.py", "smoke_test.py", "generar_docs.py", "sound_gen.py"}
+    EXCLUIDOS = {"paths.py"}
 
     NOMBRES_DATOS = (
         "config.ini", "credenciales.json", "historial_lives.json",

@@ -8,7 +8,7 @@ import wave
 from pathlib import Path
 
 from ytchat.core import config
-import sound_gen
+from scripts import sound_gen
 
 
 class PruebasSoundGen(unittest.TestCase):

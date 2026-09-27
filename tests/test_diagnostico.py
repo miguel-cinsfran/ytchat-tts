@@ -13,12 +13,6 @@ from ytchat.core import diagnostico
 from tests.rutas_temporales import redirigir_rutas
 
 
-MODULOS_OMITIDOS = {
-    # Son herramientas ejecutables, no módulos de la aplicación.
-    "generar_docs", "smoke_test", "sound_gen",
-}
-
-
 class DiagnosticoTest(unittest.TestCase):
     def test_obtener_logger_cuelga_del_arbol_de_la_aplicacion(self):
         logger = diagnostico.obtener_logger("descargas")
@@ -31,8 +25,6 @@ class DiagnosticoTest(unittest.TestCase):
             if ruta.name == "__init__.py":
                 continue
             descubiertos += 1
-            if ruta.stem in MODULOS_OMITIDOS:
-                continue
             nombre = "ytchat." + ".".join(
                 ruta.relative_to(raiz).with_suffix("").parts[1:])
             modulo = importlib.import_module(nombre)

@@ -11,7 +11,7 @@ if errorlevel 1 ( echo ERROR: uv no esta instalado. Ejecuta primero instalar.bat
 REM uv run crea/sincroniza el entorno si hace falta antes de arrancar.
 if not exist ".venv" call uv venv --python 3.11
 call uv pip install -r requirements.txt >nul 2>nul
-if not exist "sounds\themes\default\app_inicio.wav" call uv run python sound_gen.py >nul
+if not exist "sounds\themes\default\app_inicio.wav" call uv run python scripts\sound_gen.py >nul
 
 call uv run python main.py
 if errorlevel 1 pause

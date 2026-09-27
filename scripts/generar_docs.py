@@ -12,7 +12,7 @@ El historial de versiones vive en `CHANGELOG.md` (en llano, una entrada por
 versión; el detalle técnico queda en los commits).
 
 Uso:
-    uv run python generar_docs.py
+    uv run python scripts/generar_docs.py
 
 Requiere pandoc en el PATH (https://pandoc.org). Los HTML se escriben en docs/ y
 se versionan; hay que regenerarlos y commitearlos cuando cambie un .md. El
@@ -27,14 +27,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-AQUI = Path(__file__).resolve().parent
-DOCS = AQUI / "docs"
+# Raíz del repositorio: la carpeta padre de scripts/.
+RAIZ = Path(__file__).resolve().parent.parent
+DOCS = RAIZ / "docs"
 
 # (origen .md, destino .html en docs/, título de la página). El título es lo que
 # lee el lector de pantalla al abrir y lo que sale en la pestaña del navegador.
 DOCUMENTOS = [
-    (AQUI / "README.md",              "README.html",            "YTChat TTS — Léeme"),
-    (AQUI / "CHANGELOG.md",           "CHANGELOG.html",         "YTChat TTS — Novedades"),
+    (RAIZ / "README.md",              "README.html",            "YTChat TTS — Léeme"),
+    (RAIZ / "CHANGELOG.md",           "CHANGELOG.html",         "YTChat TTS — Novedades"),
     (DOCS / "CONFIGURACION_API.md",   "CONFIGURACION_API.html", "YTChat TTS — Configurar la API de YouTube"),
 ]
 

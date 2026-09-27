@@ -92,7 +92,7 @@ cambia la lista, cambiarla en los dos sitios.
 #F0908A  #6FD0C4  #D8C06A  #B0A8F0  #E3A277  #7FC8E8
 ```
 
-## Documentación HTML — `generar_docs.py`
+## Documentación HTML — `scripts/generar_docs.py`
 
 Los HTML de `docs/` (Léeme, Novedades, guía de la API) llevan su propio par
 claro/oscuro, elegido por `prefers-color-scheme` del navegador.
@@ -109,7 +109,7 @@ claro/oscuro, elegido por `prefers-color-scheme` del navegador.
 ## Cómo cambiar un color sin romper nada
 
 1. Cambiarlo en el sitio que manda: `gui._T` para la ventana, `:root` de
-   `web/chat.html` más `overlay_datos.py` para el panel, `generar_docs.py`
+   `web/chat.html` más `overlay_datos.py` para el panel, `scripts/generar_docs.py`
    para la documentación.
 2. Recalcular el contraste del par afectado (fórmula WCAG; cualquier
    calculadora en línea sirve) y no bajar de 4,5:1 en texto.

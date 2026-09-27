@@ -3,8 +3,8 @@
 import unittest
 from types import SimpleNamespace
 
-from smoke_test import (_recorrer, interactivos_sin_nombre,
-                        ventana_es_de_la_aplicacion)
+from scripts.smoke_test import (_recorrer, interactivos_sin_nombre,
+                                ventana_es_de_la_aplicacion)
 
 
 class VentanaEsDeLaAplicacionTest(unittest.TestCase):

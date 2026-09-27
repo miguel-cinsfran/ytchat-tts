@@ -296,7 +296,7 @@ def instalar_busqueda_tipo(listbox: wx.ListBox, obtener_textos) -> None:
     listbox.Bind(wx.EVT_CHAR, _on_char)
 
 
-# ── Paleta «crema + salvia» (ver PALETA-COLORES.md) ─────────────────────────
+# ── Paleta «crema + salvia» (ver docs/PALETA-COLORES.md) ─────────────────────
 # Fondo crema, salvia como color de marca y muy pocos tonos con papel fijo.
 # `accent` y `red` son colores de TEXTO (secciones, estados, errores), no
 # fondos: son la salvia y el rojo oscurecidos lo justo para dar 4.5:1 sobre

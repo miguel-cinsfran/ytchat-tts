@@ -20,7 +20,7 @@ call uv pip install -r requirements.txt
 if errorlevel 1 ( echo ERROR instalando dependencias. & pause & exit /b 1 )
 
 echo == Generando los sonidos (temas default y suave) ==
-call uv run python sound_gen.py
+call uv run python scripts\sound_gen.py
 
 echo.
 echo Entorno listo. Para arrancar la aplicacion, ejecuta  ejecutar.bat

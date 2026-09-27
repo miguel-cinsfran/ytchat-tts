@@ -4,7 +4,7 @@ Maneja la aplicación como si fuera una persona y anota qué le diría a un lect
 de pantalla, sin decirlo en voz alta.
 
 No sustituye a `python -m unittest discover -s tests`, que prueba la lógica, ni
-a `smoke_test.py`, que comprueba que todo importa y que ningún control se quede
+a `scripts/smoke_test.py`, que comprueba que todo importa y que ningún control se quede
 sin nombre. Esto es otra cosa: abre ventanas, pulsa teclas, escribe en campos y
 mira qué pasa.
 
@@ -119,7 +119,7 @@ hijos y el servicio de accesibilidad no los expone. Hay que mirar solo lo que
 está en pantalla, con `IsShownOnScreen`.
 
 **El smoke test y el banco no se pueden correr pegados.** La fase 3 de
-`smoke_test.py` levanta la aplicación con pywinauto, y si queda un proceso vivo
+`scripts/smoke_test.py` levanta la aplicación con pywinauto, y si queda un proceso vivo
 cuando arranca el banco, su ventana se lleva el foco. El 21/08/2026 eso produjo
 diecisiete fallos de golpe: los once de teclado, dos aceleradores, y un
 escenario reventado con «la ventana no está al frente». Con la mesa limpia, la

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import generar_docs
+from scripts import generar_docs
 
 
 class DocumentosTest(unittest.TestCase):

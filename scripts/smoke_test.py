@@ -15,8 +15,8 @@ accesibilidad). Tres fases, cada una se ejecuta solo si el entorno la permite:
                             nombre accesible. Después cierra la app.
 
 Uso:
-    python smoke_test.py            # todas las fases disponibles
-    python smoke_test.py --no-gui   # solo fases 1 y 2 (no abre la ventana)
+    python scripts/smoke_test.py            # todas las fases disponibles
+    python scripts/smoke_test.py --no-gui   # solo fases 1 y 2 (no abre la ventana)
 
 Para la fase 3 hace falta:  pip install pywinauto
 """
@@ -30,7 +30,8 @@ import re
 import subprocess
 import sys
 
-AQUI = os.path.dirname(os.path.abspath(__file__))
+# Raíz del repositorio: la carpeta padre de scripts/.
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Tipos de control que deben tener SIEMPRE un nombre accesible (lo que NVDA
 # anuncia al llegar a ellos con Tab). Si alguno aparece sin nombre, es un fallo
@@ -50,7 +51,7 @@ def _modulos_de_la_raiz() -> tuple[list[str], list[str]]:
     sola vez y no haya dos copias en memoria.
     """
     puros, gui = [], []
-    paquete = os.path.join(AQUI, "ytchat")
+    paquete = os.path.join(RAIZ, "ytchat")
     for dirpath, _dirnames, nombres in os.walk(paquete):
         for nombre in sorted(nombres):
             if not nombre.endswith(".py") or nombre == "__init__.py":
@@ -58,7 +59,7 @@ def _modulos_de_la_raiz() -> tuple[list[str], list[str]]:
             ruta = os.path.join(dirpath, nombre)
             with open(ruta, encoding="utf-8", errors="replace") as f:
                 fuente = f.read()
-            modulo = os.path.relpath(ruta, AQUI)[:-3].replace(os.sep, ".")
+            modulo = os.path.relpath(ruta, RAIZ)[:-3].replace(os.sep, ".")
             if re.search(r"^(?:import wx\b|from wx\b)", fuente, re.M):
                 gui.append(modulo)
             else:
@@ -176,7 +177,7 @@ def fase3_accesibilidad() -> bool:
         print("  [saltada] pywinauto no está instalado.  pip install pywinauto")
         return True
 
-    main_py = os.path.join(AQUI, "main.py")
+    main_py = os.path.join(RAIZ, "main.py")
     cmd = f'"{sys.executable}" "{main_py}"'
     print(f"  Lanzando: {cmd}")
     # wait_for_idle=False: el ejecutable lanzado es python.exe (proceso de
@@ -188,7 +189,7 @@ def fase3_accesibilidad() -> bool:
     # python.exe del venv es un trampolín que reejecuta el intérprete base en un
     # proceso hijo, y es ese hijo quien crea la ventana. Por eso localizamos la
     # ventana por título en todo el escritorio y luego cerramos su PID real.
-    app = Application(backend="uia").start(cmd, work_dir=AQUI,
+    app = Application(backend="uia").start(cmd, work_dir=RAIZ,
                                            wait_for_idle=False)
     win_pid = None
     try:
@@ -269,9 +270,9 @@ def fase3_accesibilidad() -> bool:
 
 def main():
     no_gui = "--no-gui" in sys.argv
-    os.chdir(AQUI)
-    if AQUI not in sys.path:
-        sys.path.insert(0, AQUI)
+    os.chdir(RAIZ)
+    if RAIZ not in sys.path:
+        sys.path.insert(0, RAIZ)
 
     r1 = fase1_logica()
     r2 = fase2_gui()

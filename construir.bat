@@ -29,7 +29,7 @@ call uv pip install pyinstaller
 if errorlevel 1 ( echo ERROR instalando PyInstaller. & pause & exit /b 1 )
 
 echo == Generando los sonidos ==
-call uv run python sound_gen.py >nul
+call uv run python scripts\sound_gen.py >nul
 
 echo == Localizando el discovery doc de YouTube (solo ese, no el cache entero) ==
 for /f "delims=" %%i in ('uv run python -c "import googleapiclient,os;print(os.path.join(os.path.dirname(googleapiclient.__file__),'discovery_cache','documents','youtube.v3.json'))"') do set "YTDOC=%%i"
@@ -48,7 +48,7 @@ if exist "app.ico" set "ICONO=--icon "%~dp0app.ico""
 
 echo == Generando documentacion HTML (Leeme) ==
 REM No fatal: si pandoc no esta, se usan los HTML ya versionados en docs/.
-call uv run python generar_docs.py || echo    AVISO: no se pudo regenerar; se usara la copia versionada en docs/.
+call uv run python scripts\generar_docs.py || echo    AVISO: no se pudo regenerar; se usara la copia versionada en docs/.
 
 echo == Empaquetando con PyInstaller ==
 REM --noupx: NO comprimir con UPX. UPX dispara muchos falsos positivos de
@@ -149,7 +149,7 @@ git show HEAD:sounds.ini > "%OUT%\sounds.ini" 2>nul
 if errorlevel 1 ( echo    AVISO: sin git; sounds.ini local ^(puede llevar ajustes personales^). & copy /y "sounds.ini" "%OUT%\" >nul )
 copy /y "LICENSE"    "%OUT%\" >nul
 REM Documentacion de cara al usuario en HTML (se abre con doble clic; el amigo
-REM no tiene por que saber abrir un Markdown). Se genera con generar_docs.py y
+REM no tiene por que saber abrir un Markdown). Se genera con scripts\generar_docs.py y
 REM viaja tambien dentro de docs/. La dejamos ademas en la raiz, a la vista. El
 REM historial de versiones (CHANGELOG) va como docs/CHANGELOG.html, enlazado
 REM desde el propio Leeme ("que hay de nuevo").
