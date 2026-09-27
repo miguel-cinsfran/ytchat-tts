@@ -5,7 +5,7 @@ import time
 import unittest
 from unittest import mock
 
-import ytdlp_bin
+from ytchat.downloads import ytdlp_bin
 
 
 class PruebasDescargarAudio(unittest.TestCase):

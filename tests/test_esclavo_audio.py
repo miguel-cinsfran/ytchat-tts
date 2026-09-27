@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import esclavo_audio
+from ytchat.player import esclavo_audio
 
 
 class PruebasEsclavoAudio(unittest.TestCase):

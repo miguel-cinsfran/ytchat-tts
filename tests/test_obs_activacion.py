@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-import obs_activacion
+from ytchat.obs import obs_activacion
 
 
 class TestActivacionObs(unittest.TestCase):

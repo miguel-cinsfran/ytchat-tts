@@ -2,7 +2,7 @@
 
 import unittest
 
-import ajuste_fino
+from ytchat.obs import ajuste_fino
 
 
 class TestAjusteFino(unittest.TestCase):

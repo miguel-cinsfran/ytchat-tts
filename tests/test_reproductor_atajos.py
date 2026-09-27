@@ -17,7 +17,7 @@ except Exception:
 class TestComboWx(unittest.TestCase):
 
     def setUp(self):
-        import reproductor
+        from ytchat.player import reproductor
         self.combo = reproductor._combo_wx
 
     def test_ctrl_letra(self):

@@ -5,8 +5,8 @@ import time
 import unittest
 from unittest import mock
 
-import reproductor
-import reproductor_ciclo
+from ytchat.player import reproductor
+from ytchat.player import reproductor_ciclo
 
 
 class TestCicloPuro(unittest.TestCase):

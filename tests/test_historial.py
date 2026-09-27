@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import historial as h
+from ytchat.core import historial as h
 
 
 class TestUpsert(unittest.TestCase):

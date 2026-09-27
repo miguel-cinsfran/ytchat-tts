@@ -1,9 +1,9 @@
 import unittest
 from unittest import mock
 
-import obs_cliente
-import obs_vigilante
-from obs_vigilante import EstadoObs, PLAZO_FRESCURA, VigilanteObs, dato_fresco
+from ytchat.obs import obs_cliente
+from ytchat.obs import obs_vigilante
+from ytchat.obs.obs_vigilante import EstadoObs, PLAZO_FRESCURA, VigilanteObs, dato_fresco
 
 
 class TestFrescura(unittest.TestCase):

@@ -1,10 +1,10 @@
 import unittest
 from unittest import mock
 
-import deteccion
-import gui
-import gui_redactar
-import redaccion
+from ytchat.capture import deteccion
+from ytchat.ui import gui
+from ytchat.ui import gui_redactar
+from ytchat.capture import redaccion
 
 
 class TestRedaccion(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 import unittest
 
-from montos import parsear_monto
+from ytchat.capture.montos import parsear_monto
 
 
 class TestParsearMonto(unittest.TestCase):

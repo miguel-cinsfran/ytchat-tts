@@ -8,8 +8,8 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import config
-import diagnostico
+from ytchat.core import config
+from ytchat.core import diagnostico
 from tests.rutas_temporales import redirigir_rutas
 
 
@@ -26,16 +26,27 @@ class DiagnosticoTest(unittest.TestCase):
 
     def test_los_loggers_de_la_aplicacion_cuelgan_del_arbol_ytchat(self):
         raiz = Path(__file__).resolve().parent.parent
-        for ruta in raiz.glob("*.py"):
+        descubiertos = 0
+        for ruta in sorted((raiz / "ytchat").rglob("*.py")):
+            if ruta.name == "__init__.py":
+                continue
+            descubiertos += 1
             if ruta.stem in MODULOS_OMITIDOS:
                 continue
-            modulo = importlib.import_module(ruta.stem)
+            nombre = "ytchat." + ".".join(
+                ruta.relative_to(raiz).with_suffix("").parts[1:])
+            modulo = importlib.import_module(nombre)
             logger = getattr(modulo, "logger", None)
             if isinstance(logger, logging.Logger):
                 self.assertTrue(
                     logger.name.startswith("ytchat."),
-                    f"El logger del módulo {ruta.stem} está fuera del árbol ytchat: "
+                    f"El logger del módulo {nombre} está fuera del árbol ytchat: "
                     f"{logger.name}")
+        self.assertGreaterEqual(
+            descubiertos, 50,
+            f"la guarda recorrió solo {descubiertos} módulos en ytchat/: "
+            "si se movieron las carpetas, hay que actualizarla en vez de "
+            "dejarla en verde sin mirar nada")
 
     def test_compone_marcas_de_inicio_y_cierre_con_zona_horaria(self):
         momento = datetime(2026, 8, 25, 21, 52, 9,

@@ -50,8 +50,8 @@ class TestReproductorVLCBusqueda(unittest.TestCase):
                 self.fail("VLC no entró en playing con archivo local")
             dur = player.get_length()
             self.assertGreater(dur, 2000, f"duración inesperada {dur}")
-            import reproductor
-            from busqueda_video import EstadoBusqueda
+            from ytchat.player import reproductor
+            from ytchat.player.busqueda_video import EstadoBusqueda
             panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
             panel._listo = True
             panel._video_id = "test"

@@ -4,8 +4,8 @@ import unittest
 import threading
 from unittest import mock
 
-import descargas
-import gui_descargas
+from ytchat.downloads import descargas
+from ytchat.ui import gui_descargas
 
 try:
     import wx

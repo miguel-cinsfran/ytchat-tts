@@ -3,7 +3,7 @@ from unittest import mock
 
 import wx
 
-import gui_redactar
+from ytchat.ui import gui_redactar
 
 
 class EventoTeclado:

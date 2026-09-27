@@ -2,7 +2,7 @@
 
 import unittest
 
-from progreso import aviso_de_espera
+from ytchat.player.progreso import aviso_de_espera
 
 
 class TestAvisoDeEspera(unittest.TestCase):

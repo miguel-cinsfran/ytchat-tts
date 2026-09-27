@@ -20,22 +20,22 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="asyncio")
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="pytchat")
 warnings.filterwarnings("ignore", message=".*get_event_loop.*")
 
-from config import (
+from ytchat.core.config import (
     APP_NAME, APP_VERSION,
     TIPO_TEXTO, TIPO_SUPERCHAT, TIPO_STICKER, TIPO_MIEMBRO, TIPO_ENTRADA,
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
-import paths
+from ytchat.core import paths
 
-from tts_worker import TTSWorker, sanitizar, construir_tts
-import sound_player as _snd
-import deteccion
-import tiktok_captura
-import diagnostico
-import avisos_red
-import ytdlp_bin
-import conexion
-import alias
+from ytchat.voice.tts_worker import TTSWorker, sanitizar, construir_tts
+from ytchat.voice import sound_player as _snd
+from ytchat.capture import deteccion
+from ytchat.capture import tiktok_captura
+from ytchat.core import diagnostico
+from ytchat.core import avisos_red
+from ytchat.downloads import ytdlp_bin
+from ytchat.capture import conexion
+from ytchat.capture import alias
 
 logger = diagnostico.obtener_logger(__name__)
 
@@ -152,8 +152,8 @@ def _parsear_titulo(html: str) -> str:
 def _clasificar_por_api(video_id: str) -> str:
     """Reserva: si hay API key, clasifica con la Data API. Si no, desconocido."""
     try:
-        import credenciales
-        import youtube_api
+        from ytchat.youtube import credenciales
+        from ytchat.youtube import youtube_api
         if not (youtube_api.google_disponible() and credenciales.hay_lectura()):
             return deteccion.DESCONOCIDO
         cli = youtube_api.ClienteYouTube(credenciales.cargar())
@@ -278,7 +278,7 @@ def obtener_info_video(video_id: str, sesion_activa=None) -> tuple[str, str, dic
 def _anunciar_fallo_video(metadatos: dict, call_after) -> None:
     fallo = (metadatos or {}).get("fallo")
     if fallo:
-        from gui import anunciar
+        from ytchat.ui.gui import anunciar
         call_after(anunciar, fallo)
 
 
@@ -291,9 +291,9 @@ def _resolver_live_chat_id(video_id: str) -> None:
     lcid = ""
     hay_credenciales = consulta_fallo = hay_video = hay_directo = False
     try:
-        import credenciales
-        import redaccion
-        import youtube_api
+        from ytchat.youtube import credenciales
+        from ytchat.capture import redaccion
+        from ytchat.youtube import youtube_api
         hay_credenciales = (youtube_api.google_disponible()
                             and credenciales.hay_lectura())
         if hay_credenciales:
@@ -309,7 +309,7 @@ def _resolver_live_chat_id(video_id: str) -> None:
         causa = redaccion.causa_sin_chat(
             hay_credenciales, consulta_fallo, hay_video, hay_directo, lcid)
         import wx
-        import gui as _gm
+        from ytchat.ui import gui as _gm
         if _gm._gui_frame and _gm._gui_frame._alive:
             wx.CallAfter(_gm._gui_frame.set_live_chat_id, lcid, causa, video_id)
     except Exception as exc:
@@ -652,7 +652,7 @@ def armar_callbacks_captura(cola, config, stats, parada):
 def iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=None):
     """Arranca la GUI y cierra los sonidos al volver del bucle."""
     if iniciar_gui_fn is None:
-        from gui import iniciar_gui as iniciar_gui_fn
+        from ytchat.ui.gui import iniciar_gui as iniciar_gui_fn
     iniciar_captura_cb, detener_captura_cb = armar_callbacks_captura(
         cola, config, stats, parada)
     iniciar_gui_fn(
@@ -725,7 +725,7 @@ def main():
 
     try:
         import wx
-        from gui import iniciar_gui
+        from ytchat.ui.gui import iniciar_gui
     except ImportError as exc:
         try:
             import ctypes

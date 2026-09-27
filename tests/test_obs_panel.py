@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-import obs_panel
+from ytchat.obs import obs_panel
 
 
 def elemento(identificador, nombre, indice, x=32, y=882, ancho=460, alto=620,
@@ -119,17 +119,17 @@ class GestorPanelObsTest(unittest.TestCase):
     def gestor(self, doble):
         return obs_panel.GestorPanelObs(doble)
 
-    @mock.patch("obs_panel.obs_cliente.leer_ajustes")
+    @mock.patch("ytchat.obs.obs_panel.obs_cliente.leer_ajustes")
     def test_sin_argumentos_lee_los_ajustes_de_obs(self, leer_ajustes):
         ajustes = object()
         leer_ajustes.return_value = ajustes
-        with mock.patch("obs_panel.obs_cliente.ClienteObs") as cliente_obs:
+        with mock.patch("ytchat.obs.obs_panel.obs_cliente.ClienteObs") as cliente_obs:
             gestor = obs_panel.GestorPanelObs()
         leer_ajustes.assert_called_once_with()
         cliente_obs.assert_called_once_with(ajustes)
         self.assertIs(gestor._cliente, cliente_obs.return_value)
 
-    @mock.patch("obs_panel.obs_cliente.leer_ajustes")
+    @mock.patch("ytchat.obs.obs_panel.obs_cliente.leer_ajustes")
     def test_con_cliente_no_lee_los_ajustes_de_obs(self, leer_ajustes):
         cliente = object()
         gestor = obs_panel.GestorPanelObs(cliente=cliente)

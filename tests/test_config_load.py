@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from unittest import mock
 
-import config
+from ytchat.core import config
 from tests.rutas_temporales import redirigir_rutas
 
 
@@ -157,7 +157,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertIn("microfono =", texto)
 
     def test_programados_arranca_apagado_y_se_persiste_en_el_ejemplo(self):
-        import config_predeterminada as _pred
+        from ytchat.core import config_predeterminada as _pred
         self.assertEqual(_pred.obtener("programados", "activo"), "false")
         cfg = self._cargar_en(config._CONFIG_FALLBACK)
         self.assertFalse(cfg["programados_activo"])
@@ -214,7 +214,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertFalse(cfg["descargas_enumerar"])
 
     def test_obtener_opciones_descarga_devuelve_defaults_si_no_existe(self):
-        import config
+        from ytchat.core import config
         with redirigir_rutas(self._tmp.name):
             op = config.obtener_opciones_descarga()
         self.assertEqual(op["formato"], "mp4")
@@ -223,7 +223,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertFalse(op["enumerar"])
 
     def test_obtener_opciones_no_persiste_carpeta_por_defecto(self):
-        import config
+        from ytchat.core import config
         ruta = Path(self._tmp.name) / "config.ini"
         contenido = "[descargas]\nformato = mp4\nbitrate = 192\nenumerar = false\n"
         ruta.write_text(contenido, encoding="utf-8")
@@ -233,7 +233,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(ruta.read_text(encoding="utf-8"), contenido)
 
     def test_obtener_opciones_resuelve_carpeta_relativa_contra_datos(self):
-        import config
+        from ytchat.core import config
         ruta = Path(self._tmp.name) / "config.ini"
         ruta.write_text("[descargas]\ncarpeta = Descargas\n", encoding="utf-8")
         with redirigir_rutas(self._tmp.name):
@@ -241,7 +241,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertEqual(op["carpeta"], str(Path(self._tmp.name) / "Descargas"))
 
     def test_obtener_opciones_respeta_carpeta_absoluta(self):
-        import config
+        from ytchat.core import config
         ruta = Path(self._tmp.name) / "config.ini"
         absoluta = Path(self._tmp.name) / "otra"
         ruta.write_text(f"[descargas]\ncarpeta = {absoluta}\n", encoding="utf-8")
@@ -269,7 +269,7 @@ class TestCargarConfiguracion(unittest.TestCase):
                 )
 
     def test_guardar_opciones_descarga_persiste(self):
-        import config
+        from ytchat.core import config
         with redirigir_rutas(self._tmp.name):
             (Path(self._tmp.name) / "config.ini").write_text(
                 config._CONFIG_FALLBACK, encoding="utf-8")
@@ -282,7 +282,7 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertTrue(op["enumerar"])
 
     def test_guardar_opciones_descarga_normaliza_invalidos(self):
-        import config
+        from ytchat.core import config
         with redirigir_rutas(self._tmp.name):
             (Path(self._tmp.name) / "config.ini").write_text(
                 config._CONFIG_FALLBACK, encoding="utf-8")

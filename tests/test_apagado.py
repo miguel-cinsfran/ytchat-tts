@@ -1,7 +1,7 @@
 import unittest
 import logging
 
-import apagado
+from ytchat.core import apagado
 
 
 class PruebasApagado(unittest.TestCase):

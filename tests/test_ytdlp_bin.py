@@ -9,8 +9,8 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
-import ytdlp_bin
-import subprocesos
+from ytchat.downloads import ytdlp_bin
+from ytchat.core import subprocesos
 
 
 class PruebasYtdlpBin(unittest.TestCase):

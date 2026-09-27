@@ -5,7 +5,7 @@ from unittest import mock
 import types
 import sys
 
-import reproductor
+from ytchat.player import reproductor
 
 
 class RelojMonotonic:
@@ -954,7 +954,7 @@ class TestRelevoRobustez(unittest.TestCase):
         panel._relevo_ffmpeg = self._relevo()
         panel._relevo_reintentos = 3
         with mock.patch.object(reproductor, "anunciar") as anunciar, \
-                mock.patch("sound_player.reproducir") as sonido:
+                mock.patch("ytchat.voice.sound_player.reproducir") as sonido:
             panel._fallo_reproduccion()
         panel._player.play.assert_not_called()
         panel._detener.assert_called_once_with(silencioso=True)
@@ -964,7 +964,7 @@ class TestRelevoRobustez(unittest.TestCase):
     def test_error_de_vlc_sin_relevo_para_y_avisa(self):
         panel = self._panel()
         with mock.patch.object(reproductor, "anunciar") as anunciar, \
-                mock.patch("sound_player.reproducir"):
+                mock.patch("ytchat.voice.sound_player.reproducir"):
             panel._fallo_reproduccion()
         panel._detener.assert_called_once_with(silencioso=True)
         anunciar.assert_called_once_with("No se pudo reproducir el vídeo")
@@ -1085,7 +1085,7 @@ class TestSaltoEnRelevo(unittest.TestCase):
         anunciar.assert_called_once_with("Ya estás en el directo")
 
     def test_retroceder_al_final_de_la_ventana_avisa(self):
-        from busqueda_video import MARGEN_VENTANA_SEGMENTOS
+        from ytchat.player.busqueda_video import MARGEN_VENTANA_SEGMENTOS
         panel = self._panel(desfase=720 - MARGEN_VENTANA_SEGMENTOS)
         with mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg") as clase, \
                 mock.patch.object(reproductor, "anunciar") as anunciar:

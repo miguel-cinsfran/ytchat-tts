@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-import gui
+from ytchat.ui import gui
 
 
 class HiloInmediato:

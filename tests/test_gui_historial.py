@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import gui_historial
-import historial
+from ytchat.ui import gui_historial
+from ytchat.core import historial
 
 
 def entrada(plataforma, clave, url):

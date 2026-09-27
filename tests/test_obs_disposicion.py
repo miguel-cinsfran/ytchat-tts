@@ -1,6 +1,6 @@
 import unittest
 
-import obs_disposicion as obs
+from ytchat.obs import obs_disposicion as obs
 
 
 class GeometriaTest(unittest.TestCase):

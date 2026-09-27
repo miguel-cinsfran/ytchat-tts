@@ -2739,8 +2739,16 @@ EXTRAS_DE_INTERFAZ = ("reproductor.py", "iconos.py")
 
 def superficies_sin_escenario() -> list[str]:
     """Modulos de interfaz que existen en el disco y no tiene quien los mire."""
-    modulos = {p.name for p in RAIZ.glob("gui*.py")}
-    modulos.update(n for n in EXTRAS_DE_INTERFAZ if (RAIZ / n).exists())
+    ui = RAIZ / "ytchat" / "ui"
+    reproductor = RAIZ / "ytchat" / "player"
+    modulos = {p.name for p in ui.glob("gui*.py")}
+    modulos.update(n for n in EXTRAS_DE_INTERFAZ
+                   if (ui / n).exists() or (reproductor / n).exists())
+    if not modulos:
+        raise RuntimeError(
+            "no se encontró ningún módulo de interfaz en ytchat/ui/ ni en "
+            "ytchat/player/: el descubrimiento mira para otro lado y el banco "
+            "quedaría en verde sin recorrer nada")
     huerfanos = []
     for nombre in sorted(modulos):
         escenario = SUPERFICIES.get(nombre)

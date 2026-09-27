@@ -1,6 +1,6 @@
 import unittest
 
-from obs_audio import elegir_microfono, frase_microfono
+from ytchat.obs.obs_audio import elegir_microfono, frase_microfono
 
 
 class ElegirMicrofonoTest(unittest.TestCase):

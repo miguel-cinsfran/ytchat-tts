@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest import mock
 
-import obs_cliente
+from ytchat.obs import obs_cliente
 
 
 class AjustesObsTest(unittest.TestCase):

@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import descargas
-from descargas import (
+from ytchat.downloads import descargas
+from ytchat.downloads.descargas import (
     GestorDescargas,
     INTERVALO_PROGRESO_S,
     analizar_url,

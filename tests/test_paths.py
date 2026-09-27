@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import config
-import paths
+from ytchat.core import config
+from ytchat.core import paths
 from tests.rutas_temporales import redirigir_rutas
 
 
@@ -59,8 +59,8 @@ class TestRaices(unittest.TestCase):
     def test_en_desarrollo_es_la_raiz_del_repositorio(self):
         with mock.patch.object(sys, "frozen", False, create=True):
             raiz = paths.carpeta_instalacion()
-        self.assertEqual(raiz, Path(paths.__file__).resolve().parent)
-        self.assertTrue((raiz / "config.py").is_file())
+        self.assertEqual(raiz, Path(paths.__file__).resolve().parent.parent.parent)
+        self.assertTrue((raiz / "main.py").is_file())
 
     def test_datos_coincide_con_instalacion_en_este_encargo(self):
         self.assertEqual(paths.carpeta_datos(), paths.carpeta_instalacion())
@@ -198,7 +198,11 @@ class TestGuardaRutas(unittest.TestCase):
     def test_ningun_modulo_arma_rutas_por_su_cuenta(self):
         raiz = Path(__file__).resolve().parent.parent
         violaciones = []
-        for modulo in sorted(raiz.glob("*.py")):
+        descubiertos = 0
+        for modulo in sorted((raiz / "ytchat").rglob("*.py")):
+            if modulo.name == "__init__.py":
+                continue
+            descubiertos += 1
             if modulo.name in self.EXCLUIDOS:
                 continue
             codigo = _sin_comentarios(modulo.read_text(encoding="utf-8"))
@@ -213,6 +217,11 @@ class TestGuardaRutas(unittest.TestCase):
                     if f'"{nombre}"' in linea or f"'{nombre}'" in linea:
                         violaciones.append(
                             f"{modulo.name}:{nro}: nombra {nombre} entre comillas")
+        self.assertGreaterEqual(
+            descubiertos, 50,
+            f"la guarda recorrió solo {descubiertos} módulos en ytchat/: "
+            "si se movieron las carpetas, hay que actualizarla en vez de "
+            "dejarla en verde sin mirar nada")
         self.assertEqual([], violaciones,
                          "rutas armadas fuera de paths:\n" + "\n".join(violaciones))
 

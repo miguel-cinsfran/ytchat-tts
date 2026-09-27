@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import historial_descargas as historial
+from ytchat.downloads import historial_descargas as historial
 
 
 class TestHistorialDescargas(unittest.TestCase):

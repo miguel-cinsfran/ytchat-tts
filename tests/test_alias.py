@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import alias
+from ytchat.capture import alias
 
 
 class PruebasAlias(unittest.TestCase):

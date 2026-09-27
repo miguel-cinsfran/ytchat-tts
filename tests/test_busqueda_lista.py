@@ -2,7 +2,7 @@
 
 import unittest
 
-from busqueda_lista import buscar_prefijo, coincide, normalizar
+from ytchat.ui.busqueda_lista import buscar_prefijo, coincide, normalizar
 
 
 class TestNormalizar(unittest.TestCase):

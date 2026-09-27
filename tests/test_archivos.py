@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import archivos
+from ytchat.core import archivos
 
 
 class TestArchivos(unittest.TestCase):

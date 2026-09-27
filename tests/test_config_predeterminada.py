@@ -6,9 +6,9 @@ import configparser
 from pathlib import Path
 from unittest import mock
 
-import config
-import config_predeterminada as pred
-import estado_sesion
+from ytchat.core import config
+from ytchat.core import config_predeterminada as pred
+from ytchat.capture import estado_sesion
 from tests.rutas_temporales import redirigir_rutas
 
 
@@ -26,10 +26,14 @@ class TestArchivoIdentico(unittest.TestCase):
             ruta = Path(tmp) / "salida.ini"
             pred.escribir(ruta)
             self.assertEqual(ruta.read_text(encoding="utf-8"), pred.generar_texto())
-            # vía CLI con argumento
+            # vía CLI con argumento, como lo invoca construir.bat
             import subprocess, sys
             ruta2 = Path(tmp) / "cli.ini"
-            subprocess.check_call([sys.executable, str(Path(pred.__file__)), str(ruta2)])
+            base = Path(__file__).parent.parent
+            subprocess.check_call(
+                [sys.executable, "-m", "ytchat.core.config_predeterminada",
+                 str(ruta2)],
+                cwd=str(base))
             self.assertEqual(ruta2.read_text(encoding="utf-8"), pred.generar_texto())
 
 
@@ -129,7 +133,7 @@ class TestAtajosDefaults(unittest.TestCase):
     def test_boton_fabrica_usa_fuente_canonica_y_no_altera_fijos(self):
         try:
             import wx
-            import gui_preferencias as gp
+            from ytchat.ui import gui_preferencias as gp
         except Exception:
             self.skipTest("wx no disponible")
         # Preparar dialogo sin construir UI completa
@@ -172,12 +176,12 @@ class TestConstruirBat(unittest.TestCase):
         self.assertNotIn("HEAD:config.ini", texto)
         # no debe copiar config.ini local
         self.assertNotIn('copy /y "config.ini"', texto)
-        self.assertIn("config_predeterminada.py", texto)
+        self.assertIn("python -m ytchat.core.config_predeterminada", texto)
         self.assertIn("%OUT%\\config.ini", texto)
         # debe tener manejo de error tras generar
         self.assertIn("if errorlevel 1", texto)
         # el siguiente if errorlevel debe estar tras la invocación del generador
-        idx = texto.lower().find("config_predeterminada.py")
+        idx = texto.lower().find("python -m ytchat.core.config_predeterminada")
         self.assertGreater(idx, -1)
         resto = texto[idx: idx + 500].lower()
         self.assertIn("error", resto)

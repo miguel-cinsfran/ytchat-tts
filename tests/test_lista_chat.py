@@ -7,7 +7,7 @@ menú contextual (copiar, silenciar, banear) caía sobre el mensaje equivocado.
 
 import unittest
 
-from lista_chat import ListaChat, MensajeChat
+from ytchat.ui.lista_chat import ListaChat, MensajeChat
 
 
 def _msg(n, tipo="text", plataforma="youtube", identificador=None, autor=None):

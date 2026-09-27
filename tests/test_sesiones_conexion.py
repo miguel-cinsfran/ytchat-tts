@@ -5,8 +5,8 @@ import types
 import unittest
 from unittest import mock
 
-from conexion import Conexiones
-from sesiones import RegistroSesiones
+from ytchat.capture.conexion import Conexiones
+from ytchat.capture.sesiones import RegistroSesiones
 
 
 class RegistroEspia(RegistroSesiones):
@@ -72,18 +72,25 @@ class PruebasSesiones(unittest.TestCase):
 class PruebasCableadoConexiones(unittest.TestCase):
     def setUp(self):
         self.gui_falsa = types.SimpleNamespace(_gui_frame=None)
-        self.modulo_gui_anterior = sys.modules.get("gui")
-        sys.modules["gui"] = self.gui_falsa
+        self.modulo_gui_anterior = sys.modules.get("ytchat.ui.gui")
+        sys.modules["ytchat.ui.gui"] = self.gui_falsa
+        # `from ytchat.ui import gui` mira primero el atributo del paquete:
+        # sin esto usaría el módulo real si otra prueba ya lo importó.
+        from ytchat import ui as _paquete_ui
+        self._parche_paquete = mock.patch.object(
+            _paquete_ui, "gui", self.gui_falsa, create=True)
+        self._parche_paquete.start()
         self.registro = RegistroEspia()
         self.conexiones = Conexiones(
             queue.Queue(), {}, mock.Mock(), threading.Event(),
             crear_hilo=crear_hilo_inerte, registro=self.registro)
 
     def tearDown(self):
+        self._parche_paquete.stop()
         if self.modulo_gui_anterior is None:
-            sys.modules.pop("gui", None)
+            sys.modules.pop("ytchat.ui.gui", None)
         else:
-            sys.modules["gui"] = self.modulo_gui_anterior
+            sys.modules["ytchat.ui.gui"] = self.modulo_gui_anterior
 
     def test_conectar_dos_veces_para_la_sesion_de_youtube(self):
         self.conexiones.conectar("dQw4w9WgXcQ")
@@ -114,7 +121,7 @@ class PruebasCableadoConexiones(unittest.TestCase):
                                return_value=("Título", main.deteccion.LIVE, {})), \
                 mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
                 mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
-                mock.patch("overlay_servidor.difundir") as difundir:
+                mock.patch("ytchat.obs.overlay_servidor.difundir") as difundir:
             self.conexiones._crear_hilo = hilo
             self.conexiones.conectar("dQw4w9WgXcQ")
             callbacks["on_message"]("Ana", "Hola", "12:00", monto="US$ 5")
@@ -133,8 +140,8 @@ class PruebasCableadoConexiones(unittest.TestCase):
         self.conexiones._crear_hilo = hilo
         with mock.patch.object(main, "procesar_entrante", side_effect=lambda *a, **k: k["on_message"](
                 "Ana", "Hola", main.TIPO_TEXTO, "regalo", "")), \
-                mock.patch.object(__import__("tiktok_captura"), "capturar_con_reconexion", side_effect=captura), \
-                mock.patch("overlay_servidor.difundir") as difundir:
+                mock.patch("ytchat.capture.tiktok_captura.capturar_con_reconexion", side_effect=captura), \
+                mock.patch("ytchat.obs.overlay_servidor.difundir") as difundir:
             self.conexiones._conectar_tiktok("pepe")
             callbacks["on_evento"]("Ana", "Hola", main.TIPO_TEXTO, "regalo", "")
         self.assertEqual(difundir.call_args.args[0]["plataforma"], "tiktok")
@@ -186,12 +193,19 @@ class PruebasCableadoConexiones(unittest.TestCase):
         youtube_api_falso = types.SimpleNamespace(google_disponible=lambda: True,
                                                   ClienteYouTube=ClienteFalso)
         llamadas = []
+        # `from ytchat.youtube import x` mira primero el atributo del paquete:
+        # sin estos parches usaría el módulo real si otra prueba ya lo importó.
+        from ytchat import youtube as _paquete_youtube
         with mock.patch.object(main, "obtener_info_video",
                                return_value=("Título", main.deteccion.LIVE, {})), \
                 mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
                 mock.patch.object(main, "captura_con_reconexion"), \
-                mock.patch.dict(sys.modules, {"credenciales": credenciales_falso,
-                                              "youtube_api": youtube_api_falso}), \
+                mock.patch.dict(sys.modules, {"ytchat.youtube.credenciales": credenciales_falso,
+                                              "ytchat.youtube.youtube_api": youtube_api_falso}), \
+                mock.patch.object(_paquete_youtube, "credenciales",
+                                  credenciales_falso, create=True), \
+                mock.patch.object(_paquete_youtube, "youtube_api",
+                                  youtube_api_falso, create=True), \
                 mock.patch.object(wx, "CallAfter",
                                   side_effect=lambda fn, *a, **k: llamadas.append((fn, a))):
             self.conexiones._crear_hilo = hilo
@@ -220,7 +234,7 @@ class PruebasCableadoConexiones(unittest.TestCase):
                                return_value=("Título", main.deteccion.LIVE, {})), \
                 mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
                 mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
-                mock.patch("overlay_servidor.difundir") as difundir:
+                mock.patch("ytchat.obs.overlay_servidor.difundir") as difundir:
             # Se filtra por nombre para que los hilos auxiliares no bloqueen la prueba.
             self.conexiones._crear_hilo = lambda objetivo, nombre, **kwargs: (
                 HiloEjecuta(objetivo) if nombre == "Chat" else HiloInerte())
@@ -233,18 +247,25 @@ class PruebasCableadoConexiones(unittest.TestCase):
 class TestPlataformaMensajesChat(unittest.TestCase):
     def setUp(self):
         self.gui_falsa = types.SimpleNamespace(_gui_frame=None)
-        self.modulo_gui_anterior = sys.modules.get("gui")
-        sys.modules["gui"] = self.gui_falsa
+        self.modulo_gui_anterior = sys.modules.get("ytchat.ui.gui")
+        sys.modules["ytchat.ui.gui"] = self.gui_falsa
+        # `from ytchat.ui import gui` mira primero el atributo del paquete:
+        # sin esto usaría el módulo real si otra prueba ya lo importó.
+        from ytchat import ui as _paquete_ui
+        self._parche_paquete = mock.patch.object(
+            _paquete_ui, "gui", self.gui_falsa, create=True)
+        self._parche_paquete.start()
         self.registro = RegistroEspia()
         self.conexiones = Conexiones(
             queue.Queue(), {}, mock.Mock(), threading.Event(),
             crear_hilo=crear_hilo_inerte, registro=self.registro)
 
     def tearDown(self):
+        self._parche_paquete.stop()
         if self.modulo_gui_anterior is None:
-            sys.modules.pop("gui", None)
+            sys.modules.pop("ytchat.ui.gui", None)
         else:
-            sys.modules["gui"] = self.modulo_gui_anterior
+            sys.modules["ytchat.ui.gui"] = self.modulo_gui_anterior
 
     def test_youtube_entrega_plataforma_youtube_a_gui(self):
         import main
@@ -266,7 +287,7 @@ class TestPlataformaMensajesChat(unittest.TestCase):
                                return_value=("Título", main.deteccion.LIVE, {})), \
                 mock.patch.object(main.deteccion, "tiene_chat_en_vivo", return_value=True), \
                 mock.patch.object(main, "captura_con_reconexion", side_effect=captura), \
-                mock.patch("overlay_servidor.difundir"), \
+                mock.patch("ytchat.obs.overlay_servidor.difundir"), \
                 mock.patch.object(wx, "CallAfter", side_effect=call_after):
             self.conexiones._crear_hilo = hilo
             self.conexiones.conectar("dQw4w9WgXcQ")
@@ -282,7 +303,7 @@ class TestPlataformaMensajesChat(unittest.TestCase):
     def test_tiktok_entrega_plataforma_tiktok_a_gui(self):
         import main
         import wx
-        import tiktok_captura
+        from ytchat.capture import tiktok_captura
         callbacks = {}
         def hilo(objetivo, nombre, **kwargs):
             return HiloEjecuta(objetivo) if nombre == "TikTok" else HiloInerte()
@@ -300,7 +321,7 @@ class TestPlataformaMensajesChat(unittest.TestCase):
                                side_effect=lambda *a, **k: k["on_message"](
                                    "Ana", "Hola", "12:00", main.TIPO_TEXTO, "regalo", "TIKID")), \
                 mock.patch.object(tiktok_captura, "capturar_con_reconexion", side_effect=captura), \
-                mock.patch("overlay_servidor.difundir"), \
+                mock.patch("ytchat.obs.overlay_servidor.difundir"), \
                 mock.patch.object(wx, "CallAfter", side_effect=call_after):
             self.conexiones._conectar_tiktok("pepe")
             callbacks["on_evento"]("Ana", "Hola", main.TIPO_TEXTO, "regalo", "TIKID")

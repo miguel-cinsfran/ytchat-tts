@@ -2,8 +2,8 @@
 
 import unittest
 
-import descartes
-from estado_sesion import (SnapshotSesion, formatear_estado, COMPONENTES,
+from ytchat.capture import descartes
+from ytchat.capture.estado_sesion import (SnapshotSesion, formatear_estado, COMPONENTES,
                            ACTIVOS_DEFECTO, _duracion)
 
 

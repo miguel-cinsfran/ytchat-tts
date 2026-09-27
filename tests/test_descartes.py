@@ -1,6 +1,6 @@
 import unittest
 
-import descartes
+from ytchat.capture import descartes
 
 
 class TestAviso(unittest.TestCase):

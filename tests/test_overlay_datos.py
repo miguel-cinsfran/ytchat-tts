@@ -1,6 +1,6 @@
 import unittest
 
-from overlay_datos import (
+from ytchat.obs.overlay_datos import (
     COLOR_CUERPO,
     COLOR_DORADO,
     COLOR_TIKTOK,

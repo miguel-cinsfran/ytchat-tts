@@ -3,7 +3,7 @@
 import itertools
 import unittest
 
-from traza_transporte import (
+from ytchat.player.traza_transporte import (
     topologia_medio, traza_busqueda_muestra, traza_busqueda_orden,
     traza_busqueda_desenlace, traza_inicio_muestra, traza_salto, traza_sin_barra,
     traza_transporte,
@@ -150,13 +150,13 @@ class TestTopologia(unittest.TestCase):
             self.assertNotIn(fragmento, linea2.lower())
 
     def test_traza_salto_rechazado(self):
-        from traza_transporte import traza_salto_rechazado
+        from ytchat.player.traza_transporte import traza_salto_rechazado
         linea = traza_salto_rechazado("relevo", "deslizador", "relevo_sin_barra")
         self.assertEqual(
             linea, "SALTO_RECHAZADO topologia=relevo origen=deslizador motivo=relevo_sin_barra")
 
     def test_traza_salto_relevo(self):
-        from traza_transporte import traza_salto_relevo
+        from ytchat.player.traza_transporte import traza_salto_relevo
         linea = traza_salto_relevo(-60_000, 0, 12, 5000.0, 720)
         self.assertEqual(
             linea, "SALTO_RELEVO delta=-60000 desfase=0->12 segmento_ms=5000 ventana=720")

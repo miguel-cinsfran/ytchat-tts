@@ -6,8 +6,8 @@ import types
 import unittest
 from unittest import mock
 
-import tts_worker
-from tts_worker import sanitizar, construir_tts, _wpm_a_rate
+from ytchat.voice import tts_worker
+from ytchat.voice.tts_worker import sanitizar, construir_tts, _wpm_a_rate
 
 
 class TestArranque(unittest.TestCase):

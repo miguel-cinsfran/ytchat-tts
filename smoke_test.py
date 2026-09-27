@@ -24,6 +24,7 @@ Para la fase 3 hace falta:  pip install pywinauto
 from __future__ import annotations
 
 import csv
+import importlib
 import os
 import re
 import subprocess
@@ -39,25 +40,36 @@ _INTERACTIVOS = {"Button", "Edit", "ComboBox", "List", "CheckBox", "RadioButton"
 
 
 def _modulos_de_la_raiz() -> tuple[list[str], list[str]]:
-    """(módulos puros, módulos de GUI) leídos de los .py de la raíz.
+    """(módulos puros, módulos de GUI) descubiertos en el paquete `ytchat`.
 
     Antes era una lista a mano y se quedaba corta: cada módulo nuevo
     (relevo_ffmpeg, obs_*, overlay_*, programados…) se quedaba fuera del
     smoke sin que nadie lo notara. Es de GUI si importa wx a nivel de módulo;
-    los que lo importan dentro de una función (main) siguen siendo puros.
+    los que lo importan dentro de una función siguen siendo puros. Los nombres
+    son completos (`ytchat.core.config`), para que cada módulo se importe una
+    sola vez y no haya dos copias en memoria.
     """
     puros, gui = [], []
-    for nombre in sorted(os.listdir(AQUI)):
-        if not nombre.endswith(".py") or nombre == os.path.basename(__file__):
-            continue
-        with open(os.path.join(AQUI, nombre), encoding="utf-8", errors="replace") as f:
-            fuente = f.read()
-        modulo = nombre[:-3]
-        if re.search(r"^(?:import wx|from wx)", fuente, re.M):
-            gui.append(modulo)
-        else:
-            puros.append(modulo)
+    paquete = os.path.join(AQUI, "ytchat")
+    for dirpath, _dirnames, nombres in os.walk(paquete):
+        for nombre in sorted(nombres):
+            if not nombre.endswith(".py") or nombre == "__init__.py":
+                continue
+            ruta = os.path.join(dirpath, nombre)
+            with open(ruta, encoding="utf-8", errors="replace") as f:
+                fuente = f.read()
+            modulo = os.path.relpath(ruta, AQUI)[:-3].replace(os.sep, ".")
+            if re.search(r"^(?:import wx\b|from wx\b)", fuente, re.M):
+                gui.append(modulo)
+            else:
+                puros.append(modulo)
     return puros, gui
+
+
+# Piso: si mañana alguien mueve las carpetas otra vez, el descubrimiento
+# vuelve vacío y el smoke quedaría en verde sin comprobar nada. Menos de 50
+# módulos es que mira para otro lado, y tiene que decirlo.
+_MINIMO_MODULOS = 50
 
 
 _MODULOS_PUROS, _MODULOS_GUI = _modulos_de_la_raiz()
@@ -96,14 +108,21 @@ def _titulo(texto):
 
 def fase1_logica() -> bool:
     _titulo("FASE 1 — Importar lógica pura (cualquier SO)")
+    total = len(_MODULOS_PUROS) + len(_MODULOS_GUI)
+    if total < _MINIMO_MODULOS:
+        print(f"  [FALLO] se descubrieron solo {total} módulos en ytchat/ "
+              f"(piso: {_MINIMO_MODULOS}): el descubrimiento mira para otro "
+              "lado y el smoke quedaría en verde sin comprobar nada.")
+        return False
     ok = True
     for nombre in _MODULOS_PUROS:
         try:
-            __import__(nombre)
+            importlib.import_module(nombre)
             print(f"  [ok]    import {nombre}")
         except Exception as exc:
             ok = False
             print(f"  [FALLO] import {nombre}: {exc.__class__.__name__}: {exc}")
+    print(f"  Módulos puros importados: {len(_MODULOS_PUROS)} de {total}")
     return ok
 
 
@@ -119,11 +138,12 @@ def fase2_gui() -> bool:
     print(f"  wxPython {wx.version()}")
     for nombre in _MODULOS_GUI:
         try:
-            __import__(nombre)
+            importlib.import_module(nombre)
             print(f"  [ok]    import {nombre}")
         except Exception as exc:
             ok = False
             print(f"  [FALLO] import {nombre}: {exc.__class__.__name__}: {exc}")
+    print(f"  Módulos de GUI importados: {len(_MODULOS_GUI)}")
     return ok
 
 

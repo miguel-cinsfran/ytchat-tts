@@ -20,7 +20,7 @@ class TestCapturaAtajos(unittest.TestCase):
         # wx.App necesaria para instanciar/usar helpers que tocan wx.
         import wx
         self.app = wx.App() if not wx.App.Get() else wx.App.Get()
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         self.gp = gp
 
     def test_combo_ctrl_letra(self):
@@ -42,7 +42,7 @@ class TestCapturaAtajos(unittest.TestCase):
     def test_combo_shift_se_normaliza_y_rechaza_otros_modificadores(self):
         import wx
         # Ctrl+Shift se captura tal cual y otros modificadores siguen siendo inválidos.
-        import config as cfg
+        from ytchat.core import config as cfg
         combo = self.gp._combo_a_texto(wx.MOD_CONTROL | wx.MOD_SHIFT, ord("P"))
         self.assertEqual(combo, "ctrl+shift+p")
         self.assertEqual(cfg._normalizar_atajo(combo), "ctrl+shift+p")
@@ -77,7 +77,7 @@ class TestCapturaAtajos(unittest.TestCase):
 
     def test_los_atajos_cuelgan_de_su_caja_de_grupo(self):
         import wx
-        import config as cfg
+        from ytchat.core import config as cfg
         dialogo = self.gp.PreferenciasDialog(None, {})
         try:
             controles = []

@@ -1,6 +1,6 @@
 import unittest
 
-import obs_estado
+from ytchat.obs import obs_estado
 
 
 class FrasesObsTest(unittest.TestCase):

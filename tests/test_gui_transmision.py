@@ -3,9 +3,9 @@
 import unittest
 from unittest import mock
 
-import gui_transmision
-import obs_cliente
-import obs_disposicion
+from ytchat.ui import gui_transmision
+from ytchat.obs import obs_cliente
+from ytchat.obs import obs_disposicion
 
 try:
     import wx

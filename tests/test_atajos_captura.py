@@ -3,7 +3,7 @@
 import unittest
 from unittest import mock
 
-import atajos_captura
+from ytchat.ui import atajos_captura
 
 try:
     import wx  # noqa: F401
@@ -60,7 +60,7 @@ class TestAtajosCaptura(unittest.TestCase):
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_la_pagina_entrega_la_combinacion_al_resolvedor(self):
         import wx
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         boton = mock.Mock()
         dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")
@@ -82,7 +82,7 @@ class TestAtajosCaptura(unittest.TestCase):
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_escape_cancela_la_captura(self):
         import wx
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")
         dialogo._valores_atajo = {"rep_play": "ctrl+q"}
@@ -99,7 +99,7 @@ class TestAtajosCaptura(unittest.TestCase):
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_tab_sale_de_la_captura_y_deja_navegar(self):
         import wx
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")
         dialogo._valores_atajo = {"rep_play": "ctrl+q"}
@@ -115,7 +115,7 @@ class TestAtajosCaptura(unittest.TestCase):
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_tecla_de_solo_modificador_no_resuelve_el_atajo(self):
         import wx
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         captura = ("rep_play", "Reproducir o pausa")
         dialogo._capturando_atajo = captura
@@ -132,7 +132,7 @@ class TestAtajosCaptura(unittest.TestCase):
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_enter_solo_desactiva_y_alt_enter_se_captura(self):
         import wx
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")
         dialogo._valores_atajo = {"rep_play": "ctrl+p"}
@@ -158,8 +158,8 @@ class TestAtajosCaptura(unittest.TestCase):
 
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_restablecer_cambia_solo_los_atajos_editables(self):
-        import gui_preferencias as gp
-        import config as cfg
+        from ytchat.ui import gui_preferencias as gp
+        from ytchat.core import config as cfg
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         dialogo._valores_atajo = cfg.todos_los_atajos_default()
         dialogo._valores_atajo["rep_play"] = "ctrl+q"
@@ -177,7 +177,7 @@ class TestAtajosCaptura(unittest.TestCase):
 
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_cancelar_restaurar_la_etiqueta_y_anunciar_sin_cambios(self):
-        import gui_preferencias as gp
+        from ytchat.ui import gui_preferencias as gp
         dialogo = gp.PreferenciasDialog.__new__(gp.PreferenciasDialog)
         boton = mock.Mock()
         dialogo._capturando_atajo = ("rep_play", "Reproducir o pausa")

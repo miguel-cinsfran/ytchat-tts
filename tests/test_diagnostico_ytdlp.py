@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-import diagnostico
+from ytchat.core import diagnostico
 
 
 class TestVersionYtdlpDiagnostico(unittest.TestCase):

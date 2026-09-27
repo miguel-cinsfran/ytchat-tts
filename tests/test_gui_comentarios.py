@@ -6,8 +6,8 @@ from unittest import mock
 
 import wx
 
-import gui_comentarios
-import youtube_api
+from ytchat.ui import gui_comentarios
+from ytchat.youtube import youtube_api
 
 
 class DialogoFalso:

@@ -4,7 +4,7 @@ import subprocess
 import unittest
 from unittest import mock
 
-import relevo_ffmpeg
+from ytchat.player import relevo_ffmpeg
 
 
 class PruebasRelevoFfmpeg(unittest.TestCase):
@@ -42,14 +42,14 @@ class PruebasCicloDeVida(unittest.TestCase):
 
     def test_iniciar_sin_ffmpeg_devuelve_none(self):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value=None):
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value=None):
             self.assertIsNone(relevo.iniciar())
         self.assertFalse(relevo.activo())
         self.assertIsNone(relevo.direccion)
 
     def test_iniciar_si_popen_falla_devuelve_none(self):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", side_effect=OSError("no se pudo")):
             self.assertIsNone(relevo.iniciar())
         self.assertFalse(relevo.activo())
@@ -58,7 +58,7 @@ class PruebasCicloDeVida(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             direccion = relevo.iniciar()
@@ -70,7 +70,7 @@ class PruebasCicloDeVida(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()
@@ -86,7 +86,7 @@ class PruebasCicloDeVida(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()
@@ -202,7 +202,7 @@ class PruebasListener(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()
@@ -227,7 +227,7 @@ class PruebasStderr(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso) as popen, \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()
@@ -241,7 +241,7 @@ class PruebasStderr(unittest.TestCase):
         proceso.pid = 4242
         proceso.stderr = io.BytesIO(
             b"HTTP error 403 Forbidden\nInvalid data found when processing input\n")
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999), \
                 self._sincrono(), \
@@ -265,7 +265,7 @@ class PruebasStderr(unittest.TestCase):
         proceso = mock.Mock()
         proceso.poll.return_value = None
         proceso.stderr = io.BytesIO(b"")
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()
@@ -282,7 +282,7 @@ class PruebasRelevosVivos(unittest.TestCase):
         relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio")
         proceso = mock.Mock()
         proceso.poll.return_value = None
-        with mock.patch("ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
+        with mock.patch("ytchat.downloads.ffmpeg_bin.ruta_ffmpeg", return_value="ffmpeg.exe"), \
                 mock.patch("subprocess.Popen", return_value=proceso), \
                 mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
             relevo.iniciar()

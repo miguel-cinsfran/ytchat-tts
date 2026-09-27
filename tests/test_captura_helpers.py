@@ -4,7 +4,7 @@ import queue
 import unittest
 from unittest import mock
 
-import alias
+from ytchat.capture import alias
 import main
 from main import (
     _mensaje_error_amigable, _es_error_permanente,

@@ -4,8 +4,8 @@ import threading
 import unittest
 from unittest import mock
 
-import tiktok_captura
-from tiktok_captura import (usuario_de_url, _mensaje_error, _es_error_permanente,
+from ytchat.capture import tiktok_captura
+from ytchat.capture.tiktok_captura import (usuario_de_url, _mensaje_error, _es_error_permanente,
                             _mejor_flujo, autor_de_evento)
 
 

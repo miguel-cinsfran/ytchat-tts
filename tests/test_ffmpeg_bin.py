@@ -7,8 +7,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import ffmpeg_bin
-import paths
+from ytchat.downloads import ffmpeg_bin
+from ytchat.core import paths
 from tests.rutas_temporales import redirigir_rutas
 
 

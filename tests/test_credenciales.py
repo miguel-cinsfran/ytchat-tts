@@ -5,7 +5,7 @@ import threading
 import unittest
 from pathlib import Path
 
-import credenciales
+from ytchat.youtube import credenciales
 from tests.rutas_temporales import redirigir_rutas
 
 

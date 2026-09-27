@@ -78,7 +78,7 @@ echo == Ensamblando la carpeta distribuible ==
 REM Version desde config.py (fuente unica): nombra la carpeta y el zip como
 REM "YTChat TTS vX.Y.Z", asi el archivo que se manda y la carpeta al descomprimir
 REM dejan clara la version.
-for /f "delims=" %%v in ('uv run python -c "import config;print(config.APP_VERSION)"') do set "VER=%%v"
+for /f "delims=" %%v in ('uv run python -c "from ytchat.core import config;print(config.APP_VERSION)"') do set "VER=%%v"
 if not defined VER ( echo ERROR: no se pudo leer la version de config.py. & pause & exit /b 1 )
 set "OUT=YTChat TTS v%VER%"
 REM Ojo: "^>" escapado; un ">" literal en echo redirige y crea un archivo basura.
@@ -142,7 +142,7 @@ if not exist "%OUT%\yt-dlp.exe" (
 REM config.ini se genera SIEMPRE desde la fuente canonica
 REM config_predeterminada.py. No se copia el config.ini local ni se depende
 REM de git para este archivo. Si falla la generacion, la construccion se detiene.
-call uv run python config_predeterminada.py "%OUT%\config.ini"
+call uv run python -m ytchat.core.config_predeterminada "%OUT%\config.ini"
 if errorlevel 1 ( echo ERROR: no se pudo generar config.ini desde config_predeterminada.py. & pause & exit /b 1 )
 REM sounds.ini sigue con el tratamiento previo: intentar git, si no local.
 git show HEAD:sounds.ini > "%OUT%\sounds.ini" 2>nul

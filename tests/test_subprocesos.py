@@ -5,8 +5,8 @@ import threading
 import unittest
 from unittest.mock import patch
 
-import subprocesos
-from subprocesos import Estado, ejecutar
+from ytchat.core import subprocesos
+from ytchat.core.subprocesos import Estado, ejecutar
 
 
 class PruebasSubprocesos(unittest.TestCase):

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import sound_player
+from ytchat.voice import sound_player
 
 
 class PruebasBarridoAlias(unittest.TestCase):

@@ -7,7 +7,7 @@ import unittest
 import wave
 from pathlib import Path
 
-import config
+from ytchat.core import config
 import sound_gen
 
 

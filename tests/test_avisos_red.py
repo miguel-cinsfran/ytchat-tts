@@ -2,7 +2,7 @@
 
 import unittest
 
-from avisos_red import mensaje_de_fallo
+from ytchat.core.avisos_red import mensaje_de_fallo
 
 
 class TestMensajeDeFallo(unittest.TestCase):

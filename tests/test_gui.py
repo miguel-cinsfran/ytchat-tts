@@ -8,17 +8,17 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import gui
-import gui_comentarios
-import gui_preferencias
-import config
-import paths
-import reproductor
-import apagado
-import alias
-import programados
-import ytdlp_bin
-from lista_chat import MensajeChat, ListaChat
+from ytchat.ui import gui
+from ytchat.ui import gui_comentarios
+from ytchat.ui import gui_preferencias
+from ytchat.core import config
+from ytchat.core import paths
+from ytchat.player import reproductor
+from ytchat.core import apagado
+from ytchat.capture import alias
+from ytchat.capture import programados
+from ytchat.downloads import ytdlp_bin
+from ytchat.ui.lista_chat import MensajeChat, ListaChat
 from tests.rutas_temporales import redirigir_rutas
 
 

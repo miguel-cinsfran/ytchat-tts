@@ -1,6 +1,6 @@
 import unittest
 
-import iconos
+from ytchat.ui import iconos
 
 
 class PruebasIconos(unittest.TestCase):

@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest import mock
 
-import paths
+from ytchat.core import paths
 
 
 @contextmanager

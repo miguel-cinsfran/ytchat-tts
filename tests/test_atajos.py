@@ -4,16 +4,16 @@ import unittest
 import inspect
 from unittest import mock
 
-from config import (
+from ytchat.core.config import (
     _normalizar_atajo, parsear_atajos, detectar_conflictos_atajos,
     ATAJOS_DEFAULTS, ATAJOS_AREA, atajo_valido_para_area,
     ATAJOS_FIJOS, ATAJOS_FIJOS_DEFAULTS, ATAJOS_GRUPOS, todos_los_atajos_default,
 )
-import gui_preferencias
-import gui
-import atajos_captura
-import config
-from gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
+from ytchat.ui import gui_preferencias
+from ytchat.ui import gui
+from ytchat.ui import atajos_captura
+from ytchat.core import config
+from ytchat.ui.gui_preferencias import _ETIQUETAS_ATAJO, etiqueta_de_accion
 
 
 class TestNormalizarAtajo(unittest.TestCase):

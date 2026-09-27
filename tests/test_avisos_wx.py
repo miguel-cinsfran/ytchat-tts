@@ -10,8 +10,8 @@ import unittest
 from types import SimpleNamespace
 from unittest import mock
 
-import gui
-import reproductor
+from ytchat.ui import gui
+from ytchat.player import reproductor
 
 
 class _CazadorWx(gui.wx.Log):

@@ -312,7 +312,7 @@ class Sonda:
     # Todo lo que toca la interfaz corre acá, en el hilo de la interfaz.
     def ejecutar(self, orden):
         import wx
-        import gui
+        from ytchat.ui import gui
 
         op = orden.get("op")
         id_orden = orden.get("id")
@@ -626,7 +626,7 @@ def instalar() -> str:
         raise RuntimeError(
             f"Falta la variable {VAR_DESTINO} con la ruta de la grabación")
 
-    import gui
+    from ytchat.ui import gui
     grabador = GrabadorAnuncios(ruta)
 
     # No alcanza con asignar `gui._ao2` acá: `iniciar_gui` llama a `_ao2_init()`
