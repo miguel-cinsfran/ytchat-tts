@@ -1534,6 +1534,28 @@ class TestBusquedaPermitida(unittest.TestCase):
         self.assertFalse(busqueda_permitida(True, False, False, usa_relevo=True))
         self.assertFalse(busqueda_permitida(True, True, True, usa_relevo=True))
 
+    def test_vod_por_relevo_si_permitida(self):
+        # El VOD por relevo en modo grabado reabre ffmpeg desde el destino
+        # en cada salto, así que la búsqueda sí está permitida.
+        from ytchat.player.busqueda_video import busqueda_permitida
+        self.assertTrue(busqueda_permitida(False, False, False, usa_relevo=True))
+        self.assertTrue(busqueda_permitida(False, False, True, usa_relevo=True))
+
+
+class TestPosicionEfectiva(unittest.TestCase):
+
+    def test_muestra_negativa_es_menos_uno(self):
+        from ytchat.player.busqueda_video import posicion_efectiva
+        self.assertEqual(posicion_efectiva(60000, -1), -1)
+
+    def test_muestra_cero_es_menos_uno(self):
+        from ytchat.player.busqueda_video import posicion_efectiva
+        self.assertEqual(posicion_efectiva(60000, 0), -1)
+
+    def test_muestra_positiva_suma_la_base(self):
+        from ytchat.player.busqueda_video import posicion_efectiva
+        self.assertEqual(posicion_efectiva(60000, 1500), 61500)
+
 
 class TestEstadoBusquedaDirectoBorde(unittest.TestCase):
 

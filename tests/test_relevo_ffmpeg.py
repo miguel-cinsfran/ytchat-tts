@@ -301,5 +301,67 @@ class PruebasRelevosVivos(unittest.TestCase):
         self.assertNotIn(relevo, relevo_ffmpeg._VIVOS)
 
 
+class PruebasModoGrabado(unittest.TestCase):
+    """VOD dividido: el relevo arranca desde un punto con -ss y matroska."""
+
+    def test_sin_inicio_ms_el_comando_es_el_de_hoy(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "ffmpeg.exe", "https://video.example/v.mp4",
+            "https://audio.example/a.m4a", 5000)
+        self.assertEqual(argumentos, [
+            "ffmpeg.exe", "-loglevel", "warning", "-nostdin",
+            "-i", "https://video.example/v.mp4",
+            "-i", "https://audio.example/a.m4a",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c", "copy", "-f", "mpegts", "-listen", "1",
+            "tcp://127.0.0.1:5000",
+        ])
+
+    def test_con_inicio_ms_usa_ss_matroska_y_sin_live_start_index(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "ffmpeg.exe", "https://video.example/v.mp4",
+            "https://audio.example/a.m4a", 5000, inicio_ms=605250)
+        self.assertEqual(argumentos, [
+            "ffmpeg.exe", "-loglevel", "warning", "-nostdin",
+            "-ss", "605.250", "-i", "https://video.example/v.mp4",
+            "-ss", "605.250", "-i", "https://audio.example/a.m4a",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c", "copy", "-f", "matroska", "-listen", "1",
+            "tcp://127.0.0.1:5000",
+        ])
+        self.assertNotIn("-live_start_index", argumentos)
+        self.assertNotIn("mpegts", argumentos)
+
+    def test_inicio_ms_cero_tambien_es_modo_grabado(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "f", "v", "a", 5000, inicio_ms=0)
+        self.assertIn("-ss", argumentos)
+        self.assertIn("matroska", argumentos)
+        self.assertNotIn("-live_start_index", argumentos)
+
+    def test_inicio_ms_gana_al_desfase(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "f", "v", "a", 5000, 12, inicio_ms=10000)
+        self.assertNotIn("-live_start_index", argumentos)
+        self.assertIn("matroska", argumentos)
+
+    def test_relevo_pasa_su_inicio_ms_al_comando(self):
+        relevo = relevo_ffmpeg.RelevoFfmpeg("video", "audio", inicio_ms=20000)
+        self.assertEqual(relevo.inicio_ms, 20000)
+        self.assertEqual(relevo.desfase_segmentos, 0)
+        proceso = mock.Mock()
+        proceso.poll.return_value = None
+        with mock.patch.object(relevo_ffmpeg.ffmpeg_bin, "ruta_ffmpeg",
+                               return_value="ffmpeg.exe"), \
+                mock.patch("subprocess.Popen", return_value=proceso) as popen, \
+                mock.patch.object(relevo_ffmpeg, "puerto_libre", return_value=9999):
+            relevo.iniciar()
+        argumentos = popen.call_args.args[0]
+        self.assertIn("matroska", argumentos)
+        self.assertIn("20.000", argumentos)
+        self.assertNotIn("-live_start_index", argumentos)
+        relevo.detener()
+
+
 if __name__ == "__main__":
     unittest.main()

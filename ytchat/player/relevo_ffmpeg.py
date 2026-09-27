@@ -124,7 +124,8 @@ SEGMENTOS_BORDE = 3
 
 
 def argumentos_relevo(ffmpeg_exe: str, video_url: str, audio_url: str,
-                      puerto: int, desfase_segmentos: int = 0) -> list[str]:
+                      puerto: int, desfase_segmentos: int = 0,
+                      inicio_ms: int | None = None) -> list[str]:
     """Comando de ffmpeg: copia (sin recodificar) vídeo y audio a un único
     mpegts, escuchando en localhost para que VLC se conecte como cliente.
 
@@ -134,7 +135,23 @@ def argumentos_relevo(ffmpeg_exe: str, video_url: str, audio_url: str,
     5 s, misma MEDIA-SEQUENCE), así que empezar ambas en el mismo índice las
     deja alineadas y ffmpeg, que pone a cero el inicio de cada entrada por
     separado, no las desincroniza.
+
+    Con inicio_ms (modo grabado para VOD dividido) cada entrada arranca con
+    «-ss» en segundos con tres decimales delante de su «-i», sin
+    «-live_start_index», y el contenedor pasa a ser matroska: el mpegts que
+    usa el directo saca el vídeo AV1 de esos VOD como pista de datos y no
+    como vídeo (comprobado). El desfase se ignora si llega inicio_ms.
     """
+    if inicio_ms is not None:
+        segundos = f"{max(0, int(inicio_ms)) / 1000:.3f}"
+        return [
+            ffmpeg_exe, "-loglevel", "warning", "-nostdin",
+            "-ss", segundos, "-i", video_url,
+            "-ss", segundos, "-i", audio_url,
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c", "copy", "-f", "matroska", "-listen", "1",
+            direccion_relevo(puerto),
+        ]
     entrada = []
     if desfase_segmentos and desfase_segmentos > 0:
         entrada = ["-live_start_index",
@@ -195,10 +212,15 @@ class RelevoFfmpeg:
     argumentos_relevo/puerto_libre/direccion_relevo, ya probadas aparte.
     """
 
-    def __init__(self, video_url: str, audio_url: str, desfase_segmentos: int = 0):
+    def __init__(self, video_url: str, audio_url: str, desfase_segmentos: int = 0,
+                 inicio_ms: int | None = None):
         self._video_url = video_url
         self._audio_url = audio_url
-        self._desfase_segmentos = max(0, int(desfase_segmentos or 0))
+        self._inicio_ms = None if inicio_ms is None else max(0, int(inicio_ms))
+        if self._inicio_ms is not None:
+            self._desfase_segmentos = 0
+        else:
+            self._desfase_segmentos = max(0, int(desfase_segmentos or 0))
         self._proceso: subprocess.Popen | None = None
         self._puerto: int | None = None
 
@@ -209,6 +231,10 @@ class RelevoFfmpeg:
     @property
     def desfase_segmentos(self) -> int:
         return self._desfase_segmentos
+
+    @property
+    def inicio_ms(self) -> int | None:
+        return self._inicio_ms
 
     def iniciar(self) -> str | None:
         """Arranca ffmpeg y devuelve la dirección a la que VLC debe
@@ -221,7 +247,7 @@ class RelevoFfmpeg:
         puerto = puerto_libre()
         argumentos = argumentos_relevo(
             ffmpeg_exe, self._video_url, self._audio_url, puerto,
-            self._desfase_segmentos)
+            self._desfase_segmentos, self._inicio_ms)
         try:
             self._proceso = subprocess.Popen(
                 argumentos, stdin=subprocess.DEVNULL,
@@ -233,8 +259,9 @@ class RelevoFfmpeg:
             return None
         self._puerto = puerto
         _VIVOS.add(self)
-        logger.debug("RELEVO_FFMPEG iniciado puerto=%d pid=%s desfase_seg=%d",
-                     puerto, self._proceso.pid, self._desfase_segmentos)
+        logger.debug("RELEVO_FFMPEG iniciado puerto=%d pid=%s desfase_seg=%d inicio_ms=%s",
+                     puerto, self._proceso.pid, self._desfase_segmentos,
+                     self._inicio_ms)
         # Hilo daemon: termina solo al cerrarse la tubería cuando ffmpeg
         # muere o detener() lo mata, así detener() no tiene que esperarlo.
         diagnostico.crear_hilo(

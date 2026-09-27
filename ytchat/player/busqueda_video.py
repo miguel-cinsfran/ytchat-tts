@@ -51,9 +51,11 @@ def busqueda_permitida(es_directo, es_local, tiene_esclavo, usa_relevo=False) ->
     es un flujo en vivo sin ventana de retroceso (comprobado: is_seekable=0,
     length=0), así que set_time() no hace nada y sin este aviso la app
     dice «Moviendo a...» y recién a los 8 s «No se pudo mover el vídeo».
+    Un VOD por el relevo en modo grabado sí las admite: cada salto reabre
+    el relevo desde el destino (ver reproductor._ir_a).
     """
     if usa_relevo:
-        return False
+        return not bool(es_directo)
     if es_directo:
         return True
     if es_local:
@@ -61,6 +63,20 @@ def busqueda_permitida(es_directo, es_local, tiene_esclavo, usa_relevo=False) ->
     if tiene_esclavo:
         return False
     return True
+
+
+def posicion_efectiva(base_ms: int, muestra_vlc: int) -> int:
+    """Posición real de un VOD por relevo en modo grabado.
+
+    libVLC cuenta get_time() desde el inicio del flujo reabierto (casi 0),
+    no desde el inicio del vídeo: la real es la base del relevo más esa
+    lectura. Una muestra de 0 o negativa es un flujo recién reabierto que
+    aún no suena: se devuelve -1 para no confirmar el destino antes de
+    tiempo.
+    """
+    if muestra_vlc is None or int(muestra_vlc) <= 0:
+        return -1
+    return int(base_ms) + int(muestra_vlc)
 
 
 # Búsqueda en un directo por el relevo de ffmpeg (ver relevo_ffmpeg.py).
