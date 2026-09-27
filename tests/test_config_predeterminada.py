@@ -208,3 +208,40 @@ class TestGitignore(unittest.TestCase):
         except FileNotFoundError:
             # si git no está, al menos verificar que no hay patrón que lo ignore
             self.assertNotIn("config.predeterminado.ini", txt)
+
+
+class TestReconexionYSonidos(unittest.TestCase):
+    def test_reconexion_fabrica_cinco_minutos(self):
+        self.assertEqual(pred.obtener("reconexion", "max_intentos"), "20")
+        self.assertEqual(pred.obtener("reconexion", "espera_entre_intentos"), "15")
+
+    def test_generador_se_invoca_como_modulo(self):
+        texto = pred.generar_texto()
+        self.assertNotIn("python config_predeterminada.py", texto)
+        self.assertIn("-m ytchat.core.config_predeterminada", texto)
+
+    def test_plantilla_sounds_sin_activar(self):
+        base = Path(__file__).parent.parent
+        p = configparser.ConfigParser(inline_comment_prefixes=("#", ";"))
+        p.read(base / "sounds.ini", encoding="utf-8")
+        self.assertTrue(p.has_section("sonidos"))
+        self.assertFalse(p.has_option("sonidos", "activar"))
+
+    def test_cargar_sonidos_sobre_plantilla_activa(self):
+        base = Path(__file__).parent.parent
+        with tempfile.TemporaryDirectory() as tmp:
+            destino = Path(tmp) / "sounds.ini"
+            destino.write_text((base / "sounds.ini").read_text(encoding="utf-8"),
+                               encoding="utf-8")
+            with redirigir_rutas(tmp):
+                sonidos = config.cargar_sonidos()
+        self.assertTrue(sonidos["activar"])
+
+    def test_cargar_sonidos_respeta_activar_falso_heredado(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "sounds.ini").write_text(
+                "[sonidos]\nactivar = false\nvolumen = 0.7\n",
+                encoding="utf-8")
+            with redirigir_rutas(tmp):
+                sonidos = config.cargar_sonidos()
+        self.assertFalse(sonidos["activar"])

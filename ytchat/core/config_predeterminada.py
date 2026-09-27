@@ -9,9 +9,9 @@ Orden por sección y clave se conserva en _ORDEN. Helpers pequeños
 permiten consultar una clave/sección y producir el texto INI completo.
 
 Para regenerar config.predeterminado.ini (copia legible versionada):
-    uv run python config_predeterminada.py
+    uv run python -m ytchat.core.config_predeterminada
 o con ruta explícita:
-    uv run python config_predeterminada.py RUTA\\config.ini
+    uv run python -m ytchat.core.config_predeterminada RUTA\\config.ini
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ _ORDEN: list[tuple[str, list[tuple[str, str]]]] = [
     ]),
     ("reconexion", [
         ("reconectar", "true"),
-        ("espera_entre_intentos", "10"),
-        ("max_intentos", "5"),
+        ("espera_entre_intentos", "15"),
+        ("max_intentos", "20"),
     ]),
     ("lectura", [
         ("formato_prefijo", "nombre_mensaje"),
@@ -176,7 +176,7 @@ def generar_texto() -> str:
     partes.append(
         "# YTChat TTS, configuración de fábrica\n"
         "# Valores predeterminados. Este archivo se genera con:\n"
-        "#   uv run python config_predeterminada.py\n"
+        "#   uv run python -m ytchat.core.config_predeterminada\n"
         "# No editar a mano sin regenerar la otra copia: config_predeterminada.py\n"
     )
     for sec, pares in _ORDEN:
@@ -188,19 +188,19 @@ def generar_texto() -> str:
                 "# para eventos (Super Chats, regalos). Se cambia en Preferencias > Lectura.\n"
             )
         elif sec == "cola":
-            partes.append("# Cola de lectura: con limite descarta los mas viejos si se llena.\n")
+            partes.append("# Cola de lectura: con límite descarta los más viejos si se llena.\n")
         elif sec == "reconexion":
             partes.append("# Reconexión automática si se corta el chat.\n")
         elif sec == "lectura":
-            partes.append("# Que parte del mensaje se lee: nombre y mensaje, solo uno, etc.\n")
+            partes.append("# Qué parte del mensaje se lee: nombre y mensaje, solo uno, etc.\n")
         elif sec == "filtros":
-            partes.append("# Listas en minusculas, separadas por comas. Vacias no filtran.\n")
+            partes.append("# Listas en minúsculas, separadas por comas. Vacías no filtran.\n")
         elif sec == "texto":
-            partes.append("# Limpieza del texto antes de leer y longitud maxima en caracteres.\n")
+            partes.append("# Limpieza del texto antes de leer y longitud máxima en caracteres.\n")
         elif sec == "atajos":
             partes.append(
-                "# Atajos por area: Ctrl para reproductor, Alt para conexion/chat, F para voz.\n"
-                "# F9-F12 se guardan aqui pero no se editan. Alt+F4 y F6 no se guardan.\n"
+                "# Atajos por área: Ctrl para reproductor, Alt para conexión/chat, F para voz.\n"
+                "# F9-F12 se guardan aquí pero no se editan. Alt+F4 y F6 no se guardan.\n"
             )
         elif sec == "ui":
             partes.append("# Interfaz: fuente del chat y opciones visibles.\n")
@@ -208,14 +208,14 @@ def generar_texto() -> str:
             partes.append("# Historial en disco: no, csv o txt. Silenciar lectura al arrancar.\n")
         elif sec == "tiktok":
             partes.append(
-                "# Solo TikTok: anunciar quien entra al directo puede ser muchisimo.\n"
+                "# Solo TikTok: anunciar quién entra al directo puede ser muchísimo.\n"
             )
         elif sec == "diagnostico":
             partes.append("# Registro detallado para diagnosticar fallos (requiere reiniciar).\n")
         elif sec == "overlay":
             partes.append("# Panel de chat para transmitir por navegador (overlay web).\n")
         elif sec == "obs":
-            partes.append("# Integracion con OBS: nombre de la fuente de microfono.\n")
+            partes.append("# Integración con OBS: nombre de la fuente de micrófono.\n")
         elif sec == "estado":
             partes.append(
                 "# Componentes que anuncia F2. true se dice, false se omite.\n"
