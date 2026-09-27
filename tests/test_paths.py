@@ -25,10 +25,10 @@ RUTAS_DE_DATOS = [
     ("log_fallos", "ytchat-fallos.log"),
     ("cache_audio", "cache-audio"),
     ("cache_video", "cache-video"),
-    ("descargas_por_defecto", "Descargas"),
 ]
 
 RUTAS_DE_INSTALACION = [
+    ("descargas_por_defecto", "Descargas"),
     ("carpeta_sonidos", "sounds"),
     ("config_predeterminada_ini", "config.predeterminado.ini"),
     ("ffmpeg_empaquetado", paths.NOMBRE_FFMPEG),
@@ -40,7 +40,7 @@ RUTAS_DE_INSTALACION = [
 TODAS_LAS_FUNCIONES = (
     [nombre for nombre, _ in RUTAS_DE_DATOS]
     + [nombre for nombre, _ in RUTAS_DE_INSTALACION]
-    + ["pagina_overlay"]
+    + ["pagina_overlay", "datos_a_migrar"]
 )
 
 
@@ -52,7 +52,8 @@ class TestRaices(unittest.TestCase):
             with mock.patch.object(sys, "frozen", True, create=True), \
                  mock.patch.object(sys, "executable", exe):
                 self.assertEqual(paths.carpeta_instalacion(), Path(tmp))
-                self.assertEqual(paths.config_ini(), Path(tmp) / "config.ini")
+                self.assertEqual(paths.carpeta_datos(), Path(tmp) / "data")
+                self.assertEqual(paths.config_ini(), Path(tmp) / "data" / "config.ini")
                 self.assertEqual(paths.ytdlp_empaquetado(),
                                  Path(tmp) / paths.NOMBRE_YTDLP)
 
@@ -63,7 +64,8 @@ class TestRaices(unittest.TestCase):
         self.assertTrue((raiz / "main.py").is_file())
 
     def test_datos_coincide_con_instalacion_en_este_encargo(self):
-        self.assertEqual(paths.carpeta_datos(), paths.carpeta_instalacion())
+        self.assertEqual(paths.carpeta_datos(),
+                         paths.carpeta_instalacion() / "data")
 
 
 class TestFunciones(unittest.TestCase):
@@ -105,6 +107,41 @@ class TestFunciones(unittest.TestCase):
                     with self.subTest(funcion=nombre):
                         getattr(paths, nombre)()
             self.assertFalse(destino.exists())
+
+
+class TestDatosAMigrar(unittest.TestCase):
+
+    def test_descargas_cuelga_de_instalacion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            datos, instalacion = Path(tmp) / "datos", Path(tmp) / "app"
+            with mock.patch.object(paths, "carpeta_datos",
+                                   return_value=datos), \
+                 mock.patch.object(paths, "carpeta_instalacion",
+                                   return_value=instalacion):
+                self.assertEqual(paths.descargas_por_defecto(),
+                                 instalacion / "Descargas")
+
+    def test_datos_a_migrar_excluye_sonidos_y_descargas(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            datos, instalacion = Path(tmp) / "datos", Path(tmp) / "app"
+            with mock.patch.object(paths, "carpeta_datos",
+                                   return_value=datos), \
+                 mock.patch.object(paths, "carpeta_instalacion",
+                                   return_value=instalacion):
+                migradas = paths.datos_a_migrar()
+                self.assertNotIn(paths.sounds_ini(), migradas)
+                self.assertNotIn(paths.descargas_por_defecto(), migradas)
+                esperadas = {
+                    paths.config_ini(), paths.credenciales(),
+                    paths.historial_lives(), paths.historial_descargas(),
+                    paths.alias(), paths.mensajes_programados(),
+                    paths.log_principal(), paths.log_detallado(),
+                    paths.log_fallos(), paths.cache_audio(),
+                    paths.cache_video(),
+                }
+                self.assertEqual(set(migradas), esperadas)
+                for ruta in migradas:
+                    self.assertEqual(ruta.parent, datos)
 
 
 class TestAyudante(unittest.TestCase):

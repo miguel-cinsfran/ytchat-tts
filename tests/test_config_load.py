@@ -299,5 +299,38 @@ class TestCargarConfiguracion(unittest.TestCase):
         self.assertTrue(op["enumerar"])
 
 
+    def test_carpeta_relativa_se_resuelve_contra_instalacion(self):
+        from ytchat.core import config, paths
+        with tempfile.TemporaryDirectory() as tmp:
+            inst, datos = Path(tmp) / "app", Path(tmp) / "datos"
+            inst.mkdir()
+            datos.mkdir()
+            (datos / "config.ini").write_text(
+                "[descargas]\ncarpeta = MisDescargas\n", encoding="utf-8")
+            with mock.patch.object(paths, "carpeta_instalacion",
+                                   return_value=inst), \
+                 mock.patch.object(paths, "carpeta_datos",
+                                   return_value=datos):
+                op = config.obtener_opciones_descarga()
+            self.assertEqual(op["carpeta"], str(inst / "MisDescargas"))
+
+    def test_override_sonido_relativo_se_resuelve_contra_instalacion(self):
+        from ytchat.core import config, paths
+        with tempfile.TemporaryDirectory() as tmp:
+            inst, datos = Path(tmp) / "app", Path(tmp) / "datos"
+            inst.mkdir()
+            datos.mkdir()
+            (datos / "sounds.ini").write_text(
+                "[sonidos]\nactivar = true\nsuperchat = MisSonidos/mio.wav\n",
+                encoding="utf-8")
+            with mock.patch.object(paths, "carpeta_instalacion",
+                                   return_value=inst), \
+                 mock.patch.object(paths, "carpeta_datos",
+                                   return_value=datos):
+                sonidos = config.cargar_sonidos()
+            self.assertEqual(sonidos["eventos"]["superchat"],
+                             inst / "MisSonidos/mio.wav")
+
+
 if __name__ == "__main__":
     unittest.main()

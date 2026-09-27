@@ -26,6 +26,7 @@ from ytchat.core.config import (
     configurar_logging, cargar_configuracion, cargar_sonidos,
 )
 from ytchat.core import paths
+from ytchat.core import migracion_datos
 
 from ytchat.voice.tts_worker import TTSWorker, sanitizar, construir_tts
 from ytchat.voice import sound_player as _snd
@@ -666,7 +667,27 @@ def iniciar_interfaz(config, cola, stats, worker, parada, iniciar_gui_fn=None):
 def main():
     # Aquí y no al importar el módulo: así los tests y el smoke test pueden
     # importar main sin crear el handler de ytchat.log (contaminaba el log real).
+    try:
+        resultado_migracion = migracion_datos.migrar(
+            paths.carpeta_instalacion(), paths.carpeta_datos(),
+            paths.datos_a_migrar(), paths.sounds_ini())
+    except Exception:
+        resultado_migracion = None
     configurar_logging()
+    if resultado_migracion is not None:
+        try:
+            if resultado_migracion.movidos or resultado_migracion.copiados:
+                logger.info(
+                    "Migración de datos: movidos %s, copiados %s",
+                    resultado_migracion.movidos, resultado_migracion.copiados)
+            for nombre in resultado_migracion.conflictos:
+                logger.warning(
+                    "Migración de datos: %s ya existe en data, no se tocó nada",
+                    nombre)
+            for error in resultado_migracion.errores:
+                logger.warning("Migración de datos: %s", error)
+        except Exception:
+            pass
     diagnostico.instalar_capturadores(
         paths.log_fallos(), version=APP_VERSION)
     diagnostico.registrar_entorno_en_hilo(APP_VERSION)

@@ -441,7 +441,7 @@ def obtener_opciones_descarga() -> dict:
         # El valor predeterminado es «Descargas» a secas: yt-dlp lo resolvía
         # contra el directorio de trabajo del proceso, que con un acceso
         # directo o desde una consola no es la carpeta de la app.
-        carpeta = str(paths.carpeta_datos() / carpeta_raw)
+        carpeta = str(paths.carpeta_instalacion() / carpeta_raw)
     else:
         carpeta = carpeta_raw
 
@@ -636,7 +636,7 @@ def cargar_sonidos() -> dict:
         if raw:
             ruta_ev = Path(raw)
             if not ruta_ev.is_absolute():
-                ruta_ev = paths.carpeta_datos() / ruta_ev
+                ruta_ev = paths.carpeta_instalacion() / ruta_ev
             eventos[ev] = ruta_ev
             continue
         # 2) Si no, el archivo del tema: sounds/themes/<tema>/<evento>.wav

@@ -5,9 +5,8 @@ ningún otro arma rutas de datos o de instalación por su cuenta. Solo usa
 biblioteca estándar, para no provocar imports circulares.
 
 Dos raíces: `carpeta_instalacion` (lo que viene con el programa) y
-`carpeta_datos` (lo que escribe el usuario). Hoy coinciden; cuando los datos
-se muden a una subcarpeta se cambia solo `carpeta_datos`. Ninguna función de
-este módulo crea nada en disco, solo devuelve rutas.
+`carpeta_datos` (lo que escribe el usuario, en la subcarpeta `data`).
+Ninguna función de este módulo crea nada en disco, solo devuelve rutas.
 """
 
 from __future__ import annotations
@@ -35,8 +34,8 @@ def carpeta_instalacion() -> Path:
 
 
 def carpeta_datos() -> Path:
-    """Lo que escribe el usuario. Hoy es la misma carpeta que la instalación."""
-    return carpeta_instalacion()
+    """Lo que escribe el usuario: la subcarpeta `data` junto al programa."""
+    return carpeta_instalacion() / "data"
 
 
 # ── Datos (los escribe el usuario) ───────────────────────────────────────────
@@ -91,7 +90,25 @@ def cache_video() -> Path:
 
 
 def descargas_por_defecto() -> Path:
-    return carpeta_datos() / "Descargas"
+    # Son vídeos y audios del usuario y quedan a la vista, junto al programa.
+    return carpeta_instalacion() / "Descargas"
+
+
+def datos_a_migrar() -> list[Path]:
+    """Rutas de datos que la migración mueve de la raíz a `data/`."""
+    return [
+        config_ini(),
+        credenciales(),
+        historial_lives(),
+        historial_descargas(),
+        alias(),
+        mensajes_programados(),
+        log_principal(),
+        log_detallado(),
+        log_fallos(),
+        cache_audio(),
+        cache_video(),
+    ]
 
 
 # ── Instalación (viene con el programa) ──────────────────────────────────────

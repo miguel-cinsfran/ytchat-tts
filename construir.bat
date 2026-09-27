@@ -160,6 +160,8 @@ del /q "%OUT%\docs\README.html" >nul 2>&1
 REM Por higiene: nada de log ni credenciales en el paquete que se envia.
 del /q "%OUT%\ytchat.log" 2>nul
 del /q "%OUT%\credenciales.json" 2>nul
+REM La carpeta de datos no viaja: se crea sola al primer arranque.
+rmdir /s /q "%OUT%\data" 2>nul
 
 echo == Comprobando el modulo yt-dlp ==
 dir /b /s "%OUT%\_internal\yt_dlp\*" >nul 2>nul
