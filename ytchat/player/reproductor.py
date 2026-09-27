@@ -246,18 +246,27 @@ def _alturas_disponibles(info: dict) -> list[int]:
     return sorted(alturas, reverse=True)
 
 
-def _mejor_audio(info: dict) -> str:
+def _mejor_audio(info: dict, evitar_hls: bool = False) -> str:
     # Preferimos la pista ORIGINAL antes que la de mayor bitrate: cada vez más
     # vídeos traen doblajes y yt-dlp marca la original/«default» con
     # language_preference alto (10). Sin esto, entre dos bitrates parecidos
     # podríamos reproducir el doblaje en vez del audio original. A igualdad de
     # idioma, gana el bitrate (como antes), así que un vídeo de una sola pista
     # se comporta igual que siempre.
+    # Con evitar_hls (solo el VOD por relevo) se ignoran las pistas HLS: el
+    # ffmpeg del relevo no puede escribir el encabezado Matroska a un destino
+    # TCP con audio HLS AAC, mientras que con AAC u Opus normales sí funciona.
+    # Si solo hay HLS, se elige entre ellas como siempre.
     auds = [f for f in info.get("formats", []) or []
             if f.get("acodec") != "none"
             and f.get("vcodec") in (None, "none") and f.get("url")]
     if not auds:
         return ""
+    if evitar_hls:
+        sin_hls = [f for f in auds
+                   if not (f.get("protocol") or "").startswith("m3u8")]
+        if sin_hls:
+            auds = sin_hls
     mejor = max(auds, key=lambda x: ((x.get("language_preference") or 0),
                                      (x.get("abr") or 0)))
     return mejor["url"]
@@ -276,11 +285,15 @@ def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:
         if int(f["height"]) == altura:
             return f["url"], True
     # 2) Vídeo solo a esa altura (se acompañará con audio como slave).
+    # Entre la misma altura se prefiere el que no es HLS: el relevo de VOD
+    # remuxa mejor desde https que desde m3u8.
     solo = [f for f in fmts if f.get("vcodec") not in (None, "none")
             and f.get("acodec") in (None, "none") and f.get("url")
             and f.get("height") and int(f["height"]) == altura]
     if solo:
-        return max(solo, key=lambda x: x.get("tbr") or 0)["url"], False
+        return max(solo, key=lambda x: (
+            not (x.get("protocol") or "").startswith("m3u8"),
+            x.get("tbr") or 0))["url"], False
     # 3) Lo mejor progresivo que haya.
     if prog:
         return max(prog, key=lambda x: int(x["height"]))["url"], True
@@ -296,7 +309,9 @@ def _video_para_altura(info: dict, altura: int) -> tuple[str, bool]:
         else:
             altura_elegida = min(int(f["height"]) for f in solo)
             cand = [f for f in solo if int(f["height"]) == altura_elegida]
-        return max(cand, key=lambda x: x.get("tbr") or 0)["url"], False
+        return max(cand, key=lambda x: (
+            not (x.get("protocol") or "").startswith("m3u8"),
+            x.get("tbr") or 0))["url"], False
     return "", False
 
 
@@ -1389,7 +1404,7 @@ class ReproductorPanel(wx.Panel):
                     len(self._info.get("requested_formats", []) or []), es_directo)
         else:
             url, prog = _video_para_altura(self._info, altura)
-            slave = None if prog else _mejor_audio(self._info)
+            slave = None if prog else _mejor_audio(self._info, evitar_hls=True)
         if not url:
             self._error_carga()
             return
@@ -1495,7 +1510,6 @@ class ReproductorPanel(wx.Panel):
             self._relevo_reintentos = 0
             self._tiene_esclavo = False
             self._relevo_vod_base_ms = int(inicio_ms)
-            self._relevo_vod_recuperaciones = 0
             self._relevo_vod_ultima = int(inicio_ms)
             self._continuar_reproducir_calidad(direccion, "", False, reproducir)
             bus = getattr(self, "_estado_busqueda", None)
@@ -2207,7 +2221,10 @@ class ReproductorPanel(wx.Panel):
         posición efectiva conocida está a más de 5 s del final, el tramo
         reabierto se cortó antes de tiempo: se reabre el relevo desde esa
         posición, con tope de 2 reaperturas seguidas (se reinicia cuando una
-        lectura avanza, ver _on_timer). Agotado el tope, se anuncia el corte.
+        lectura avanza, ver _on_timer). Agotado el tope, si ninguna lectura
+        avanzó desde la última reapertura el relevo nunca llegó a sonar y se
+        sigue con el esclavo de audio desde el principio; si alguna avanzó,
+        se anuncia el corte.
         """
         if getattr(self, "_cargando", False):
             return
@@ -2228,6 +2245,25 @@ class ReproductorPanel(wx.Panel):
             return
         rec = getattr(self, "_relevo_vod_recuperaciones", 0)
         if rec >= 2:
+            base = getattr(self, "_relevo_vod_base_ms", None)
+            try:
+                sono = base is not None and int(ultima) > int(base)
+            except Exception:
+                sono = False
+            if not sono:
+                fuentes = getattr(self, "_relevo_fuentes", None)
+                if fuentes is None:
+                    self._detener(silencioso=True)
+                    anunciar("Se cortó el vídeo")
+                    return
+                url, slave = fuentes
+                logger.warning("VOD_RELEVO sin arrancar, sigue con esclavo")
+                self._vod_por_relevo = False
+                self._detener_relevo_ffmpeg()
+                self._tiene_esclavo = bool(slave)
+                self._continuar_reproducir_calidad(
+                    url, slave, False, self._intencion_reproducir)
+                return
             logger.warning("VOD_RELEVO corte sin recuperar ultima=%d dur=%d", ultima, dur)
             self._detener(silencioso=True)
             anunciar("Se cortó el vídeo")

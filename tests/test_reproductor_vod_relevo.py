@@ -414,5 +414,149 @@ class PruebasVentanaReaperturaVodRelevo(unittest.TestCase):
         self.assertFalse(panel._vod_por_relevo)
 
 
+def _info_vod_con_hls_y_normales():
+    return {"is_live": False, "duration": 3600, "formats": [
+        {"format_id": "136", "protocol": "https", "vcodec": "avc",
+         "acodec": "none", "height": 1080, "tbr": 1500,
+         "url": "https://video"},
+        {"format_id": "233", "protocol": "m3u8_native", "vcodec": "none",
+         "acodec": "mp4a", "abr": 48, "language_preference": None,
+         "url": "https://audio233"},
+        {"format_id": "234", "protocol": "m3u8_native", "vcodec": "none",
+         "acodec": "mp4a", "abr": 120, "language_preference": None,
+         "url": "https://audio234"},
+        {"format_id": "140", "protocol": "https", "vcodec": "none",
+         "acodec": "mp4a", "abr": 128, "language_preference": -1,
+         "url": "https://audio140"},
+        {"format_id": "251", "protocol": "https", "vcodec": "none",
+         "acodec": "opus", "abr": 160, "language_preference": -1,
+         "url": "https://audio251"},
+    ]}
+
+
+class PruebasVodRelevoEvitaHls(unittest.TestCase):
+    """El VOD por relevo arma sus fuentes con pistas que no son HLS."""
+
+    def _panel(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._listo = True
+        panel._video_id = "A" * 11
+        panel._cargando = False
+        panel._asegurar_player = mock.Mock(return_value=True)
+        panel._timer_progreso = mock.Mock()
+        panel._timer = mock.Mock()
+        panel.lbl_estado = mock.Mock()
+        panel._gen = 0
+        panel._relevo_gen = 0
+        panel._relevo_ffmpeg = None
+        panel._relevo_fuentes = None
+        panel._relevo_desfase = 0
+        panel._relevo_ventana = None
+        panel._relevo_vod_base_ms = None
+        panel._vod_por_relevo = False
+        panel._relevo_vod_reapertura = None
+        panel._relevo_vod_recuperaciones = 0
+        panel._relevo_vod_ultima = None
+        panel._calidad_sel = 1080
+        panel._vol = 80
+        panel._muted = False
+        panel._audio_local = None
+        panel._descargar_video_cache = mock.Mock()
+        panel._info = _info_vod_con_hls_y_normales()
+        panel._inst = mock.Mock()
+        panel._inst.media_new.return_value = mock.Mock()
+        panel._player = mock.Mock()
+        panel._mostrar_pausa = mock.Mock()
+        panel._fijar_estado = mock.Mock()
+        panel._error_carga = mock.Mock()
+        return panel
+
+    def test_reproducir_calidad_pasa_audio_no_hls_al_relevo(self):
+        panel = self._panel()
+        with mock.patch.object(panel, "_arrancar_relevo") as arrancar, \
+                mock.patch.object(reproductor, "anunciar"):
+            panel._reproducir_calidad(1080, True)
+        arrancar.assert_called_once_with(
+            "https://video", "https://audio251", True, inicio_ms=0)
+
+
+class PruebasVodRelevoCaidaAEsclavo(unittest.TestCase):
+    """Si el relevo nunca llega a sonar, tras dos intentos se sigue con el
+    camino anterior (esclavo de audio, sin salto) en vez de reintentar."""
+
+    def _panel_bucle(self):
+        panel = reproductor.ReproductorPanel.__new__(reproductor.ReproductorPanel)
+        panel._video_id = "A" * 11
+        panel._cargando = False
+        panel._gen = 0
+        panel._relevo_gen = 0
+        panel._info = {"is_live": False, "duration": 3600}
+        panel._vod_por_relevo = True
+        panel._relevo_ffmpeg = mock.Mock()
+        panel._relevo_fuentes = ("https://video", "https://audio251")
+        panel._relevo_vod_base_ms = 0
+        panel._relevo_vod_ultima = 0
+        panel._relevo_vod_recuperaciones = 0
+        panel._intencion_reproducir = True
+        panel._estado_busqueda = EstadoBusqueda(confirmada=0)
+        panel._pos_ms = 0
+        panel._tiene_esclavo = False
+        panel._cancelar_transporte = mock.Mock()
+        panel._detener_relevo_ffmpeg = mock.Mock(
+            side_effect=self._detener_relevo(panel))
+        panel._detener = mock.Mock()
+        panel._arrancar_relevo = mock.Mock()
+        panel._continuar_reproducir_calidad = mock.Mock()
+        return panel
+
+    @staticmethod
+    def _detener_relevo(panel):
+        def _cerrar():
+            panel._relevo_ffmpeg = None
+            panel._relevo_vod_base_ms = None
+        return _cerrar
+
+    def _listo_exitoso(self, panel):
+        relevo = mock.Mock()
+        relevo.activo.return_value = True
+        panel._continuar_reproducir_calidad = mock.Mock()
+        with mock.patch.object(reproductor, "anunciar"):
+            panel._relevo_listo(relevo, "tcp://relevo:1", panel._relevo_gen,
+                                panel._gen, panel._video_id, "https://video",
+                                "https://audio251", True, 0, None, None, 0)
+
+    def test_tras_dos_recuperaciones_sin_sonar_cae_al_esclavo(self):
+        panel = self._panel_bucle()
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._fin_flujo_vod()
+            self.assertEqual(panel._relevo_vod_recuperaciones, 1)
+            self._listo_exitoso(panel)
+            self.assertEqual(panel._relevo_vod_recuperaciones, 1)
+            panel._relevo_ffmpeg = mock.Mock()
+            panel._fin_flujo_vod()
+            self.assertEqual(panel._relevo_vod_recuperaciones, 2)
+            self._listo_exitoso(panel)
+            self.assertEqual(panel._relevo_vod_recuperaciones, 2)
+            panel._relevo_ffmpeg = mock.Mock()
+            panel._continuar_reproducir_calidad = mock.Mock()
+            panel._fin_flujo_vod()
+        panel._continuar_reproducir_calidad.assert_called_once_with(
+            "https://video", "https://audio251", False, True)
+        self.assertFalse(panel._vod_por_relevo)
+        frases = [c.args[0] for c in anunciar.call_args_list]
+        self.assertNotIn("Se cortó el vídeo", frases)
+
+    def test_con_lectura_que_avanzo_agotar_el_tope_corta(self):
+        panel = self._panel_bucle()
+        panel._relevo_vod_base_ms = 0
+        panel._relevo_vod_ultima = 60_000
+        panel._relevo_vod_recuperaciones = 2
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._fin_flujo_vod()
+        panel._continuar_reproducir_calidad.assert_not_called()
+        frases = [c.args[0] for c in anunciar.call_args_list]
+        self.assertIn("Se cortó el vídeo", frases)
+
+
 if __name__ == "__main__":
     unittest.main()
