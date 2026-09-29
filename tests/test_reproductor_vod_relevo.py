@@ -477,7 +477,7 @@ class PruebasVodRelevoEvitaHls(unittest.TestCase):
                 mock.patch.object(reproductor, "anunciar"):
             panel._reproducir_calidad(1080, True)
         arrancar.assert_called_once_with(
-            "https://video", "https://audio251", True, inicio_ms=0)
+            "https://video", "https://audio140", True, inicio_ms=0)
 
 
 class PruebasVodRelevoCaidaAEsclavo(unittest.TestCase):

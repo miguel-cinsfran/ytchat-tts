@@ -223,15 +223,9 @@ def _preparar_audio_local(info: dict, video_id: str):
         destino = esclavo_audio.ruta_de_cache(carpeta, video_id)
         if esclavo_audio.esclavo_a_usar(destino, ""):
             return destino
-        ultimo = None
-
-        def avisar_progreso(porcentaje):
-            nonlocal ultimo
-            for escalon in esclavo_audio.escalones_de_progreso(ultimo, porcentaje):
-                wx.CallAfter(anunciar, f"Preparando el audio, {escalon} por ciento")
-            ultimo = porcentaje
-
-        if ytdlp_bin.descargar_audio(video_id, destino, aviso_progreso=avisar_progreso):
+        # Descarga silenciosa: el vídeo ya suena por el relevo y el audio
+        # local es solo respaldo, así que no se anuncia el progreso.
+        if ytdlp_bin.descargar_audio(video_id, destino):
             return destino
     except Exception as exc:
         logger.debug("caché de audio: %s", exc)
@@ -244,6 +238,19 @@ def _alturas_disponibles(info: dict) -> list[int]:
         if f.get("vcodec") not in (None, "none") and f.get("height"):
             alturas.add(int(f["height"]))
     return sorted(alturas, reverse=True)
+
+
+def _altura_auto_vod(alturas, tope: int = 1080):
+    """Altura efectiva del VOD en calidad automática: la mayor disponible
+    que no supere el tope y, si todas lo superan, la menor disponible.
+    None si no hay ninguna altura."""
+    lista = list(alturas or [])
+    if not lista:
+        return None
+    menores = [a for a in lista if a <= tope]
+    if menores:
+        return max(menores)
+    return min(lista)
 
 
 def _mejor_audio(info: dict, evitar_hls: bool = False) -> str:
@@ -267,8 +274,20 @@ def _mejor_audio(info: dict, evitar_hls: bool = False) -> str:
                    if not (f.get("protocol") or "").startswith("m3u8")]
         if sin_hls:
             auds = sin_hls
-    mejor = max(auds, key=lambda x: ((x.get("language_preference") or 0),
-                                     (x.get("abr") or 0)))
+    # Con evitar_hls (relevo de VOD) el m4a/AAC abre más rápido en ffmpeg
+    # que el webm/Opus (medido: 1,6-2,1 s contra 4,8-6,6 s), así que a
+    # igualdad de idioma gana el m4a. El idioma siempre va primero: un
+    # webm original le gana a un m4a doblado.
+    if evitar_hls:
+        def _clave(x):
+            es_m4a = 1 if (x.get("ext") == "m4a"
+                           or (x.get("acodec") or "").startswith("mp4a")) else 0
+            return ((x.get("language_preference") or 0), es_m4a,
+                    (x.get("abr") or 0))
+    else:
+        def _clave(x):
+            return ((x.get("language_preference") or 0), (x.get("abr") or 0))
+    mejor = max(auds, key=_clave)
     return mejor["url"]
 
 
@@ -584,6 +603,10 @@ class ReproductorPanel(wx.Panel):
         # Recargas automáticas seguidas tras interrumpirse un directo por
         # relevo (ver _directo_interrumpido). Se reinicia al cambiar de vídeo.
         self._recargas_directo = 0
+        # Recargas de apertura de un VOD que nunca sonó (ver
+        # _recargar_apertura_vod). Se reinicia al cambiar de vídeo, no en
+        # cargar, porque la recarga misma pasa por cargar.
+        self._recargas_apertura = 0
 
         self.SetBackgroundColour(_T.bg)
         self.SetForegroundColour(_T.text)
@@ -1152,6 +1175,7 @@ class ReproductorPanel(wx.Panel):
         self._calidad_sel = None
         self._alturas = []
         self._recargas_directo = 0
+        self._recargas_apertura = 0
         if self._video_id and autoplay:
             self.cargar(reproducir=True)
         else:
@@ -1273,11 +1297,31 @@ class ReproductorPanel(wx.Panel):
                 logger.warning("info vídeo: %s", exc)
                 wx.CallAfter(self._error_carga, gen)
                 return
-            audio_local = _preparar_audio_local(info, vid)
+            # El audio local es respaldo y no bloquea el arranque: la
+            # reproducción empieza en cuanto hay info y la descarga corre
+            # después en su propio hilo.
             wx.CallAfter(self._info_listo, info, reproducir, vid, gen,
-                         marca_inicio, marca_extraccion, audio_local)
+                         marca_inicio, marca_extraccion, None)
+            if info.get("is_live"):
+                return
+
+            def _fondo_audio(info_fondo=info, vid_fondo=vid, gen_fondo=gen):
+                try:
+                    audio_local = _preparar_audio_local(info_fondo, vid_fondo)
+                except Exception as exc:
+                    logger.debug("caché de audio: %s", exc)
+                    return
+                wx.CallAfter(self._asignar_audio_local, audio_local,
+                             vid_fondo, gen_fondo)
+
+            diagnostico.crear_hilo(_fondo_audio, "ReproductorAudio").start()
 
         diagnostico.crear_hilo(_run, "ReproductorInfo").start()
+
+    def _asignar_audio_local(self, audio_local, vid, gen):
+        if gen != self._gen or vid != self._video_id:
+            return
+        self._audio_local = audio_local
 
     def _info_listo(self, info, reproducir, vid, gen, marca_inicio=None,
                     marca_extraccion=None, audio_local=None):
@@ -1392,8 +1436,8 @@ class ReproductorPanel(wx.Panel):
         self._vod_por_relevo = False
         self._detener_relevo_ffmpeg()
         es_directo = self._info.get("is_live")
-        if altura is None or es_directo:
-            # Auto / directo: el formato combinado que elija yt-dlp.
+        if es_directo:
+            # Directo: el formato combinado que elija yt-dlp, sin cambios.
             url, slave = fuentes_para_directo(self._info)
             if not url:
                 logger.warning(
@@ -1402,6 +1446,22 @@ class ReproductorPanel(wx.Panel):
                     "sí" if self._info.get("url") else "no",
                     len(self._info.get("formats", []) or []),
                     len(self._info.get("requested_formats", []) or []), es_directo)
+        elif altura is None:
+            # VOD en automático: altura efectiva y la misma rama que la
+            # calidad elegida a mano, con pistas que no son HLS.
+            altura_ef = _altura_auto_vod(_alturas_disponibles(self._info))
+            if altura_ef is None:
+                url, slave = fuentes_para_directo(self._info)
+                if not url:
+                    logger.warning(
+                        "reproducir directo sin fuentes: url_superior=%s formats=%d "
+                        "requested_formats=%d is_live=%s",
+                        "sí" if self._info.get("url") else "no",
+                        len(self._info.get("formats", []) or []),
+                        len(self._info.get("requested_formats", []) or []), es_directo)
+            else:
+                url, prog = _video_para_altura(self._info, altura_ef)
+                slave = None if prog else _mejor_audio(self._info, evitar_hls=True)
         else:
             url, prog = _video_para_altura(self._info, altura)
             slave = None if prog else _mejor_audio(self._info, evitar_hls=True)
@@ -2187,6 +2247,8 @@ class ReproductorPanel(wx.Panel):
             elif getattr(self, "_relevo_ffmpeg", None) is not None \
                     and getattr(self, "_relevo_vod_base_ms", None) is not None:
                 self._fin_flujo_vod()
+            elif self._es_fallo_apertura_vod():
+                self._recargar_apertura_vod()
             else:
                 self._detener(silencioso=True)
                 anunciar("Fin del vídeo")
@@ -2194,8 +2256,50 @@ class ReproductorPanel(wx.Panel):
             if getattr(self, "_vod_por_relevo", False) \
                     and getattr(self, "_cargando", False):
                 pass
+            elif self._es_fallo_apertura_vod() \
+                    and not self._relevo_con_reintento():
+                self._recargar_apertura_vod()
             else:
                 self._fallo_reproduccion()
+
+    def _relevo_con_reintento(self) -> bool:
+        relevo = getattr(self, "_relevo_ffmpeg", None)
+        reintentos = getattr(self, "_relevo_reintentos", 0)
+        try:
+            return bool(relevo is not None and relevo.activo()
+                        and reintentos < 3)
+        except Exception:
+            return False
+
+    def _es_fallo_apertura_vod(self) -> bool:
+        """VOD de YouTube que nunca sonó: ended/error no es fin del vídeo."""
+        if not getattr(self, "_video_id", ""):
+            return False
+        if getattr(self, "_url_flujo", ""):
+            return False
+        try:
+            if self._es_directo_actual():
+                return False
+        except Exception:
+            return False
+        inicio = getattr(self, "_estado_inicio", None)
+        return bool(inicio is not None and inicio.requiere)
+
+    def _recargar_apertura_vod(self) -> None:
+        """Primer fallo de apertura recarga con direcciones nuevas; el
+        segundo detiene y avisa, igual que el final de _fallo_reproduccion."""
+        recargas = int(getattr(self, "_recargas_apertura", 0) or 0)
+        if recargas >= 1:
+            self._detener(silencioso=True)
+            from ytchat.voice import sound_player as _snd
+            _snd.reproducir("error")
+            self._fijar_estado("No se pudo reproducir el vídeo.")
+            anunciar("No se pudo reproducir el vídeo")
+            return
+        self._recargas_apertura = recargas + 1
+        logger.warning("VOD_APERTURA_FALLIDA recarga=%d",
+                       self._recargas_apertura)
+        self.cargar(reproducir=self._intencion_reproducir)
 
     def _directo_interrumpido(self) -> None:
         """El relevo de ffmpeg terminó (fin del directo, URL de googlevideo

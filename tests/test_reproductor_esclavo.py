@@ -101,18 +101,39 @@ class PruebasEsclavoReproductor(unittest.TestCase):
 
     def test_descarga_ocurre_dentro_del_hilo(self):
         panel = self._panel()
-        hilo = mock.Mock()
+        objetivos = []
+
+        def crear(target, _nombre):
+            hilo = mock.Mock()
+            hilo.target = target
+            hilo.start.side_effect = lambda: objetivos.append(target)
+            return hilo
+
         with mock.patch.object(reproductor, "_info_video", return_value=self._info_con_esclavo()), \
-                mock.patch.object(reproductor.diagnostico, "crear_hilo", return_value=hilo) as crear, \
+                mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=crear) as crear_hilo, \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar, \
                  redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", return_value=False) as descargar:
             panel.cargar()
             descargar.assert_not_called()
-            objetivo = crear.call_args.args[0]
-            objetivo()
+            self.assertEqual(len(objetivos), 1)
+            objetivos[0]()
+            # Tras la info, el arranque queda agendado y el audio va en
+            # su propio hilo, aún sin correr.
+            descargar.assert_not_called()
+            self.assertEqual(crear_hilo.call_count, 2)
+            self.assertEqual(len(objetivos), 2)
+            info_listo = llamar.call_args_list[0]
+            self.assertEqual(getattr(info_listo.args[0], "__name__", ""),
+                             "_info_listo")
+            self.assertIs(info_listo.args[0].__self__, panel)
+            self.assertIsNone(info_listo.args[-1])
+            objetivos[1]()
         descargar.assert_called_once()
-        self.assertIsNone(llamar.call_args.args[-1])
+        asignacion = llamar.call_args_list[-1]
+        self.assertEqual(getattr(asignacion.args[0], "__name__", ""),
+                         "_asignar_audio_local")
+        self.assertIsNone(asignacion.args[1])
 
     def test_descarga_fallida_deja_audio_local_en_none_y_sigue(self):
         panel = self._panel()
@@ -137,35 +158,30 @@ class PruebasEsclavoReproductor(unittest.TestCase):
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
         self.assertEqual(3, podar.call_args.args[1])
 
-    def test_progreso_del_audio_anuncia_escalones_sin_repetir(self):
+    def test_descarga_de_respaldo_es_silenciosa(self):
         def descargar(_video, _destino, aviso_progreso=None):
-            for porcentaje in (10, 25, 50, 75, 80):
-                aviso_progreso(porcentaje)
+            self.assertIsNone(aviso_progreso)
             return False
 
         with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar:
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
-        self.assertEqual([
-            mock.call(reproductor.anunciar, "Preparando el audio, 25 por ciento"),
-            mock.call(reproductor.anunciar, "Preparando el audio, 50 por ciento"),
-            mock.call(reproductor.anunciar, "Preparando el audio, 75 por ciento"),
-        ], llamar.call_args_list)
+        self.assertEqual([], llamar.call_args_list)
 
-    def test_progreso_salta_a_ochenta_y_anuncia_una_sola_vez(self):
+    def test_descarga_silenciosa_no_pide_progreso_aunque_haya_porcentajes(self):
+        vistos = []
+
         def descargar(_video, _destino, aviso_progreso=None):
-            for porcentaje in (10, 80):
-                aviso_progreso(porcentaje)
+            vistos.append(aviso_progreso)
             return False
 
         with redirigir_rutas(self.carpeta), \
                 mock.patch.object(reproductor.ytdlp_bin, "descargar_audio", side_effect=descargar), \
                 mock.patch.object(reproductor.wx, "CallAfter") as llamar:
             reproductor._preparar_audio_local(self._info_con_esclavo(), "A" * 11)
-        self.assertEqual(
-            [mock.call(reproductor.anunciar, "Preparando el audio, 75 por ciento")],
-            llamar.call_args_list)
+        self.assertEqual([None], vistos)
+        self.assertEqual([], llamar.call_args_list)
 
 
 if __name__ == "__main__":
