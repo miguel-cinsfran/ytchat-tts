@@ -602,6 +602,27 @@ class Sonda:
                 objetivo.Close(True)
                 self.responder(id_orden, True)
 
+            elif op == "reproductor":
+                # Solo lectura: la posición que la aplicación le da al
+                # usuario, no lo que anuncia. No toca nada del panel.
+                if frame is None:
+                    raise RuntimeError("todavía no hay ventana principal")
+                panel = getattr(frame, "_rep_panel", None)
+                if panel is None:
+                    raise RuntimeError("no hay panel del reproductor")
+                estado_fn = getattr(panel, "_estado_vlc_actual", None)
+                directo_fn = getattr(panel, "_es_directo_actual", None)
+                self.responder(id_orden, True, {
+                    "pos_ms": getattr(panel, "_pos_ms", 0),
+                    "dur_ms": getattr(panel, "_dur_ms", 0),
+                    "estado": (estado_fn() if callable(estado_fn)
+                               else "desconocido"),
+                    "desfase": getattr(panel, "_relevo_desfase", 0),
+                    "cargando": bool(getattr(panel, "_cargando", False)),
+                    "directo": (bool(directo_fn()) if callable(directo_fn)
+                                else False),
+                })
+
             elif op == "salir":
                 self.responder(id_orden, True)
                 for v in list(wx.GetTopLevelWindows()):

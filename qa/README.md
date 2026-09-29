@@ -54,9 +54,9 @@ captura vivos tras 45 s (Chat, Chat)». Si sigue en verde, el instrumento se
 rompió. Ojo con eso: la primera versión leía mal el sobre de la sonda, contaba
 cero hilos siempre y habría pasado en verde para siempre.
 
-Los escenarios que terminan en `directo_` son los únicos que tocan la red. No
-entran en la corrida completa: gastan minutos y dependen de que haya alguien
-emitiendo en ese momento.
+Los escenarios que terminan en `directo_` tocan la red, y `reproductor_en_marcha`
+también: pide un vídeo grabado y un directo reales. No entran en la corrida
+completa: gastan minutos y dependen de que haya alguien emitiendo en ese momento.
 
 ## Cinco trampas que costaron una tarde
 

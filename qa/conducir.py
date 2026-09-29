@@ -296,6 +296,10 @@ class Aplicacion:
         """Los hilos vivos de la aplicación, por nombre."""
         return self.pedir("hilos").get("datos", {}).get("vivos", [])
 
+    def reproductor(self) -> dict:
+        """La posición que la aplicación le da al usuario, no lo que anuncia."""
+        return self.pedir("reproductor").get("datos", {})
+
     def llamar(self, metodo: str, *args, **kwargs) -> dict:
         """Llama a un método público del frame, como hace `main.py`."""
         return self.pedir("llamar", metodo=metodo, args=list(args),
@@ -1878,6 +1882,27 @@ def escenario_avisos_wx(app: Aplicacion, args, res: Resultado):
 # y a nadie le llama la atencion un mensaje suelto.
 DIRECTO_YOUTUBE = "https://www.youtube.com/watch?v=cb12KmMMDJA"
 DIRECTO_TIKTOK = "https://www.tiktok.com/@rolon_100/live"
+# Vídeo grabado para `reproductor_en_marcha`, que se pasa con `--url-vod`.
+VOD_YOUTUBE = "https://www.youtube.com/watch?v=j906Pf7n7Sg"
+
+
+def esperar_reproductor(app: Aplicacion, condicion, segundos: float):
+    """Sondea el estado del reproductor hasta que `condicion` se cumpla.
+
+    Devuelve el último estado y si se cumplió. Espera hechos, no relojes.
+    """
+    ultimo: dict = {}
+    limite = time.time() + segundos
+    while True:
+        try:
+            ultimo = app.reproductor() or {}
+        except Exception:
+            ultimo = {}
+        if ultimo and condicion(ultimo):
+            return ultimo, True
+        if time.time() >= limite:
+            return ultimo, False
+        time.sleep(0.25)
 
 
 def conectar_de_verdad(app: Aplicacion, res: Resultado, url: str,
@@ -2015,6 +2040,255 @@ def escenario_directo_tiktok(app: Aplicacion, args, res: Resultado):
         res.nota(f"tiktok en vivo: llegaron {len(lista['items'])} eventos")
     else:
         res.nota("tiktok en vivo: conectó pero no llegó nada en 60 s")
+    app.llamar("set_conectado", False)
+
+
+def _en_marcha_teclas(app: Aplicacion, res: Resultado, donde: str,
+                      *pasos) -> bool:
+    """Pasa las teclas, y si la ventana no está al frente no juzga nada."""
+    try:
+        app.teclas(*pasos)
+    except VentanaNoActiva as exc:
+        res.no_probado(f"{donde}: no se pudo probar, {exc}")
+        return False
+    return True
+
+
+def _en_marcha_salto(app: Aplicacion, res: Resultado, donde: str, p0: int,
+                     delta_ms: int, dur_ms: int, espera: float = 30.0):
+    """Juzga un salto ya pulsado: destino, tolerancia y que siga avanzando.
+
+    Devuelve la posición final, o None si no pasó.
+    """
+    destino = p0 + delta_ms
+    if dur_ms > 0:
+        destino = min(max(destino, 0), dur_ms)
+    else:
+        destino = max(destino, 0)
+    t0 = time.time()
+
+    def _cerca(e):
+        pos = e.get("pos_ms") or 0
+        return (e.get("estado") == "playing"
+                and destino - 5000 <= pos <= destino + 20000)
+
+    estado, ok = esperar_reproductor(app, _cerca, espera)
+    pos = (estado.get("pos_ms") or 0) if estado else 0
+    if not ok:
+        res.fallo(f"{donde}: desde {p0 / 1000:.1f} s no quedó cerca de "
+                  f"{destino / 1000:.1f} s en {espera:.0f} s; está en "
+                  f"{pos / 1000:.1f} s con estado {estado.get('estado')!r}")
+        return None
+    time.sleep(3.0)
+    pos2 = app.reproductor().get("pos_ms") or 0
+    if pos2 <= pos:
+        res.fallo(f"{donde}: quedó en {pos / 1000:.1f} s pero no avanza desde "
+                  f"ahí ({pos2 / 1000:.1f} s 3 s después)")
+        return None
+    res.nota(f"{donde}: de {p0 / 1000:.1f} s a {pos / 1000:.1f} s "
+             f"(destino {destino / 1000:.1f} s) en {time.time() - t0:.1f} s, "
+             f"y sigue a {pos2 / 1000:.1f} s")
+    return pos2
+
+
+def _en_marcha_grabado(app: Aplicacion, args, res: Resultado) -> None:
+    """Saltos y pausa en un vídeo grabado, con los atajos de verdad."""
+    url = getattr(args, "url_vod", None) or VOD_YOUTUBE
+    res.nota(f"reproductor en marcha (grabado): {url}")
+    n = len(app.anuncios)
+    if not conectar_de_verdad(app, res, url, "reproductor en marcha"):
+        return
+    if not app.esperar_dicho("reproduciendo", segundos=60, desde=n):
+        res.fallo("reproductor en marcha: no se oyó «Reproduciendo» en 60 s")
+        return
+    estado, ok = esperar_reproductor(
+        app, lambda e: e.get("estado") == "playing", 60.0)
+    if not ok:
+        res.fallo("reproductor en marcha: no llegó a «playing» en 60 s; "
+                  f"estado {estado.get('estado')!r}")
+        return
+    pa = estado.get("pos_ms") or 0
+    time.sleep(2.0)
+    pb = app.reproductor().get("pos_ms") or 0
+    if pb <= pa:
+        res.fallo("reproductor en marcha: en «playing» la posición no avanza "
+                  f"({pa / 1000:.1f} s y {pb / 1000:.1f} s)")
+        return
+    res.nota(f"reproductor en marcha: reproduce desde {pa / 1000:.1f} s "
+             f"y avanza a {pb / 1000:.1f} s en 2 s")
+
+    # Dos avances seguidos, sin espera entre ellos, como hace cualquiera
+    # cuando el primero no contestó.
+    p0 = app.reproductor().get("pos_ms") or 0
+    dur = app.reproductor().get("dur_ms") or 0
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("right", ["ctrl"])):
+        return
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("right", ["ctrl"])):
+        return
+    _en_marcha_salto(app, res, "reproductor en marcha, salto +2 min",
+                     p0, 120000, dur)
+
+    p1 = app.reproductor().get("pos_ms") or 0
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("left", ["ctrl"])):
+        return
+    _en_marcha_salto(app, res, "reproductor en marcha, salto -1 min",
+                     p1, -60000, dur)
+
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("p", ["ctrl"])):
+        return
+    estado, ok = esperar_reproductor(
+        app, lambda e: e.get("estado") == "paused", 5.0)
+    if not ok:
+        res.fallo("reproductor en marcha: no entró en pausa en 5 s; "
+                  f"estado {estado.get('estado')!r}")
+        return
+    pa = estado.get("pos_ms") or 0
+    time.sleep(2.0)
+    pb = app.reproductor().get("pos_ms") or 0
+    if abs(pb - pa) > 1000:
+        res.fallo(f"reproductor en marcha: en pausa se movió de "
+                  f"{pa / 1000:.1f} s a {pb / 1000:.1f} s en 2 s")
+        return
+    res.nota(f"reproductor en marcha: en pausa queda en {pa / 1000:.1f} s "
+             f"y no se mueve")
+
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("right", ["ctrl"])):
+        return
+    if not _en_marcha_teclas(app, res, "reproductor en marcha",
+                             ("p", ["ctrl"])):
+        return
+    destino = pa + 60000
+
+    def _reanudado(e):
+        pos = e.get("pos_ms") or 0
+        return (e.get("estado") == "playing"
+                and destino - 5000 <= pos <= destino + 20000)
+
+    estado, ok = esperar_reproductor(app, _reanudado, 30.0)
+    pos = (estado.get("pos_ms") or 0) if estado else 0
+    if not ok:
+        res.fallo(f"reproductor en marcha: tras saltar en pausa desde "
+                  f"{pa / 1000:.1f} s no reanudó cerca de "
+                  f"{destino / 1000:.1f} s en 30 s; está en "
+                  f"{pos / 1000:.1f} s con estado {estado.get('estado')!r}")
+    else:
+        res.nota(f"reproductor en marcha: salto en pausa y reanudado en "
+                 f"{pos / 1000:.1f} s (destino {destino / 1000:.1f} s)")
+
+
+def _en_marcha_directo(app: Aplicacion, args, res: Resultado) -> None:
+    """Retroceso por relevo y vuelta al borde en un directo real."""
+    url = getattr(args, "url_youtube", None) or DIRECTO_YOUTUBE
+    res.nota(f"reproductor en marcha (directo): {url}")
+    n = len(app.anuncios)
+    if not conectar_de_verdad(app, res, url, "reproductor en marcha "
+                                             "(directo)"):
+        return
+    if not app.esperar_dicho("reproduciendo", segundos=60, desde=n):
+        res.fallo("reproductor en marcha (directo): no se oyó "
+                  "«Reproduciendo» en 60 s")
+        return
+    estado, ok = esperar_reproductor(
+        app, lambda e: e.get("estado") == "playing", 60.0)
+    if not ok:
+        res.fallo("reproductor en marcha (directo): no llegó a «playing» "
+                  f"en 60 s; estado {estado.get('estado')!r}")
+        return
+    res.nota("reproductor en marcha (directo): reproduce el directo")
+
+    # Tres flechas seguidas en el deslizador: cada una son 10 s, o sea dos
+    # segmentos de 5 s, así que el desfase esperado es 6.
+    ventana_corta = False
+    try:
+        app.pedir("foco", nombre="Posición de reproducción")
+    except OrdenRechazada as exc:
+        res.fallo("reproductor en marcha (directo): no se llega a la "
+                  f"posición, {exc}")
+    else:
+        n = len(app.anuncios)
+        for _ in range(3):
+            if not _en_marcha_teclas(app, res,
+                                     "reproductor en marcha (directo)",
+                                     "left"):
+                return
+        if app.esperar_dicho("no se puede retroceder más", segundos=5,
+                             desde=n):
+            res.nota("reproductor en marcha (directo): YouTube da una "
+                     "ventana corta de 30 s y no deja retroceder; se sigue "
+                     "con la vuelta al directo")
+            ventana_corta = True
+        else:
+            t0 = time.time()
+
+            def _atras(e):
+                return (e.get("desfase") == 6
+                        and e.get("estado") == "playing")
+
+            estado, ok = esperar_reproductor(app, _atras, 20.0)
+            if not ok:
+                res.fallo("reproductor en marcha (directo): tras tres "
+                          "flechas el desfase no llegó a 6 en 20 s; "
+                          f"desfase {(estado.get('desfase') if estado else '?')}, "
+                          f"estado {(estado.get('estado') if estado else '?')!r}")
+            else:
+                res.nota("reproductor en marcha (directo): tres flechas "
+                         f"dejan el desfase en 6 en {time.time() - t0:.1f} s")
+
+    if not ventana_corta:
+        n = len(app.anuncios)
+        if not _en_marcha_teclas(app, res, "reproductor en marcha (directo)",
+                                 ("end", ["ctrl"])):
+            return
+        app.esperar_dicho("en el directo", segundos=8, desde=n)
+        t0 = time.time()
+
+        def _al_borde(e):
+            return e.get("desfase") == 0 and e.get("estado") == "playing"
+
+        estado, ok = esperar_reproductor(app, _al_borde, 20.0)
+        junto = " ".join(a.get("texto", "") for a in app.anuncios[n:]).lower()
+        dijo_borde = ("en el directo" in junto
+                      and "ya estás en el directo" not in junto)
+        if not dijo_borde or not ok:
+            res.fallo("reproductor en marcha (directo): Ctrl+Fin no volvió "
+                      f"al borde en 20 s; dijo «{junto[:80]}», desfase "
+                      f"{(estado.get('desfase') if estado else '?')}, estado "
+                      f"{(estado.get('estado') if estado else '?')!r}")
+        else:
+            res.nota("reproductor en marcha (directo): Ctrl+Fin dice «En el "
+                     f"directo» y el desfase vuelve a 0 en "
+                     f"{time.time() - t0:.1f} s")
+
+    n = len(app.anuncios)
+    if not _en_marcha_teclas(app, res, "reproductor en marcha (directo)",
+                             ("end", ["ctrl"])):
+        return
+    if app.esperar_dicho("ya estás en el directo", segundos=8, desde=n):
+        res.nota("reproductor en marcha (directo): Ctrl+Fin en el borde "
+                 "dice «Ya estás en el directo»")
+    else:
+        junto = " ".join(a.get("texto", "") for a in app.anuncios[n:])
+        res.fallo("reproductor en marcha (directo): Ctrl+Fin en el borde no "
+                  f"avisó; dijo «{junto[:80]}»")
+
+
+def escenario_reproductor_en_marcha(app: Aplicacion, args, res: Resultado):
+    """El reproductor en marcha: saltos, pausa y vuelta al directo, de verdad.
+
+    El banco nunca lo probaba: ningún escenario comprobaba que después de un
+    salto el vídeo siga desde el destino, ni la pausa, ni volver al directo.
+    Acá se pulsan los atajos de verdad contra un vídeo grabado y un directo
+    reales, y se juzga la posición que la aplicación le da al usuario, no
+    solo lo que anuncia. La segunda parte corre aunque la primera falle.
+    """
+    _en_marcha_grabado(app, args, res)
+    app.llamar("set_conectado", False)
+    _en_marcha_directo(app, args, res)
     app.llamar("set_conectado", False)
 
 
@@ -2790,6 +3064,7 @@ def superficies_sin_escenario() -> list[str]:
 FUERA_DE_TODOS = frozenset({
     "directo_youtube",   # pide un directo de YouTube vivo
     "directo_tiktok",    # pide un directo de TikTok vivo
+    "reproductor_en_marcha",  # pide un vídeo y un directo reales
     "dos_conexiones",    # conecta dos veces a un directo vivo
     "enviar_live",       # escribe de verdad en un chat: pide directo y sesion
 })
@@ -2818,6 +3093,7 @@ ESCENARIOS = {
     "directo_youtube": escenario_directo_youtube,
     "dos_conexiones": escenario_dos_conexiones,
     "directo_tiktok": escenario_directo_tiktok,
+    "reproductor_en_marcha": escenario_reproductor_en_marcha,
     "overlay": escenario_overlay,
     "programados": escenario_programados,
     "enviar_live": escenario_enviar_live,
@@ -2864,6 +3140,8 @@ def main() -> int:
                    default=None, help="directo de YouTube a usar")
     p.add_argument("--url-tiktok", dest="url_tiktok",
                    default=None, help="directo de TikTok a usar")
+    p.add_argument("--url-vod", dest="url_vod",
+                   default=None, help="vídeo grabado de YouTube a usar")
     p.add_argument("--con-navegador", action="store_true",
                    dest="con_navegador",
                    help="permite abrir el navegador de verdad")
