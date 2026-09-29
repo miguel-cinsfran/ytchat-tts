@@ -2,10 +2,15 @@
 
 import unittest
 from unittest import mock
+import threading
+import time
 import types
 import sys
 
 from ytchat.player import reproductor
+
+
+_MONOTONIC_REAL = time.monotonic
 
 
 class RelojMonotonic:
@@ -13,8 +18,12 @@ class RelojMonotonic:
         self._llamadas = 0
         self._primero = primero
         self._despues = despues
+        self._hilo = threading.get_ident()
+        self._real = _MONOTONIC_REAL
 
     def __call__(self):
+        if threading.get_ident() != self._hilo:
+            return self._real()
         self._llamadas += 1
         return self._primero if self._llamadas == 1 else self._despues
 
@@ -459,6 +468,21 @@ class TestAvisoDeCorte(unittest.TestCase):
 
     def test_no_avisa_cada_evento_durante_un_corte(self):
         self.assertEqual(reproductor.aviso_de_corte(80, 99), "")
+
+
+class TestRelojMonotonic(unittest.TestCase):
+
+    def test_otro_hilo_recibe_tiempo_real_y_no_consume_valores(self):
+        reloj = RelojMonotonic(1.0, 1.25)
+        ajenos = []
+        hilo = threading.Thread(target=lambda: ajenos.append(reloj()))
+        hilo.start()
+        hilo.join()
+        self.assertEqual(len(ajenos), 1)
+        self.assertNotIn(ajenos[0], (1.0, 1.25))
+        self.assertEqual(reloj._llamadas, 0)
+        self.assertEqual(reloj(), 1.0)
+        self.assertEqual(reloj(), 1.25)
 
 
 class TestPrecalentamiento(unittest.TestCase):
