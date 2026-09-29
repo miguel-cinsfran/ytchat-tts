@@ -1,7 +1,9 @@
 """Pruebas de caché de vídeo con identidad por tarea y cancelación."""
 
+import os
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -459,6 +461,46 @@ class TestReproductorCache(unittest.TestCase):
                 t.join(timeout=2)
             for t in hilos:
                 self.assertFalse(t.is_alive())
+
+    def _panel_real(self, cache_mb):
+        panel = self._panel()
+        panel._config = {"cache_video_mb": cache_mb}
+        panel._podar_cache_video = reproductor.ReproductorPanel._podar_cache_video.__get__(panel)
+        return panel
+
+    def test_poda_borra_huerfano_viejo_y_conserva_reciente_y_bueno(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            viejo = carpeta / ".ytcache-viejo.mp4.part"
+            reciente = carpeta / ".ytcache-nuevo.mp4.part"
+            bueno = carpeta / "video.mp4"
+            viejo.write_bytes(b"x" * 1024)
+            reciente.write_bytes(b"y" * 1024)
+            bueno.write_bytes(b"z" * 1024)
+            ahora = time.time()
+            os.utime(viejo, (ahora - 10800, ahora - 10800))
+            os.utime(reciente, (ahora - 600, ahora - 600))
+            os.utime(bueno, (ahora - 10800, ahora - 10800))
+            panel = self._panel_real(1024)
+            panel._podar_cache_video(carpeta)
+            self.assertFalse(viejo.exists())
+            self.assertTrue(reciente.is_file())
+            self.assertTrue(bueno.is_file())
+
+    def test_poda_calcula_tope_sin_huerfanos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            carpeta = Path(tmp)
+            huerfano = carpeta / ".ytcache-grande.mp4.part"
+            bueno = carpeta / "video.mp4"
+            huerfano.write_bytes(b"x" * (2 * 1024 * 1024))
+            bueno.write_bytes(b"y" * (512 * 1024))
+            ahora = time.time()
+            os.utime(huerfano, (ahora - 10800, ahora - 10800))
+            os.utime(bueno, (ahora - 18000, ahora - 18000))
+            panel = self._panel_real(1)
+            panel._podar_cache_video(carpeta)
+            self.assertFalse(huerfano.exists())
+            self.assertTrue(bueno.is_file())
 
 
 if __name__ == "__main__":

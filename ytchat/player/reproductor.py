@@ -1376,7 +1376,15 @@ class ReproductorPanel(wx.Panel):
         entradas = tuple(
             (ruta, ruta.stat().st_size, ruta.stat().st_mtime)
             for ruta in carpeta.iterdir() if ruta.is_file())
-        for ruta in esclavo_audio.sobrantes_por_tamanio(entradas, tope):
+        huerfanos = esclavo_audio.temporales_huerfanos(entradas, time.time())
+        for ruta in huerfanos:
+            try:
+                ruta.unlink()
+            except OSError:
+                pass
+        quitados = set(huerfanos)
+        restantes = tuple(entrada for entrada in entradas if entrada[0] not in quitados)
+        for ruta in esclavo_audio.sobrantes_por_tamanio(restantes, tope):
             try:
                 ruta.unlink()
             except OSError:

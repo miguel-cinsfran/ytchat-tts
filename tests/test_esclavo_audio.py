@@ -95,6 +95,43 @@ class PruebasEsclavoAudio(unittest.TestCase):
     def test_sobrantes_por_tamanio_vacio(self):
         self.assertEqual((), esclavo_audio.sobrantes_por_tamanio((), 2))
 
+    def test_huerfanos_viejo_con_prefijo_sale(self):
+        ahora = 1000000.0
+        entradas = (("carpeta/.ytcache-viejo.mp4.part", 10, ahora - 10800),)
+        self.assertEqual(("carpeta/.ytcache-viejo.mp4.part",),
+                         esclavo_audio.temporales_huerfanos(entradas, ahora))
+
+    def test_huerfanos_reciente_con_prefijo_no_sale(self):
+        ahora = 1000000.0
+        entradas = (("carpeta/.ytcache-nuevo.mp4.part", 10, ahora - 600),)
+        self.assertEqual((), esclavo_audio.temporales_huerfanos(entradas, ahora))
+
+    def test_huerfanos_viejo_sin_prefijo_no_sale(self):
+        ahora = 1000000.0
+        entradas = (("carpeta/abc.mp4", 10, ahora - 10800),)
+        self.assertEqual((), esclavo_audio.temporales_huerfanos(entradas, ahora))
+
+    def test_huerfanos_justo_en_el_limite_no_sale(self):
+        ahora = 1000000.0
+        entradas = ((".ytcache-limite.mp4.part", 10, ahora - 7200),)
+        self.assertEqual((), esclavo_audio.temporales_huerfanos(entradas, ahora))
+
+    def test_huerfanos_vacio_da_vacio(self):
+        self.assertEqual((), esclavo_audio.temporales_huerfanos((), 1000000.0))
+
+    def test_huerfanos_acepta_path_con_carpeta_y_respeta_orden(self):
+        ahora = 1000000.0
+        viejo_uno = Path("carpeta") / ".ytcache-uno.part"
+        reciente = Path("carpeta") / ".ytcache-dos.part"
+        bueno = Path("carpeta") / "video.mp4"
+        viejo_dos = Path("carpeta") / ".ytcache-tres.part"
+        entradas = ((bueno, 5, ahora - 20000),
+                    (viejo_uno, 5, ahora - 10000),
+                    (reciente, 5, ahora - 100),
+                    (viejo_dos, 5, ahora - 20000))
+        self.assertEqual((viejo_uno, viejo_dos),
+                         esclavo_audio.temporales_huerfanos(entradas, ahora))
+
 
 if __name__ == "__main__":
     unittest.main()
