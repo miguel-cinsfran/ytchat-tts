@@ -161,6 +161,11 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        try:
+            from ytchat.core.subprocesos import vincular_a_la_app
+            vincular_a_la_app(proceso)
+        except Exception:
+            pass
         inicio = time.monotonic()
         import queue
         import threading
@@ -187,7 +192,8 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
             transcurrido = time.monotonic() - inicio
             if transcurrido > tope_segundos:
                 try:
-                    proceso.kill()
+                    from ytchat.core.subprocesos import terminar_arbol
+                    terminar_arbol(proceso)
                 except Exception:
                     pass
                 try:
@@ -221,7 +227,8 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
                 break
             if time.monotonic() - inicio > tope_segundos:
                 try:
-                    proceso.kill()
+                    from ytchat.core.subprocesos import terminar_arbol
+                    terminar_arbol(proceso)
                 except Exception:
                     pass
                 try:
@@ -247,7 +254,9 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
 
 def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: str) -> list[str]:
     argumentos = [
-        str(ruta), "-f", "bv*+ba/b", "-o", str(temporal), "--no-playlist",
+        str(ruta), "-f",
+        "bv*[height<=720][protocol=https]+ba[protocol=https][ext=m4a]/b[height<=720]/bv*+ba/b",
+        "-o", str(temporal), "--no-playlist",
         "--no-warnings", "--limit-rate", LIMITE_CACHE,
         "--merge-output-format", "mp4",
     ]

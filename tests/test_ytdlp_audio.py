@@ -117,13 +117,14 @@ class PruebasDescargarAudio(unittest.TestCase):
             return 0
         proceso.wait.side_effect = _espera
         with mock.patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
-                mock.patch.object(ytdlp_bin.subprocess, "Popen", return_value=proceso):
+                mock.patch.object(ytdlp_bin.subprocess, "Popen", return_value=proceso), \
+                mock.patch("ytchat.core.subprocesos.terminar_arbol") as cortar:
             inicio = time.monotonic()
             resultado = ytdlp_bin.descargar_audio("A" * 11, self.destino, tope_segundos=1)
             duracion = time.monotonic() - inicio
         self.assertFalse(resultado)
         self.assertLess(duracion, 3)
-        proceso.kill.assert_called()
+        cortar.assert_called_once_with(proceso)
 
 
 if __name__ == "__main__":

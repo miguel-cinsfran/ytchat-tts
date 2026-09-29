@@ -306,6 +306,11 @@ def descargar(url: str, opciones: dict,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
             creationflags=_sin_ventana(),
         )
+        try:
+            from ytchat.core.subprocesos import vincular_a_la_app
+            vincular_a_la_app(proceso)
+        except Exception:
+            pass
         if cancel_event.is_set():
             cancelar(proceso)
             return

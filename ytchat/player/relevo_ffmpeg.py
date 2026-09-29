@@ -254,6 +254,11 @@ class RelevoFfmpeg:
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
+            try:
+                from ytchat.core.subprocesos import vincular_a_la_app
+                vincular_a_la_app(self._proceso)
+            except Exception:
+                pass
         except Exception as exc:
             logger.warning("No se pudo iniciar el relevo de ffmpeg: %s", exc)
             return None

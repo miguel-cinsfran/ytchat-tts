@@ -481,7 +481,10 @@ class PruebasDescargarVideoCache(unittest.TestCase):
             temporal = Path(carpeta) / ".ytcache-abc123.mp4"
             args = ytdlp_bin._argumentos_video_cache("yt-dlp.exe", temporal, "A" * 11)
             self.assertIn("-f", args)
-            self.assertIn("bv*+ba/b", args)
+            self.assertIn(
+                "bv*[height<=720][protocol=https]+ba[protocol=https][ext=m4a]/b[height<=720]/bv*+ba/b",
+                args,
+            )
             self.assertIn("--no-playlist", args)
             self.assertIn("--no-warnings", args)
             self.assertIn("--limit-rate", args)
