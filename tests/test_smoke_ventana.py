@@ -1,9 +1,12 @@
 """Pruebas de identificación segura de la ventana del smoke."""
 
+import os
 import unittest
 from types import SimpleNamespace
 
-from scripts.smoke_test import (_recorrer, interactivos_sin_nombre,
+from scripts.smoke_test import (_recorrer, arbol_sigue_vivo,
+                                es_descendiente, interactivos_sin_nombre,
+                                mapa_padres_procesos, mensaje_fallo_ventana,
                                 ventana_es_de_la_aplicacion)
 
 
@@ -104,3 +107,69 @@ class RecorrerTest(unittest.TestCase):
         raiz = ElementoFalso("Window", "   ")
 
         self.assertEqual(_recorrer(raiz), [("Window", "")])
+
+
+class EsDescendienteTest(unittest.TestCase):
+
+    def test_la_raizmisma_es_del_arbol(self):
+        self.assertTrue(es_descendiente(100, 100, {}))
+
+    def test_hijo_directo(self):
+        self.assertTrue(es_descendiente(101, 100, {101: 100}))
+
+    def test_nieto(self):
+        self.assertTrue(es_descendiente(102, 100, {101: 100, 102: 101}))
+
+    def test_proceso_ajeno(self):
+        self.assertFalse(es_descendiente(201, 100, {201: 200, 101: 100}))
+
+    def test_pid_sin_entrada_en_el_mapa(self):
+        self.assertFalse(es_descendiente(999, 100, {101: 100}))
+
+    def test_ciclo_en_el_mapa_no_se_cuelga(self):
+        self.assertFalse(es_descendiente(1, 99, {1: 2, 2: 1}))
+
+
+class MensajeFalloVentanaTest(unittest.TestCase):
+
+    def test_proceso_terminado(self):
+        mensaje = mensaje_fallo_ventana(False, [])
+
+        self.assertEqual(mensaje, "la aplicación terminó sin abrir la ventana")
+
+    def test_proceso_vivo_sigue_arrancando(self):
+        mensaje = mensaje_fallo_ventana(True, [])
+
+        self.assertEqual(mensaje, "la ventana no apareció en 40 s y la "
+                                 "aplicación sigue arrancando")
+
+    def test_proceso_vivo_con_ventanas_ajenas(self):
+        mensaje = mensaje_fallo_ventana(True, ["explorer.exe", "proceso 1234"])
+
+        self.assertIn("sigue arrancando", mensaje)
+        self.assertIn("explorer.exe", mensaje)
+        self.assertIn("proceso 1234", mensaje)
+
+
+class ArbolSigueVivoTest(unittest.TestCase):
+
+    def test_raiz_en_la_foto(self):
+        self.assertTrue(arbol_sigue_vivo(100, {100: 1, 101: 100}))
+
+    def test_solo_un_descendiente_vivo(self):
+        self.assertTrue(arbol_sigue_vivo(100, {101: 100, 102: 101}))
+
+    def test_arbol_muerto(self):
+        self.assertFalse(arbol_sigue_vivo(100, {200: 1, 201: 200}))
+
+    def test_sin_foto_supone_vivo(self):
+        self.assertTrue(arbol_sigue_vivo(100, {}))
+
+
+class MapaPadresProcesosTest(unittest.TestCase):
+
+    def test_el_mapa_real_trae_al_propio_interprete(self):
+        mapa = mapa_padres_procesos()
+
+        self.assertIn(os.getpid(), mapa)
+        self.assertEqual(mapa[os.getpid()], os.getppid())

@@ -78,11 +78,135 @@ _MODULOS_PUROS, _MODULOS_GUI = _modulos_de_la_raiz()
 _PREFIJO_TITULO = "YTChat TTS"
 _PROCESOS_APLICACION = {"python.exe", "pythonw.exe", "ytchattts.exe"}
 
+# Plazo de espera de la ventana en la fase 3: la aplicación puede tardar en
+# arrancar (imports de wx, libVLC), y un plazo corto daba falsos negativos.
+_PLAZO_VENTANA = 40
+
+# Tope al subir por el mapa de padres: un ciclo no puede colgar la fase 3.
+_TOPE_PROFUNDIDAD = 256
+
 
 def ventana_es_de_la_aplicacion(titulo: str, nombre_proceso: str) -> bool:
     """Indica si título y proceso identifican la ventana de la aplicación."""
     return (titulo.startswith(_PREFIJO_TITULO)
             and nombre_proceso.lower() in _PROCESOS_APLICACION)
+
+
+def es_descendiente(pid: int, raiz: int, padres: dict[int, int]) -> bool:
+    """Indica si pid es raiz o desciende de ella según el mapa de padres.
+
+    El mapa es pid -> ppid, una foto de los procesos en un instante. Sube
+    por los padres con tope de profundidad, así un ciclo en el mapa devuelve
+    False en vez de colgarse.
+    """
+    if pid == raiz:
+        return True
+    vistos = set()
+    actual = pid
+    for _ in range(_TOPE_PROFUNDIDAD):
+        if actual in vistos:
+            return False
+        vistos.add(actual)
+        padre = padres.get(actual)
+        if padre is None:
+            return False
+        if padre == raiz:
+            return True
+        actual = padre
+    return False
+
+
+def mensaje_fallo_ventana(proceso_vivo: bool, ventanas_ajenas: list,
+                          plazo: int = _PLAZO_VENTANA) -> str:
+    """Elige el mensaje de fallo de la fase 3 cuando no hubo ventana propia.
+
+    Distingue si la aplicación lanzada ya terminó de si sigue arrancando, y
+    anota las ventanas ajenas con el mismo título que se ignoraron por no
+    ser del árbol lanzado.
+    """
+    if proceso_vivo:
+        base = (f"la ventana no apareció en {plazo} s y la aplicación "
+                "sigue arrancando")
+    else:
+        base = "la aplicación terminó sin abrir la ventana"
+    if ventanas_ajenas:
+        detalle = ", ".join(str(v) for v in ventanas_ajenas)
+        if len(ventanas_ajenas) == 1:
+            base += f"; se ignoró 1 ventana ajena con ese título ({detalle})"
+        else:
+            base += (f"; se ignoraron {len(ventanas_ajenas)} ventanas ajenas "
+                     f"con ese título ({detalle})")
+    return base
+
+
+def mapa_padres_procesos() -> dict[int, int]:
+    """Foto de los procesos como mapa pid -> ppid, en Windows.
+
+    Se usa para saber si una ventana es del árbol que lanzó la fase 3 y si
+    ese árbol sigue vivo. Si la foto falla, devuelve un mapa vacío y quien
+    llama supone que el árbol sigue vivo, para no dar por muerta una
+    aplicación que sigue arrancando.
+    """
+    if sys.platform != "win32":
+        return {}
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class _EntradaProceso(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_void_p),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        foto = kernel32.CreateToolhelp32Snapshot(0x2, 0)
+        if foto == wintypes.HANDLE(-1).value:
+            return {}
+        try:
+            entrada = _EntradaProceso()
+            entrada.dwSize = ctypes.sizeof(_EntradaProceso)
+            kernel32.Process32FirstW.argtypes = [wintypes.HANDLE,
+                                                 ctypes.POINTER(_EntradaProceso)]
+            kernel32.Process32FirstW.restype = wintypes.BOOL
+            kernel32.Process32NextW.argtypes = [wintypes.HANDLE,
+                                                ctypes.POINTER(_EntradaProceso)]
+            kernel32.Process32NextW.restype = wintypes.BOOL
+            mapa: dict[int, int] = {}
+            if not kernel32.Process32FirstW(foto, ctypes.byref(entrada)):
+                return {}
+            while True:
+                mapa[int(entrada.th32ProcessID)] = int(
+                    entrada.th32ParentProcessID)
+                if not kernel32.Process32NextW(foto, ctypes.byref(entrada)):
+                    break
+            return mapa
+        finally:
+            kernel32.CloseHandle(foto)
+    except Exception:
+        return {}
+
+
+def arbol_sigue_vivo(raiz: int | None, padres: dict[int, int]) -> bool:
+    """Indica si raiz o algún descendiente suyo sigue en la foto de procesos.
+
+    Sin foto (mapa vacío) o sin raiz conocida supone que sigue vivo: cortar
+    la espera en ese caso daría por muerta una aplicación que sigue
+    arrancando.
+    """
+    if raiz is None or not padres:
+        return True
+    if raiz in padres:
+        return True
+    return any(es_descendiente(pid, raiz, padres) for pid in padres)
 
 
 def interactivos_sin_nombre(controles) -> list[str]:
@@ -179,7 +303,6 @@ def fase3_accesibilidad() -> bool:
 
     main_py = os.path.join(RAIZ, "main.py")
     cmd = f'"{sys.executable}" "{main_py}"'
-    print(f"  Lanzando: {cmd}")
     # wait_for_idle=False: el ejecutable lanzado es python.exe (proceso de
     # consola que luego abre la ventana wx). pywinauto, por defecto, llama a
     # WaitForInputIdle sobre ese proceso y falla con el error 1471 ("no es un
@@ -188,48 +311,78 @@ def fase3_accesibilidad() -> bool:
     # Además, NO buscamos la ventana por el PID que lanzamos: bajo `uv` el
     # python.exe del venv es un trampolín que reejecuta el intérprete base en un
     # proceso hijo, y es ese hijo quien crea la ventana. Por eso localizamos la
-    # ventana por título en todo el escritorio y luego cerramos su PID real.
+    # ventana por título en todo el escritorio, pero solo aceptamos la que sea
+    # del árbol lanzado y al cerrar solo tocamos ese árbol: nunca se audita ni
+    # se cierra una aplicación que no abrió esta fase.
+    ventanas_ajenas = []
+
+    def _buscar_ventana(raiz=None, padres=None):
+        # Iteramos los top-level del escritorio y casamos por título. Es más
+        # fiable con backend UIA que window(title_re=...).exists(), y nos da
+        # directamente el wrapper sobre el que recorrer descendientes.
+        # Con raiz conocida, las ventanas con ese título que no sean del árbol
+        # lanzado se ignoran (quedan anotadas para el mensaje de fallo).
+        try:
+            for w in Desktop(backend="uia").windows():
+                try:
+                    titulo = w.window_text() or ""
+                    if not titulo.startswith(_PREFIJO_TITULO):
+                        continue
+                    pid = w.element_info.process_id
+                    nombre_proceso = _nombre_proceso(pid)
+                    # El título no basta: una carpeta abierta puede llamarse igual.
+                    if not ventana_es_de_la_aplicacion(titulo, nombre_proceso):
+                        ventanas_ajenas.append(nombre_proceso or "desconocido")
+                        continue
+                    if (raiz is not None and padres is not None
+                            and not es_descendiente(pid, raiz, padres)):
+                        ventanas_ajenas.append(f"proceso {pid}")
+                        continue
+                    return w
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return None
+
+    # Si ya hay una ventana de la aplicación, es del dueño u otra corrida:
+    # no se lanza nada, no se audita y no se cierra nada ajeno.
+    previa = _buscar_ventana()
+    if previa is not None:
+        try:
+            pid_previa = previa.element_info.process_id
+        except Exception:
+            pid_previa = "desconocido"
+        print(f"  [FALLO] Ya hay una ventana de YTChat abierta (proceso "
+              f"{pid_previa}). Ciérrala y vuelve a correr el smoke: la fase 3 "
+              f"no audita ni cierra una aplicación que no abrió ella.")
+        return False
+
+    print(f"  Lanzando: {cmd}")
+    ventanas_ajenas.clear()
     app = Application(backend="uia").start(cmd, work_dir=RAIZ,
                                            wait_for_idle=False)
+    raiz_pid = getattr(app, "process", None)
     win_pid = None
     try:
-        procesos_descartados = []
-
-        def _buscar_ventana():
-            # Iteramos los top-level del escritorio y casamos por título. Es más
-            # fiable con backend UIA que window(title_re=...).exists(), y nos da
-            # directamente el wrapper sobre el que recorrer descendientes.
-            try:
-                for w in Desktop(backend="uia").windows():
-                    try:
-                        titulo = w.window_text() or ""
-                        if not titulo.startswith(_PREFIJO_TITULO):
-                            continue
-                        nombre_proceso = _nombre_proceso(w.element_info.process_id)
-                        # El título no basta: una carpeta abierta puede llamarse igual.
-                        if ventana_es_de_la_aplicacion(titulo, nombre_proceso):
-                            return w
-                        procesos_descartados.append(nombre_proceso or "desconocido")
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-            return None
-
-        # Sondeo manual hasta 25 s: la ventana puede tardar en aparecer.
+        # Sondeo manual hasta el plazo: la ventana puede tardar en aparecer.
+        # Si el árbol lanzado ya terminó, se corta en el acto en vez de
+        # esperar el plazo entero.
         win = None
-        limite = time.monotonic() + 25
+        proceso_vivo = True
+        limite = time.monotonic() + _PLAZO_VENTANA
         while time.monotonic() < limite:
-            win = _buscar_ventana()
+            padres = mapa_padres_procesos()
+            win = _buscar_ventana(raiz_pid, padres)
             if win is not None:
+                break
+            if not arbol_sigue_vivo(raiz_pid, padres):
+                proceso_vivo = False
                 break
             time.sleep(0.5)
         if win is None:
-            mensaje = "la ventana 'YTChat TTS' no apareció en 25 s"
-            if procesos_descartados:
-                mensaje += ("; se descartó una ventana con ese título del proceso "
-                            f"{procesos_descartados[-1]}")
-            raise TimeoutError(mensaje)
+            raise TimeoutError(mensaje_fallo_ventana(proceso_vivo,
+                                                     ventanas_ajenas))
         win_pid = win.element_info.process_id
         print("  Ventana visible. Recorriendo controles...\n")
 
@@ -252,11 +405,16 @@ def fase3_accesibilidad() -> bool:
     finally:
         cerrado = False
         # El proceso real de la ventana (hijo bajo uv) y el lanzado pueden ser
-        # distintos: intentamos cerrar ambos.
+        # distintos, pero ambos son del árbol lanzado: solo se mata lo propio.
+        # Una ventana ajena nunca llega a win_pid porque _buscar_ventana la
+        # ignora, y acá se verifica de nuevo por si la foto cambió.
         if win_pid is not None:
             try:
-                Application(backend="uia").connect(process=win_pid).kill()
-                cerrado = True
+                if (raiz_pid is None or win_pid == raiz_pid
+                        or es_descendiente(win_pid, raiz_pid,
+                                           mapa_padres_procesos())):
+                    Application(backend="uia").connect(process=win_pid).kill()
+                    cerrado = True
             except Exception:
                 pass
         try:
