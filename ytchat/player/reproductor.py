@@ -463,7 +463,10 @@ class _PosAccesible(wx.Accessible):
         p = self._panel
         if p._dur_ms > 0:
             return (wx.ACC_OK, f"{_fmt_hablado(p._pos_ms)} de {_fmt_hablado(p._dur_ms)}")
-        return (wx.ACC_OK, "En directo")   # un live no tiene duración que anunciar
+        try:
+            return (wx.ACC_OK, p.frase_posicion_directo())
+        except Exception:
+            return (wx.ACC_OK, "En directo")   # un live no tiene duración que anunciar
 
 
 class _PantallaCompleta(wx.Frame):
@@ -2553,6 +2556,13 @@ class ReproductorPanel(wx.Panel):
         if getattr(self, "_relevo_ffmpeg", None) is not None \
                 and self._es_directo_actual() and self._relevo_desfase > 0:
             return f"Directo, {_fmt_t(self._desfase_relevo_segundos() * 1000)} atrás"
+        return "En directo"
+
+    def frase_posicion_directo(self) -> str:
+        """Valor accesible del deslizador en un directo sin duración."""
+        if getattr(self, "_relevo_fuentes", None) is not None \
+                and self._es_directo_actual():
+            return frase_desfase_directo(self._desfase_relevo_segundos())
         return "En directo"
 
     def _saltar_en_relevo(self, delta_ms: int) -> None:

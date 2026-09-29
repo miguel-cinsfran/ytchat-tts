@@ -118,6 +118,7 @@ _ORDEN: list[tuple[str, list[tuple[str, str]]]] = [
         ("canal", "true"),
         ("espectadores", "true"),
         ("tiempo_directo", "true"),
+        ("desfase_directo", "true"),
         ("mensajes_leidos", "true"),
         ("aportes", "true"),
         ("en_cola", "false"),

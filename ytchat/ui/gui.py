@@ -1483,6 +1483,7 @@ class YTChatFrame(wx.Frame):
             espectadores=espectadores,
             segundos_directo=_seguro(lambda: int(time.time() - datetime.fromisoformat(
                 meta["comienzo_directo"].replace("Z", "+00:00")).timestamp()), None),
+            desfase_directo=_seguro(lambda: self._rep_panel.frase_posicion_directo() if self._rep_panel._desfase_relevo_segundos() > 0 else "", ""),
             mensajes_leidos=_seguro(lambda: self._stats.leidos, 0),
             aportes=_seguro(lambda: self._stats.superchats, 0),
             total_aportes=self._total_aportes_texto(),

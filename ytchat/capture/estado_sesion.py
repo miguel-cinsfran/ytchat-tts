@@ -38,6 +38,7 @@ class SnapshotSesion:
     canal: str = ""
     espectadores: int | None = None
     segundos_directo: int | None = None
+    desfase_directo: str = ""
     mensajes_leidos: int = 0
     aportes: int = 0            # nº de Super Chats (YouTube) o regalos (TikTok)
     total_aportes: str = ""     # ya formateado (p. ej. "US$12.50"), "" si no hay
@@ -61,6 +62,7 @@ COMPONENTES: tuple[str, ...] = (
     "canal",
     "espectadores",
     "tiempo_directo",
+    "desfase_directo",
     "mensajes_leidos",
     "aportes",
     "en_cola",
@@ -91,6 +93,7 @@ ETIQUETAS = {
     "canal":              "Canal o autor",
     "espectadores":       "Espectadores ahora",
     "tiempo_directo":     "Tiempo que lleva el directo",
+    "desfase_directo":    "Cuánto por detrás del directo va el reproductor",
     "mensajes_leidos":    "Mensajes leídos",
     "aportes":            "Super Chats / regalos",
     "en_cola":            "Mensajes en cola de lectura",
@@ -159,6 +162,12 @@ def _render(nombre: str, s: SnapshotSesion, largo: bool) -> str:
         texto = _duracion(s.segundos_directo)
         return (f"Tiempo del directo: {texto}" if largo
                 else f"Lleva {texto}")
+
+    if nombre == "desfase_directo":
+        texto = (s.desfase_directo or "").strip()
+        if not texto:
+            return ""
+        return f"Reproductor: {texto}" if largo else texto
 
     if nombre == "mensajes_leidos":
         n = _fmt_num(s.mensajes_leidos)
