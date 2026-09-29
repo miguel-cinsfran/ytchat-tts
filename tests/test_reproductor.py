@@ -1022,14 +1022,18 @@ class TestSaltoEnRelevo(unittest.TestCase):
                               side_effect=lambda fn, *a: fn(*a)),
             mock.patch.object(reproductor.relevo_ffmpeg, "leer_ventana_hls",
                               return_value=(5.0, 720)),
+            # El debounce del directo vence al instante: cada pulsación
+            # reinicia ffmpeg una vez, como antes del debounce.
+            mock.patch.object(reproductor.wx, "CallLater",
+                              side_effect=lambda _ms, fn, *a: fn(*a)),
         )
 
     def test_retroceder_un_minuto_reinicia_ffmpeg_doce_segmentos_atras(self):
         panel = self._panel()
         viejo = panel._relevo_ffmpeg
         nuevo = self._relevo()
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo) as clase, \
                 mock.patch.object(reproductor, "anunciar") as anunciar:
@@ -1052,8 +1056,8 @@ class TestSaltoEnRelevo(unittest.TestCase):
     def test_los_saltos_se_encadenan_desde_el_desfase_actual(self):
         panel = self._panel(desfase=12)
         nuevo = self._relevo()
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo) as clase, \
                 mock.patch.object(reproductor, "anunciar") as anunciar:
@@ -1065,8 +1069,8 @@ class TestSaltoEnRelevo(unittest.TestCase):
     def test_adelantar_vuelve_al_directo(self):
         panel = self._panel(desfase=12)
         nuevo = self._relevo()
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo) as clase, \
                 mock.patch.object(reproductor, "anunciar") as anunciar:
@@ -1096,20 +1100,23 @@ class TestSaltoEnRelevo(unittest.TestCase):
     def test_sin_ventana_leida_se_supone_una_corta(self):
         panel = self._panel(ventana=None)
         nuevo = self._relevo()
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo) as clase, \
                 mock.patch.object(reproductor, "anunciar"):
             panel._buscar_rel(-60_000)
         clase.assert_called_once_with("video-hls", "audio-hls", 12)
 
-    def test_mientras_carga_no_se_salta(self):
+    def test_sin_fuentes_en_carga_inicial_anuncia_cargando(self):
+        # Sin fuentes todavía no hay con qué reiniciar: es la carga
+        # inicial. Con fuentes la pulsación se procesa aunque cargue.
         panel = self._panel()
         panel._cargando = True
+        panel._relevo_fuentes = None
         with mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg") as clase, \
                 mock.patch.object(reproductor, "anunciar") as anunciar:
-            panel._buscar_rel(-60_000)
+            panel._saltar_en_relevo(-60_000)
         clase.assert_not_called()
         anunciar.assert_called_once_with("Cargando vídeo")
 
@@ -1117,8 +1124,8 @@ class TestSaltoEnRelevo(unittest.TestCase):
         panel = self._panel()
         nuevo = self._relevo()
         nuevo.iniciar.return_value = None
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo), \
                 mock.patch.object(reproductor, "anunciar") as anunciar:
@@ -1132,8 +1139,8 @@ class TestSaltoEnRelevo(unittest.TestCase):
     def test_la_ventana_se_lee_solo_en_el_primer_arranque(self):
         panel = self._panel()
         nuevo = self._relevo()
-        hilo, callafter, ventana = self._sincrono()
-        with hilo, callafter, ventana as leer, \
+        hilo, callafter, ventana, debounce = self._sincrono()
+        with hilo, callafter, ventana as leer, debounce, \
                 mock.patch.object(reproductor.relevo_ffmpeg, "RelevoFfmpeg",
                                   return_value=nuevo), \
                 mock.patch.object(reproductor, "anunciar"):

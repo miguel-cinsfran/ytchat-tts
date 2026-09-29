@@ -598,6 +598,10 @@ class ReproductorPanel(wx.Panel):
         # Reapertura agendada por _ir_a (debounce de 400 ms) y contador de
         # recuperaciones tras un corte a mitad del vídeo (ver _on_timer).
         self._relevo_vod_reapertura = None
+        # Reapertura agendada por _saltar_en_relevo con el mismo debounce:
+        # cada pulsación anuncia al instante y el reinicio de ffmpeg espera
+        # 400 ms por si viene otra pulsación encadenada (ver _saltar_en_relevo).
+        self._relevo_directo_reapertura = None
         self._relevo_vod_recuperaciones = 0
         self._relevo_vod_ultima = None
         # Recargas automáticas seguidas tras interrumpirse un directo por
@@ -1421,6 +1425,13 @@ class ReproductorPanel(wx.Panel):
                 pendiente.Stop()
             except Exception:
                 pass
+        directa = getattr(self, "_relevo_directo_reapertura", None)
+        self._relevo_directo_reapertura = None
+        if directa is not None:
+            try:
+                directa.Stop()
+            except Exception:
+                pass
         relevo = getattr(self, "_relevo_ffmpeg", None)
         self._relevo_ffmpeg = None
         self._relevo_vod_base_ms = None
@@ -1577,11 +1588,17 @@ class ReproductorPanel(wx.Panel):
                 # El tope de 8 s de la búsqueda cuenta desde que el relevo
                 # está listo, no desde la pulsación.
                 self._marcar_destino(int(inicio_ms), anunciar_usuario=False)
-            if anuncio and self._relevo_ffmpeg is relevo:
+            if (anuncio or (bus is not None and bus.pendiente)) \
+                    and self._relevo_ffmpeg is relevo:
+                # Salto en grabado: hay búsqueda pendiente pero no anuncio,
+                # así que solo se cancela el «Reproduciendo» del inicio
+                # normal; la carga inicial, sin búsqueda pendiente, lo
+                # conserva. Con anuncio vale lo mismo que en el directo.
                 if hasattr(self, "_estado_inicio"):
                     self._estado_inicio.cancelar()
-                self._fijar_estado(anuncio + ".")
-                self._fijar_tiempo(0, 0, mover_slider=False, anunciar_t=False)
+                if anuncio:
+                    self._fijar_estado(anuncio + ".")
+                    self._fijar_tiempo(0, 0, mover_slider=False, anunciar_t=False)
             return
         if direccion is None:
             # No se pudo levantar el relevo (sin ffmpeg, puerto, etc.): se
@@ -2445,10 +2462,16 @@ class ReproductorPanel(wx.Panel):
         antes del borde del directo (la lista HLS de YouTube guarda una hora
         de segmentos de 5 s). Cuesta un corte de 2-3 s por salto; la frase se
         anuncia al pulsar, no al reconectar, para que la respuesta sea
-        inmediata para quien no ve la pantalla.
+        inmediata para quien no ve la pantalla. Las pulsaciones seguidas se
+        acumulan: cada una anuncia al instante su desfase y el reinicio se
+        agenda con debounce de 400 ms, así ffmpeg solo se reinicia una vez
+        con el último desfase.
         """
         topologia = self._topologia_actual()
-        if self._cargando or self._relevo_fuentes is None:
+        if self._relevo_fuentes is None:
+            # Carga inicial: todavía no hay fuentes con las que reiniciar.
+            # En pleno reinicio las fuentes se conservan y la pulsación se
+            # procesa aunque ffmpeg aún no esté arriba.
             logger.debug("%s", traza_salto_rechazado(topologia, "relativo", "cargando"))
             anunciar("Cargando vídeo")
             return
@@ -2471,10 +2494,25 @@ class ReproductorPanel(wx.Panel):
         self._cancelar_transporte()
         self._detener_relevo_ffmpeg()
         # Se conserva el desfase pedido mientras arranca el nuevo relevo para
-        # que un segundo pulso encadene desde aquí y no desde el borde.
+        # que un segundo pulso encadene desde aquí y no desde el borde. El
+        # relevo viejo se detiene ya para que el sonido se corte en el acto,
+        # y el nuevo se agenda con debounce: cada pulsación nueva cancela la
+        # reapertura anterior (la cancela _detener_relevo_ffmpeg) y agenda
+        # otra con el desfase acumulado.
         self._relevo_desfase = despues
         self._relevo_fuentes = (url, slave)
-        self._arrancar_relevo(url, slave, True, desfase=despues, anuncio=frase)
+        self._relevo_directo_reapertura = wx.CallLater(
+            400, self._reabrir_relevo_directo, int(despues), frase)
+
+    def _reabrir_relevo_directo(self, desfase, anuncio) -> None:
+        self._relevo_directo_reapertura = None
+        fuentes = getattr(self, "_relevo_fuentes", None)
+        if fuentes is None:
+            return
+        url, slave = fuentes
+        self._relevo_fuentes = (url, slave)
+        self._arrancar_relevo(url, slave, True, desfase=int(desfase),
+                              anuncio=anuncio)
 
     def _buscar_rel(self, delta_ms: int):
         if self._player is None:
@@ -2483,7 +2521,11 @@ class ReproductorPanel(wx.Panel):
             if aviso:
                 anunciar(aviso)
             return
-        if getattr(self, "_relevo_ffmpeg", None) is not None and self._es_directo_actual():
+        if getattr(self, "_relevo_fuentes", None) is not None \
+                and self._es_directo_actual():
+            # Camino del directo: las fuentes se conservan en pleno reinicio
+            # aunque ffmpeg aún no esté arriba, para que las pulsaciones
+            # seguidas se acumulen en vez de caer al camino del grabado.
             self._saltar_en_relevo(delta_ms)
             return
         # La permisión va antes que la duración: con el relevo de ffmpeg VLC
