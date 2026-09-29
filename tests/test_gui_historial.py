@@ -82,6 +82,37 @@ class PruebasHistorialDialog(unittest.TestCase):
 
         self.assertEqual(tiktok, dialogo._seleccionada())
 
+    def test_seleccionada_en_tiktok_con_filas_distintas_devuelve_tiktok(self):
+        yt_primero = entrada("youtube", "yt-uno", "https://youtube.com/watch?v=yt-uno")
+        yt_segundo = entrada("youtube", "yt-dos", "https://youtube.com/watch?v=yt-dos")
+        tk_primero = entrada("tiktok", "tk-uno", "https://tiktok.com/@tk-uno/live")
+        tk_segundo = entrada("tiktok", "tk-dos", "https://tiktok.com/@tk-dos/live")
+        dialogo = self._dialogo([yt_primero, yt_segundo, tk_primero, tk_segundo])
+
+        dialogo._listas["youtube"].SetSelection(1)
+        dialogo._listas["tiktok"].SetSelection(0)
+        with mock.patch.object(gui_historial, "anunciar"):
+            dialogo.nb.SetSelection(1)
+
+        self.assertEqual(tk_primero, dialogo._seleccionada())
+
+    def test_conectar_en_youtube_con_filas_distintas_entrega_youtube(self):
+        yt_primero = entrada("youtube", "yt-uno", "https://youtube.com/watch?v=yt-uno")
+        url_youtube = "https://youtube.com/watch?v=yt-dos"
+        yt_segundo = entrada("youtube", "yt-dos", url_youtube)
+        tk_primero = entrada("tiktok", "tk-uno", "https://tiktok.com/@tk-uno/live")
+        tk_segundo = entrada("tiktok", "tk-dos", "https://tiktok.com/@tk-dos/live")
+        on_conectar = mock.Mock()
+        dialogo = self._dialogo(
+            [yt_primero, yt_segundo, tk_primero, tk_segundo], on_conectar)
+
+        dialogo._listas["youtube"].SetSelection(1)
+        dialogo._listas["tiktok"].SetSelection(0)
+        with mock.patch.object(dialogo, "EndModal"):
+            dialogo._conectar()
+
+        on_conectar.assert_called_once_with(url_youtube)
+
     def test_conectar_desde_pestana_tiktok_entrega_su_url(self):
         youtube = entrada("youtube", "solo-youtube", "https://youtube.com/solo-youtube")
         url_tiktok = "https://tiktok.com/solo-tiktok"
