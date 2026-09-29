@@ -103,8 +103,26 @@ def parsear_pagina_comentarios(resp: dict, incluir_respuestas: bool = True
     return salida, resp.get("nextPageToken", "") or ""
 
 
+def sesion_caducada(exc) -> bool:
+    """True si la excepción indica que el token OAuth murió (p. ej. revocado,
+    contraseña cambiada o meses sin uso). Pura: no importa google, solo mira
+    el nombre de la clase y el texto."""
+    try:
+        if type(exc).__name__ == "RefreshError":
+            return True
+    except Exception:
+        pass
+    try:
+        return "invalid_grant" in str(exc).lower()
+    except Exception:
+        return False
+
+
 def mensaje_error_api(exc) -> str:
     """Traduce errores de la API a algo legible para el usuario."""
+    if sesion_caducada(exc):
+        return ("Tu sesión de YouTube caducó. Vuelve a iniciar sesión en "
+                "Preferencias, pestaña API y sesión.")
     texto = str(exc)
     low = texto.lower()
     if "quotaexceeded" in low or "quota" in low and "exceeded" in low:

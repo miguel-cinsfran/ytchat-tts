@@ -425,6 +425,8 @@ class ComentariosPanel(wx.Panel):
                 wx.CallAfter(self._escritura_ok, mensaje_ok)
             except Exception as exc:
                 logger.warning("escritura API: %s", exc)
+                if youtube_api.sesion_caducada(exc):
+                    credenciales.cerrar_sesion()
                 wx.CallAfter(self._escritura_err, exc)
 
         diagnostico.crear_hilo(_run, "ComentarAPI").start()
@@ -434,6 +436,15 @@ class ComentariosPanel(wx.Panel):
         anunciar(mensaje + ". Recuerda que YouTube puede tardar o retenerlo.")
 
     def _escritura_err(self, exc):
+        if youtube_api.sesion_caducada(exc):
+            _snd.reproducir("error")
+            anunciar(youtube_api.mensaje_error_api(exc))
+            try:
+                from ytchat.ui.gui_preferencias import ofrecer_iniciar_sesion
+                ofrecer_iniciar_sesion(self, self._config)
+            except Exception as exc_:
+                logger.warning("No se pudo ofrecer iniciar sesión: %s", exc_)
+            return
         _snd.reproducir("error")
         msg = youtube_api.mensaje_error_api(exc)
         anunciar(msg)

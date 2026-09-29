@@ -1186,11 +1186,37 @@ def _lista(v: str) -> list:
     return [x.strip().lower() for x in v.split(",") if x.strip()]
 
 
-def abrir_preferencias(parent, config: dict) -> bool:
-    """Devuelve True si se guardaron cambios (para aplicarlos en caliente)."""
+def abrir_preferencias(parent, config: dict, pagina=None) -> bool:
+    """Devuelve True si se guardaron cambios (para aplicarlos en caliente).
+
+    Si `pagina` coincide con el texto de una pestaña (p. ej. "API y sesión"),
+    esa queda seleccionada al abrir. Sin `pagina`, igual que siempre.
+    """
     dlg = PreferenciasDialog(parent, config)
     try:
+        if pagina:
+            try:
+                for i in range(dlg.nb.GetPageCount()):
+                    if dlg.nb.GetPageText(i) == pagina:
+                        dlg.nb.SetSelection(i)
+                        break
+            except Exception as exc:
+                logger.debug("abrir_preferencias: no se pudo elegir página: %s", exc)
         res = dlg.ShowModal()
         return res == wx.ID_OK and dlg.hubo_cambios()
     finally:
         dlg.Destroy()
+
+
+def ofrecer_iniciar_sesion(parent, config) -> bool:
+    """Ofrece abrir Preferencias en la pestaña de sesión tras caducar el token.
+
+    Devuelve lo que devuelva `abrir_preferencias` si el usuario acepta, o
+    False si no quiere.
+    """
+    if wx.MessageBox("Tu sesión de YouTube caducó. ¿Abrir Preferencias para "
+                     "volver a iniciar sesión?",
+                     "Sesión caducada", wx.YES_NO | wx.ICON_QUESTION,
+                     parent) != wx.YES:
+        return False
+    return abrir_preferencias(parent, config, pagina="API y sesión")

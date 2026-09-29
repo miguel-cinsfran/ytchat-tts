@@ -1550,6 +1550,8 @@ class YTChatFrame(wx.Frame):
                 wx.CallAfter(self._api_ok, mensaje_ok, sonido)
             except Exception as exc:
                 logger.warning("acción API: %s", exc)
+                if youtube_api.sesion_caducada(exc):
+                    credenciales.cerrar_sesion()
                 wx.CallAfter(self._api_err, exc)
 
         diagnostico.crear_hilo(_run, "AccionAPI").start()
@@ -1562,6 +1564,17 @@ class YTChatFrame(wx.Frame):
 
     def _api_err(self, exc):
         if not self:
+            return
+        if youtube_api.sesion_caducada(exc):
+            _snd.reproducir("error")
+            anunciar(youtube_api.mensaje_error_api(exc))
+            self._actualizar_estado_online()
+            try:
+                from ytchat.ui.gui_preferencias import ofrecer_iniciar_sesion
+                if ofrecer_iniciar_sesion(self, self._config):
+                    self._aplicar_preferencias_en_caliente()
+            except Exception as exc_:
+                logger.warning("No se pudo ofrecer iniciar sesión: %s", exc_)
             return
         _snd.reproducir("error")
         msg = youtube_api.mensaje_error_api(exc)
@@ -1608,6 +1621,8 @@ class YTChatFrame(wx.Frame):
                 wx.CallAfter(self._programado_enviado, mensaje)
             except Exception as exc:
                 logger.warning("mensaje automático: error del servicio: %s", type(exc).__name__)
+                if youtube_api.sesion_caducada(exc):
+                    credenciales.cerrar_sesion()
                 wx.CallAfter(self._programado_fallo, exc)
 
         diagnostico.crear_hilo(_run, "MensajeProgramado").start()
@@ -1626,7 +1641,10 @@ class YTChatFrame(wx.Frame):
         if not self._config.get("programados_activo", False):
             return
         self._config["programados_activo"] = False
-        anunciar("Los mensajes automáticos se detuvieron por un error del servicio.")
+        if youtube_api.sesion_caducada(exc):
+            anunciar("Los mensajes automáticos se detuvieron porque la sesión de YouTube caducó.")
+        else:
+            anunciar("Los mensajes automáticos se detuvieron por un error del servicio.")
 
     def _procesar_programado(self) -> None:
         ahora = time.time()
