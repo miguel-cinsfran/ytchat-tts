@@ -23,7 +23,12 @@ class TestAtajosCaptura(unittest.TestCase):
     def test_captura_valida(self):
         resultado = atajos_captura.resolver("rep_play", "ctrl+q", self.valores)
         self.assertEqual(resultado, (
-            "capturado", "ctrl+q", "Capturado: Ctrl+Q. Guardado."))
+            "capturado", "ctrl+q", "Capturado: Ctrl+Q. Se aplica al pulsar Guardar."))
+
+    def test_captura_no_promete_guardado(self):
+        _, _, texto = atajos_captura.resolver("rep_play", "ctrl+q", self.valores)
+        self.assertIn("Se aplica al pulsar Guardar", texto)
+        self.assertNotIn("Guardado.", texto)
 
     def test_combinacion_invalida_para_el_area(self):
         resultado = atajos_captura.resolver("rep_play", "alt+k", self.valores)
@@ -173,7 +178,7 @@ class TestAtajosCaptura(unittest.TestCase):
         dialogo._botones_atajo["rep_play"].SetLabel.assert_called_once_with(
             "Reproducir o pausa: Ctrl+P")
         anunciar.assert_called_once_with(
-            "Atajos restablecidos a los valores de fábrica")
+            "Atajos restablecidos a los valores de fábrica. Se aplican al pulsar Guardar")
 
     @unittest.skipUnless(_HAY_WX, "wxPython no está instalado")
     def test_cancelar_restaurar_la_etiqueta_y_anunciar_sin_cambios(self):

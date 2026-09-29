@@ -82,4 +82,4 @@ def resolver(accion: str, combo: str | None,
                 otra, otra.replace("_", " ").capitalize())
             return "rechazado", None, f"Ya lo usa: {otra_etiqueta}. Elige otra."
     return "capturado", normalizado, (
-        f"Capturado: {mostrar_atajo(normalizado)}. Guardado.")
+        f"Capturado: {mostrar_atajo(normalizado)}. Se aplica al pulsar Guardar.")
