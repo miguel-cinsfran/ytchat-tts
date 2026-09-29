@@ -2543,6 +2543,12 @@ class ReproductorPanel(wx.Panel):
                 and not getattr(self, "_url_flujo", ""):
             motivo = "cargando"
             anunciar("Cargando vídeo")
+        elif self._estado_vlc_actual() == "stopped" \
+                and not getattr(self, "_url_flujo", ""):
+            # Detenido conserva _info, así que sin esta rama un directo
+            # diría que no se puede buscar cuando sí se puede al reanudar.
+            motivo = "detenido"
+            anunciar("El vídeo está detenido")
         elif getattr(self, "_relevo_ffmpeg", None) is not None \
                 and self._es_directo_actual():
             motivo = "relevo_sin_barra"

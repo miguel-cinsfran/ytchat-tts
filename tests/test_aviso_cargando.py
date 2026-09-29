@@ -9,6 +9,8 @@ segundos después. Ahora esos rechazos dicen «Cargando vídeo».
 import unittest
 from unittest import mock
 
+import vlc
+
 from ytchat.player import reproductor
 
 
@@ -69,6 +71,49 @@ class PruebasAvisoCargando(unittest.TestCase):
         with mock.patch.object(reproductor, "anunciar") as anunciar:
             panel._buscar_porcentaje(50)
         anunciar.assert_called_once_with("Cargando vídeo")
+        panel._ir_a.assert_not_called()
+
+    def test_directo_detenido_avisa_detenido(self):
+        panel = _panel({"is_live": True, "formats": []})
+        panel._player.get_state.return_value = vlc.State.Stopped
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with("El vídeo está detenido")
+        panel._ir_a.assert_not_called()
+
+    def test_detenido_cargando_avisa_cargando(self):
+        panel = _panel({"is_live": True, "formats": []}, cargando=True)
+        panel._player.get_state.return_value = vlc.State.Stopped
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with("Cargando vídeo")
+        panel._ir_a.assert_not_called()
+
+    def test_tiktok_detenido_mantiene_frase_de_tiktok(self):
+        panel = _panel({"is_live": True, "formats": []},
+                       url_flujo="https://tiktok/flv")
+        panel._player.get_state.return_value = vlc.State.Stopped
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with(
+            "En un directo de TikTok no se puede adelantar ni retroceder")
+        panel._ir_a.assert_not_called()
+
+    def test_directo_reproduciendo_sin_relevo_mantiene_frase_vieja(self):
+        panel = _panel({"is_live": True, "formats": []})
+        panel._player.get_state.return_value = vlc.State.Playing
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with(
+            "En este directo no se puede adelantar ni retroceder")
+        panel._ir_a.assert_not_called()
+
+    def test_porcentaje_detenido_avisa_detenido(self):
+        panel = _panel({"is_live": True, "formats": []})
+        panel._player.get_state.return_value = vlc.State.Stopped
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_porcentaje(50)
+        anunciar.assert_called_once_with("El vídeo está detenido")
         panel._ir_a.assert_not_called()
 
 
