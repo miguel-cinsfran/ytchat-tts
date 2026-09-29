@@ -61,6 +61,7 @@ class Resultado:
     def __init__(self):
         self.fallos: list[str] = []
         self.notas: list[str] = []
+        self.sin_probar: list[str] = []
 
     def fallo(self, texto: str) -> None:
         self.fallos.append(texto)
@@ -69,6 +70,10 @@ class Resultado:
     def nota(self, texto: str) -> None:
         self.notas.append(texto)
         print(f"    . {texto}")
+
+    def no_probado(self, texto: str) -> None:
+        self.sin_probar.append(texto)
+        print(f"    SIN PROBAR  {texto}")
 
     @property
     def ok(self) -> bool:
@@ -984,7 +989,7 @@ def bateria_reproductor(app: Aplicacion, res: Resultado, donde: str) -> None:
         try:
             medida = medir_accion(app, lambda c=combo: app.teclas(c))
         except VentanaNoActiva as exc:
-            res.nota(f"{donde}: no se pudo probar {quien}, {exc}")
+            res.no_probado(f"{donde}: no se pudo probar {quien}, {exc}")
             continue
         if menu_vivo is False:
             if medida[2]:
@@ -1005,7 +1010,7 @@ def bateria_reproductor(app: Aplicacion, res: Resultado, donde: str) -> None:
             try:
                 medida = medir_accion(app, lambda t=tecla: app.teclas(t))
             except VentanaNoActiva as exc:
-                res.nota(f"{donde}: no se pudo probar {quien}, {exc}")
+                res.no_probado(f"{donde}: no se pudo probar {quien}, {exc}")
                 break
             juzgar_accion(res, donde, f"{quien} con la flecha {tecla}", medida)
 
@@ -2957,7 +2962,8 @@ def main() -> int:
     print("=" * 60)
     print("  RESUMEN")
     print("=" * 60)
-    print(f"  {len(res.notas)} comprobaciones, {len(res.fallos)} fallos.")
+    print(f"  {len(res.notas)} comprobaciones, {len(res.fallos)} fallos, "
+          f"{len(res.sin_probar)} sin probar.")
     print(f"  Anuncios grabados: {len(app.anuncios)}, "
           f"en {app.anuncios_ruta.name}")
     print("  Esto no prueba que NVDA lo lea, ni cómo suena, ni la braille.")
@@ -2970,21 +2976,32 @@ def main() -> int:
     try:
         lineas = ["Banco de QA de YTChat TTS",
                   "escenarios: " + ", ".join(pedidos),
-                  "%d comprobaciones, %d fallos"
-                  % (len(res.notas), len(res.fallos)), ""]
+                  "%d comprobaciones, %d fallos, %d sin probar"
+                  % (len(res.notas), len(res.fallos), len(res.sin_probar)), ""]
         if res.fallos:
             lineas.append("FALLOS")
             lineas += ["%2d. %s" % (i, x)
                        for i, x in enumerate(res.fallos, 1)]
-        else:
+        if res.sin_probar:
+            lineas.append("SIN PROBAR")
+            lineas += ["%2d. %s" % (i, x)
+                       for i, x in enumerate(res.sin_probar, 1)]
+        if not res.fallos and not res.sin_probar:
             lineas.append("Sin fallos.")
+        elif not res.fallos:
+            lineas.append("Sin fallos, pero %d comprobaciones quedaron "
+                          "sin probar." % len(res.sin_probar))
         lineas += ["", "NOTAS"]
         lineas += ["    " + x for x in res.notas]
         informe.write_text("\n".join(lineas) + "\n", encoding="utf-8")
         print(f"  Informe con los fallos en {informe}")
     except Exception as exc:
         print(f"  AVISO: no se pudo escribir el informe: {exc}")
-    return 0 if res.ok else 1
+    if res.fallos:
+        return 1
+    if res.sin_probar:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

@@ -22,6 +22,9 @@ Las grabaciones quedan en `qa/salida/`, que está en el `.gitignore`: llevan la
 salida cruda de la aplicación, con el identificador del vídeo que se estuvo
 viendo.
 
+Una corrida con comprobaciones sin probar no dice «Sin fallos» y sale con
+código 2; con fallos sale con código 1.
+
 ## Cómo funciona
 
 Son dos piezas.
