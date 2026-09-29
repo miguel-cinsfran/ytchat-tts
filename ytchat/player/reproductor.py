@@ -2539,7 +2539,11 @@ class ReproductorPanel(wx.Panel):
         anunciar("No se pudo reproducir el vídeo")
 
     def _aviso_busqueda_no_permitida(self, origen="relativo") -> None:
-        if getattr(self, "_relevo_ffmpeg", None) is not None \
+        if getattr(self, "_cargando", False) \
+                and not getattr(self, "_url_flujo", ""):
+            motivo = "cargando"
+            anunciar("Cargando vídeo")
+        elif getattr(self, "_relevo_ffmpeg", None) is not None \
                 and self._es_directo_actual():
             motivo = "relevo_sin_barra"
             anunciar("En este directo solo se puede retroceder o adelantar "
