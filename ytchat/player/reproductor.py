@@ -424,6 +424,7 @@ def _fmt_hablado(ms) -> str:
 _TECLAS_WX = {
     "left": wx.WXK_LEFT, "right": wx.WXK_RIGHT, "up": wx.WXK_UP,
     "down": wx.WXK_DOWN, "enter": wx.WXK_RETURN, "space": wx.WXK_SPACE,
+    "end": wx.WXK_END,
 }
 _RE_FKEY_WX = re.compile(r"^f(1[0-2]|[1-9])$")
 
@@ -1129,6 +1130,7 @@ class ReproductorPanel(wx.Panel):
             "rep_play":      self._toggle_play,
             "rep_retro":     lambda: self._buscar_rel(-60_000),
             "rep_avanz":     lambda: self._buscar_rel(+60_000),
+            "rep_directo":   self.ir_al_directo,
             "rep_detener":   self._detener,
             "rep_mute":      self._toggle_mute,
             "rep_vol_menos": lambda: self.ajustar_volumen(-20),
@@ -2624,6 +2626,27 @@ class ReproductorPanel(wx.Panel):
         self._relevo_fuentes = (url, slave)
         self._arrancar_relevo(url, slave, True, desfase=int(desfase),
                               anuncio=anuncio)
+
+    def ir_al_directo(self) -> None:
+        """Vuelve al borde del directo en una pulsación.
+
+        En un directo por relevo reutiliza `_saltar_en_relevo` con el delta
+        que lleva el desfase exactamente a 0; en un directo de TikTok o sin
+        relevo ya se está en el borde; en un grabado no hay borde al que ir.
+        """
+        if not self._es_directo_actual():
+            anunciar("Este vídeo no es un directo")
+            return
+        if getattr(self, "_relevo_fuentes", None) is not None:
+            desfase = int(getattr(self, "_relevo_desfase", 0) or 0)
+            if desfase == 0:
+                anunciar("Ya estás en el directo")
+                return
+            segmento_s, _ventana = getattr(
+                self, "_relevo_ventana", None) or VENTANA_HLS_SUPUESTA
+            self._saltar_en_relevo(desfase * int(segmento_s * 1000))
+            return
+        anunciar("Ya estás en el directo")
 
     def _buscar_rel(self, delta_ms: int):
         if self._player is None:

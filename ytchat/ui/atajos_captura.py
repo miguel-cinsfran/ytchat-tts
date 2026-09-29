@@ -6,7 +6,7 @@ from ytchat.core import config as cfg
 _NOMBRE_TECLA_MOSTRAR = {
     "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "enter": "Enter",
     "left": "Left", "right": "Right", "up": "Up", "down": "Down",
-    "space": "Space",
+    "space": "Space", "end": "End",
 }
 _AREA_AYUDA = {
     "ctrl": "Debe ser Ctrl y una tecla (por ejemplo Ctrl+P).",
@@ -15,7 +15,8 @@ _AREA_AYUDA = {
 }
 _ETIQUETAS = {
     "rep_play": "Reproducir o pausa", "rep_retro": "Retroceder 1 minuto",
-    "rep_avanz": "Avanzar 1 minuto", "rep_detener": "Detener vídeo",
+    "rep_avanz": "Avanzar 1 minuto", "rep_directo": "Ir al directo",
+    "rep_detener": "Detener vídeo",
     "rep_mute": "Silenciar o activar audio",
     "rep_vol_menos": "Bajar volumen del reproductor",
     "rep_vol_mas": "Subir volumen del reproductor",

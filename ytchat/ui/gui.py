@@ -377,7 +377,7 @@ def _titulo(w, color=None):
 _ACCEL_NOMBRES = {
     "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift",
     "enter": "Enter", "left": "Left", "right": "Right",
-    "up": "Up", "down": "Down", "space": "Space",
+    "up": "Up", "down": "Down", "space": "Space", "end": "End",
 }
 
 
@@ -623,6 +623,7 @@ class YTChatFrame(wx.Frame):
         mi_rep_play  = m.Append(wx.ID_ANY, "&Reproducir o pausa" + self._accel("rep_play"))
         mi_rep_retro = m.Append(wx.ID_ANY, "R&etroceder 1 minuto" + self._accel("rep_retro"))
         mi_rep_avanz = m.Append(wx.ID_ANY, "&Avanzar 1 minuto" + self._accel("rep_avanz"))
+        mi_rep_directo = m.Append(wx.ID_ANY, "&Ir al directo" + self._accel("rep_directo"))
         mi_rep_stop  = m.Append(wx.ID_ANY, "De&tener reproducción" + self._accel("rep_detener"))
         mi_rep_mute  = m.Append(wx.ID_ANY, "&Silenciar o activar audio" + self._accel("rep_mute"))
         mi_rep_fs    = m.Append(wx.ID_ANY, "Pantalla &completa" + self._accel("pantalla_completa"))
@@ -649,6 +650,7 @@ class YTChatFrame(wx.Frame):
         self._bind_menu(mi_rep_play, self._rep_accion, "_toggle_play")
         self._bind_menu(mi_rep_retro, self._rep_accion, "_buscar_rel", -60_000)
         self._bind_menu(mi_rep_avanz, self._rep_accion, "_buscar_rel", +60_000)
+        self._bind_menu(mi_rep_directo, self._rep_accion, "ir_al_directo")
         self._bind_menu(mi_rep_stop, self._rep_accion, "_detener")
         self._bind_menu(mi_rep_mute, self._rep_accion, "_toggle_mute")
         self._bind_menu(mi_rep_fs, self._rep_accion, "alternar_pantalla_completa")

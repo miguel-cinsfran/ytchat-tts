@@ -140,7 +140,7 @@ ATAJOS_FIJOS = {
 # Agrupación para el editor de Preferencias (título de grupo, acciones).
 ATAJOS_GRUPOS = [
     ("Reproductor (Ctrl)",
-     ["rep_play", "rep_retro", "rep_avanz", "rep_detener", "rep_mute",
+     ["rep_play", "rep_retro", "rep_avanz", "rep_directo", "rep_detener", "rep_mute",
       "rep_vol_menos", "rep_vol_mas", "descargas_abrir", "pantalla_completa"]),
     ("Conexión y chat (Alt)",
      ["conectar", "desconectar", "enviar_chat", "ir_lista"]),
@@ -163,7 +163,7 @@ ATAJOS_AREA = {ac: _AREA_POR_GRUPO[i]
 
 _SIMBOLOS_PERMITIDOS = {",", ".", ";", "'", "[", "]", "/", "-"}
 # Teclas con nombre admitidas (además de una letra/símbolo o una tecla F).
-_TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space"}
+_TECLAS_NOMBRE = {"enter", "left", "right", "up", "down", "space", "end"}
 # Ctrl+Shift debe probarse antes que Ctrl para no quedarse con «shift+tecla».
 _RE_ATAJO = re.compile(r"^(ctrl\+shift|ctrl|alt)\+(.+)$", re.IGNORECASE)
 _RE_FKEY  = re.compile(r"^f(1[0-2]|[1-9])$", re.IGNORECASE)

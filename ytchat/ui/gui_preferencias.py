@@ -72,6 +72,7 @@ _FORMATOS = [
 _TECLA_WX_A_TEXTO = {
     wx.WXK_LEFT: "left", wx.WXK_RIGHT: "right", wx.WXK_UP: "up", wx.WXK_DOWN: "down",
     wx.WXK_RETURN: "enter", wx.WXK_NUMPAD_ENTER: "enter", wx.WXK_SPACE: "space",
+    wx.WXK_END: "end",
 }
 _AREA_AYUDA = {
     "ctrl": "Debe ser Ctrl y una tecla (por ejemplo Ctrl+P).",
@@ -1139,6 +1140,7 @@ _ETIQUETAS_ATAJO = {
     "rep_play":          "Reproducir o pausa",
     "rep_retro":         "Retroceder 1 minuto",
     "rep_avanz":         "Avanzar 1 minuto",
+    "rep_directo":       "Ir al directo",
     "rep_detener":       "Detener vídeo",
     "rep_mute":          "Silenciar o activar audio",
     "rep_vol_menos":     "Bajar volumen del reproductor",

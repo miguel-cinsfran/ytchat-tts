@@ -57,6 +57,7 @@ _ORDEN: list[tuple[str, list[tuple[str, str]]]] = [
         ("rep_play", "ctrl+p"),
         ("rep_retro", "ctrl+left"),
         ("rep_avanz", "ctrl+right"),
+        ("rep_directo", "ctrl+end"),
         ("rep_detener", "ctrl+d"),
         ("rep_mute", "ctrl+m"),
         ("rep_vol_menos", "ctrl+down"),
