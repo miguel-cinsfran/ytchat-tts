@@ -116,6 +116,41 @@ class PruebasAvisoCargando(unittest.TestCase):
         anunciar.assert_called_once_with("El vídeo está detenido")
         panel._ir_a.assert_not_called()
 
+    def test_grabado_sin_barra_cargando_avisa_cargando(self):
+        panel = _panel({}, cargando=True)
+        panel._duracion_actual = mock.Mock(return_value=0)
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with("Cargando vídeo")
+        panel._ir_a.assert_not_called()
+
+    def test_grabado_sin_barra_detenido_avisa_detenido(self):
+        panel = _panel({})
+        panel._duracion_actual = mock.Mock(return_value=0)
+        panel._player.get_state.return_value = vlc.State.Stopped
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with("El vídeo está detenido")
+        panel._ir_a.assert_not_called()
+
+    def test_grabado_sin_barra_reproduciendo_mantiene_frase_vieja(self):
+        panel = _panel({})
+        panel._duracion_actual = mock.Mock(return_value=0)
+        panel._player.get_state.return_value = vlc.State.Playing
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with("No se puede buscar en este momento")
+        panel._ir_a.assert_not_called()
+
+    def test_grabado_sin_barra_tiktok_cargando_mantiene_frase_de_tiktok(self):
+        panel = _panel({}, url_flujo="https://tiktok/flv", cargando=True)
+        panel._duracion_actual = mock.Mock(return_value=0)
+        with mock.patch.object(reproductor, "anunciar") as anunciar:
+            panel._buscar_rel(-10_000)
+        anunciar.assert_called_once_with(
+            "En un directo de TikTok no se puede adelantar ni retroceder")
+        panel._ir_a.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

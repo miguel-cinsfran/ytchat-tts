@@ -1974,7 +1974,22 @@ class ReproductorPanel(wx.Panel):
         if not silencioso:
             anunciar("Detenido")
 
+    def _aviso_transitorio(self) -> str:
+        # Motivo transitorio compartido por los dos rechazos de salto: en
+        # TikTok no aplica porque allí manda la frase propia del directo.
+        if getattr(self, "_url_flujo", ""):
+            return ""
+        if getattr(self, "_cargando", False):
+            anunciar("Cargando vídeo")
+            return "cargando"
+        if self._estado_vlc_actual() == "stopped":
+            anunciar("El vídeo está detenido")
+            return "detenido"
+        return ""
+
     def _aviso_sin_barra(self) -> None:
+        if self._aviso_transitorio():
+            return
         # En un directo de TikTok no hay línea de tiempo; en un directo de
         # YouTube sí (se puede retroceder dentro del margen que da YouTube).
         if self._url_flujo:
@@ -2539,16 +2554,9 @@ class ReproductorPanel(wx.Panel):
         anunciar("No se pudo reproducir el vídeo")
 
     def _aviso_busqueda_no_permitida(self, origen="relativo") -> None:
-        if getattr(self, "_cargando", False) \
-                and not getattr(self, "_url_flujo", ""):
-            motivo = "cargando"
-            anunciar("Cargando vídeo")
-        elif self._estado_vlc_actual() == "stopped" \
-                and not getattr(self, "_url_flujo", ""):
-            # Detenido conserva _info, así que sin esta rama un directo
-            # diría que no se puede buscar cuando sí se puede al reanudar.
-            motivo = "detenido"
-            anunciar("El vídeo está detenido")
+        motivo = self._aviso_transitorio()
+        if motivo:
+            pass
         elif getattr(self, "_relevo_ffmpeg", None) is not None \
                 and self._es_directo_actual():
             motivo = "relevo_sin_barra"
