@@ -1363,6 +1363,55 @@ def escenario_preferencias(app: Aplicacion, args, res: Resultado):
     app.pedir("cerrar_ventana", ventana="Preferencias")
 
 
+def escenario_preferencias_categorias(app: Aplicacion, args, res: Resultado):
+    """Las 13 categorías de Preferencias, una por una.
+
+    El escenario `preferencias` audita solo la categoría a la vista. Acá se
+    recorre cada pestaña y se auditan sus controles visibles con Tab, sin
+    tocar ningún valor y cerrando sin guardar.
+
+    Solo se anota cuántas paradas tuvo cada categoría, sin listarlas: en
+    «API y sesión» los campos muestran la clave y el secreto del dueño, y
+    eso no puede quedar en el informe ni en la terminal.
+    """
+    app.pedir("frente")
+    try:
+        app.abrir_por_menu("Preferencias")
+    except Exception as exc:
+        res.fallo(f"preferencias_categorias: no se pudo abrir, {exc}")
+        return
+    if app.esperar_ventana("Preferencias", segundos=15) is None:
+        res.fallo("preferencias_categorias: Preferencias no abrió")
+        return
+    try:
+        respuesta = app.pedir("pestanas", ventana="Preferencias")
+    except Exception as exc:
+        res.fallo(f"preferencias_categorias: no se pudieron listar las "
+                  f"pestañas, {exc}")
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+        return
+    paginas = respuesta.get("datos", {}).get("paginas", [])
+    if len(paginas) < 13:
+        res.fallo(f"preferencias_categorias: hay {len(paginas)} categorías, "
+                  f"se esperaban 13")
+    try:
+        for i, nombre in enumerate(paginas):
+            app.pedir("pestanas", ventana="Preferencias", indice=i)
+            time.sleep(0.8)
+            visibles = [c for c in app.arbol("Preferencias")
+                        if c.get("en_pantalla")]
+            revisar_nombres(visibles, res, f"Preferencias/{nombre}")
+            orden = recorrer_tab(app, res, f"Preferencias/{nombre}",
+                                 vueltas=40, ventana="Preferencias")
+            res.nota(f"Preferencias/{nombre}: {len(orden)} paradas de Tab")
+            if len(orden) < 3:
+                res.fallo(f"Preferencias/{nombre}: solo {len(orden)} paradas "
+                          f"de Tab, la categoría quedó sin contenido "
+                          f"alcanzable")
+    finally:
+        app.pedir("cerrar_ventana", ventana="Preferencias")
+
+
 def escenario_historial(app: Aplicacion, args, res: Resultado):
     """El historial de directos vistos."""
     auditar_dialogo(app, res, "Historial de directos", "Historial de directos",
@@ -3074,6 +3123,7 @@ ESCENARIOS = {
     "principal": escenario_principal,
     "descargas": escenario_descargas,
     "preferencias": escenario_preferencias,
+    "preferencias_categorias": escenario_preferencias_categorias,
     "historial": escenario_historial,
     "transmision": escenario_transmision,
     "ayuda": escenario_ayuda,
@@ -3159,8 +3209,9 @@ def main() -> int:
         # sesión ese estado ya no vuelve sin reiniciar. Corrido después, el
         # botón de reproducir pasa la comprobación por el motivo equivocado.
         pedidos = ["arranque_frio", "reproductor",
-                   "menus", "principal", "descargas", "preferencias",
-                   "programados", "historial", "transmision", "ayuda", "dialogos_ayuda",
+                    "menus", "principal", "descargas", "preferencias",
+                    "preferencias_categorias",
+                    "programados", "historial", "transmision", "ayuda", "dialogos_ayuda",
                    # `redactar` va antes que `chat` y no es capricho: la
                    # mitad de lo que comprueba es como se comporta SIN
                    # conectar, y en cuanto `chat` simula una sesion ese estado
