@@ -1,5 +1,7 @@
 """Tests de la escritura atómica y la lectura tolerante de JSON (archivos.py)."""
 
+import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -43,6 +45,26 @@ class TestArchivos(unittest.TestCase):
     def test_acepta_rutas_como_cadena(self):
         archivos.escribir_json_atomico(str(self.ruta), [1])
         self.assertEqual(archivos.leer_json(str(self.ruta), None), [1])
+
+    def test_escribir_texto_atomico_escribe_y_reemplaza_sin_dejar_temporal(self):
+        ruta = self.ruta.with_suffix(".ini")
+        archivos.escribir_texto_atomico(ruta, "[a]\nx = 1\n")
+        self.assertEqual(ruta.read_text(encoding="utf-8"), "[a]\nx = 1\n")
+        archivos.escribir_texto_atomico(ruta, "[a]\nx = 2\n")
+        self.assertEqual(ruta.read_text(encoding="utf-8"), "[a]\nx = 2\n")
+        self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+
+    def test_escribir_texto_atomico_en_solo_lectura_conserva_lo_anterior(self):
+        ruta = self.ruta.with_suffix(".ini")
+        ruta.write_text("[a]\nx = 1\n", encoding="utf-8")
+        os.chmod(ruta, stat.S_IREAD)
+        try:
+            with self.assertRaises(OSError):
+                archivos.escribir_texto_atomico(ruta, "[a]\nx = 2\n")
+            self.assertEqual(ruta.read_text(encoding="utf-8"), "[a]\nx = 1\n")
+            self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+        finally:
+            os.chmod(ruta, stat.S_IWRITE | stat.S_IREAD)
 
 
 if __name__ == "__main__":

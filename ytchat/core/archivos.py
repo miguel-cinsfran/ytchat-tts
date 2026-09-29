@@ -20,23 +20,20 @@ from ytchat.core import diagnostico
 logger = diagnostico.obtener_logger(__name__)
 
 
-def escribir_json_atomico(ruta, datos, **json_kwargs) -> None:
-    """Escribe `datos` como JSON en `ruta` vía temporal + os.replace.
+def escribir_texto_atomico(ruta, texto) -> None:
+    """Escribe `texto` en `ruta` vía temporal + os.replace.
 
-    Lanza la excepción (OSError, TypeError…) si no se pudo: cada llamador
-    decide si es crítico. En ese caso el archivo anterior queda intacto y el
+    Mismo mecanismo que `escribir_json_atomico`: temporal al lado, `fsync`
+    y `os.replace`, que en Windows es atómico dentro del mismo volumen.
+    Lanza la excepción (OSError…) si no se pudo: cada llamador decide si
+    es crítico. En ese caso el archivo anterior queda intacto y el
     temporal se borra.
     """
     ruta = Path(ruta)
     temporal = ruta.with_suffix(ruta.suffix + ".tmp")
-    json_kwargs.setdefault("ensure_ascii", False)
     try:
-        # Serializar antes de abrir el temporal: un dato no serializable no
-        # deja ni siquiera un .tmp a medias.
-        texto = json.dumps(datos, **json_kwargs)
         with open(temporal, "w", encoding="utf-8") as archivo:
             archivo.write(texto)
-            archivo.write("\n")
             archivo.flush()
             os.fsync(archivo.fileno())
         os.replace(temporal, ruta)
@@ -46,6 +43,20 @@ def escribir_json_atomico(ruta, datos, **json_kwargs) -> None:
         except OSError:
             pass
         raise
+
+
+def escribir_json_atomico(ruta, datos, **json_kwargs) -> None:
+    """Escribe `datos` como JSON en `ruta` vía temporal + os.replace.
+
+    Lanza la excepción (OSError, TypeError…) si no se pudo: cada llamador
+    decide si es crítico. En ese caso el archivo anterior queda intacto y el
+    temporal se borra.
+    """
+    json_kwargs.setdefault("ensure_ascii", False)
+    # Serializar antes de abrir el temporal: un dato no serializable no
+    # deja ni siquiera un .tmp a medias.
+    texto = json.dumps(datos, **json_kwargs)
+    escribir_texto_atomico(ruta, texto + "\n")
 
 
 def leer_json(ruta, predeterminado):

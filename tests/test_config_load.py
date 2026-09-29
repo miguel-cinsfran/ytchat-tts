@@ -89,6 +89,58 @@ class TestCargarConfiguracion(unittest.TestCase):
         config.guardar_opcion(ruta, "a", "z", "3")
         self.assertEqual(ruta.read_text(encoding="utf-8"), "[a]\nx = 1\nz = 3\n")
 
+    def test_guardar_opcion_devuelve_true_y_cambia_la_clave(self):
+        ruta = Path(self._tmp.name) / "config.ini"
+        ruta.write_text("[a]\nx = 1\n", encoding="utf-8")
+        self.assertTrue(config.guardar_opcion(ruta, "a", "x", "2"))
+        self.assertEqual(ruta.read_text(encoding="utf-8"), "[a]\nx = 2\n")
+        self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+
+    def test_guardar_opcion_en_solo_lectura_devuelve_false_y_no_toca_nada(self):
+        import os
+        import stat
+        ruta = Path(self._tmp.name) / "config.ini"
+        antes = "[a]\nx = 1\n"
+        ruta.write_text(antes, encoding="utf-8")
+        os.chmod(ruta, stat.S_IREAD)
+        try:
+            self.assertFalse(config.guardar_opcion(ruta, "a", "x", "2"))
+            self.assertEqual(ruta.read_text(encoding="utf-8"), antes)
+            self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+        finally:
+            os.chmod(ruta, stat.S_IWRITE | stat.S_IREAD)
+
+    def test_guardar_opcion_clave_nueva_en_solo_lectura_devuelve_false(self):
+        import os
+        import stat
+        ruta = Path(self._tmp.name) / "config.ini"
+        antes = "[a]\nx = 1\n"
+        ruta.write_text(antes, encoding="utf-8")
+        os.chmod(ruta, stat.S_IREAD)
+        try:
+            self.assertFalse(config.guardar_opcion(ruta, "a", "z", "3"))
+            self.assertEqual(ruta.read_text(encoding="utf-8"), antes)
+            self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+        finally:
+            os.chmod(ruta, stat.S_IWRITE | stat.S_IREAD)
+
+    def test_guardar_opcion_seccion_nueva_en_solo_lectura_devuelve_false(self):
+        import os
+        import stat
+        ruta = Path(self._tmp.name) / "config.ini"
+        antes = "[a]\nx = 1\n"
+        ruta.write_text(antes, encoding="utf-8")
+        os.chmod(ruta, stat.S_IREAD)
+        try:
+            self.assertFalse(config.guardar_opcion(ruta, "b", "y", "2"))
+            self.assertEqual(ruta.read_text(encoding="utf-8"), antes)
+            self.assertEqual(list(ruta.parent.glob("*.tmp")), [])
+        finally:
+            os.chmod(ruta, stat.S_IWRITE | stat.S_IREAD)
+
+    def test_guardar_opcion_sin_ruta_devuelve_true(self):
+        self.assertTrue(config.guardar_opcion(None, "a", "x", "2"))
+
     def test_regenera_si_falta(self):
         tmp = Path(self._tmp.name)
         with redirigir_rutas(tmp):

@@ -1476,6 +1476,32 @@ class TestGuardadoDeNuevasPreferencias(unittest.TestCase):
 
         self.assertEqual(self._opciones_guardadas().get("obs", "microfono"), "")
 
+    def test_fallo_de_escritura_anuncia_que_se_perdera_y_no_el_exito(self):
+        dialogo = self._dialogo()
+        frase = ("Las preferencias se aplicaron, pero no se pudieron guardar "
+                 "en el disco. Se perderán al cerrar la aplicación.")
+        with mock.patch.object(gui_preferencias.cfg, "guardar_opcion",
+                               side_effect=[False] + [True] * 500), \
+                mock.patch.object(gui_preferencias._snd, "reproducir") as sonar, \
+                mock.patch.object(gui_preferencias, "anunciar") as anunciar, \
+                mock.patch.object(dialogo, "EndModal"):
+            dialogo._on_guardar(None)
+        anunciar.assert_any_call(frase)
+        anunciados = [llamada.args[0] for llamada in anunciar.call_args_list]
+        self.assertNotIn("Preferencias guardadas", anunciados)
+        sonar.assert_any_call("error")
+
+    def test_escritura_ok_anuncia_preferencias_guardadas(self):
+        dialogo = self._dialogo()
+        with mock.patch.object(gui_preferencias.cfg, "guardar_opcion",
+                               return_value=True), \
+                mock.patch.object(gui_preferencias._snd, "reproducir") as sonar, \
+                mock.patch.object(gui_preferencias, "anunciar") as anunciar, \
+                mock.patch.object(dialogo, "EndModal"):
+            dialogo._on_guardar(None)
+        anunciar.assert_any_call("Preferencias guardadas")
+        sonar.assert_any_call("copiar")
+
 
 class TestProgramadorGui(unittest.TestCase):
     def _frame(self, **config):

@@ -119,6 +119,7 @@ class PreferenciasDialog(wx.Dialog):
         self._capturando_atajo = None
         self._iniciar_programados()
         self._cambios = False
+        self._fallo_guardado = False
         self.SetBackgroundColour(_T.bg)
         self._build_ui()
         self._ajustar_minimo()
@@ -985,11 +986,13 @@ class PreferenciasDialog(wx.Dialog):
     # ── Guardar ───────────────────────────────────────────────────────────────
 
     def _set(self, seccion, clave, valor):
-        cfg.guardar_opcion(self._ruta, seccion, clave, valor)
+        if not cfg.guardar_opcion(self._ruta, seccion, clave, valor):
+            self._fallo_guardado = True
         self._cambios = True
 
     def _on_guardar(self, event):
         c = self._config
+        self._fallo_guardado = False
         registro_detallado_inicial = bool(c.get("registro_detallado", False))
         # Los atajos ya vienen validados desde la captura (área + conflicto), así
         # que aquí solo se guardan; no hace falta revalidar por escritura.
@@ -1025,7 +1028,8 @@ class PreferenciasDialog(wx.Dialog):
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():
-            cfg.guardar_opcion(paths.sounds_ini(), "sonidos", "tema", tema)
+            if not cfg.guardar_opcion(paths.sounds_ini(), "sonidos", "tema", tema):
+                self._fallo_guardado = True
             try:    _snd.cargar(cfg.cargar_sonidos())
             except Exception as exc: logger.warning("recargar sonidos: %s", exc)
             self._cambios = True
@@ -1120,8 +1124,13 @@ class PreferenciasDialog(wx.Dialog):
             self._set("atajos", accion, valor)
             raw[accion] = valor
 
-        _snd.reproducir("copiar")
-        anunciar("Preferencias guardadas")
+        if not self._fallo_guardado:
+            _snd.reproducir("copiar")
+            anunciar("Preferencias guardadas")
+        else:
+            _snd.reproducir("error")
+            anunciar("Las preferencias se aplicaron, pero no se pudieron guardar "
+                     "en el disco. Se perderán al cerrar la aplicación.")
         if registro_detallado != registro_detallado_inicial:
             anunciar("El cambio del registro detallado se aplica al reiniciar la aplicación")
         # El servidor del panel ya escucha en el puerto viejo; no se reinicia

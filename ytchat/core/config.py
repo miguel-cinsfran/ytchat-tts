@@ -350,15 +350,23 @@ def _lista(v: str) -> list:
     return [x.strip().lower() for x in v.split(",") if x.strip()]
 
 
-def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> None:
-    """Actualiza una clave en el INI preservando comentarios y orden."""
+def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> bool:
+    """Actualiza una clave en el INI preservando comentarios y orden.
+
+    Escribe de forma atómica (temporal al lado + reemplazo). Devuelve True
+    si escribió o si `ruta` es None (no hay nada que guardar); False si no
+    pudo leer o escribir. El fallo se registra como aviso, porque el usuario
+    pierde datos.
+    """
+    from ytchat.core import archivos
+
     if ruta is None:
-        return
+        return True
     try:
         txt = ruta.read_text(encoding="utf-8")
     except Exception as exc:
-        logger.debug("guardar_opcion: no se pudo leer %s: %s", ruta, exc)
-        return
+        logger.warning("guardar_opcion: no se pudo leer %s: %s", ruta, exc)
+        return False
 
     lines = txt.splitlines(keepends=True)
     sec_lower = seccion.lower()
@@ -384,10 +392,12 @@ def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> N
             k = stripped.split("=", 1)[0].strip().lower() if "=" in stripped else ""
             if k == clave_lower:
                 lines[i] = nueva
-                try:    ruta.write_text("".join(lines), encoding="utf-8")
+                try:
+                    archivos.escribir_texto_atomico(ruta, "".join(lines))
                 except Exception as exc:
-                    logger.debug("guardar_opcion: no se pudo escribir: %s", exc)
-                return
+                    logger.warning("guardar_opcion: no se pudo escribir %s: %s", ruta, exc)
+                    return False
+                return True
             insert_pos = i + 1
 
     if in_sec:
@@ -401,9 +411,12 @@ def guardar_opcion(ruta: Path | None, seccion: str, clave: str, valor: str) -> N
     elif insert_pos is None:
         lines.append(f"\n[{seccion}]\n{nueva}")
 
-    try:    ruta.write_text("".join(lines), encoding="utf-8")
+    try:
+        archivos.escribir_texto_atomico(ruta, "".join(lines))
     except Exception as exc:
-        logger.debug("guardar_opcion: no se pudo escribir: %s", exc)
+        logger.warning("guardar_opcion: no se pudo escribir %s: %s", ruta, exc)
+        return False
+    return True
 
 
 # ── Helpers de descargas (formato, bitrate, carpeta, enumerar) ──────────────
