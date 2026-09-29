@@ -44,20 +44,23 @@ def busqueda_permitida(es_directo, es_local, tiene_esclavo, usa_relevo=False) ->
     """Indica si la topología actual admite búsquedas.
 
     Un VOD remoto dividido no admite búsquedas. Un archivo local sí.
-    Una fuente única conserva el comportamiento actual. El directo
-    no se deshabilita: solo pierde la confirmación especial de final.
-    Un directo por el relevo de ffmpeg (vídeo+audio ya remuxados en un
-    único flujo, ver relevo_ffmpeg.py) tampoco admite búsquedas: para VLC
-    es un flujo en vivo sin ventana de retroceso (comprobado: is_seekable=0,
-    length=0), así que set_time() no hace nada y sin este aviso la app
-    dice «Moviendo a...» y recién a los 8 s «No se pudo mover el vídeo».
+    Una fuente única conserva el comportamiento actual. Un directo nunca
+    admite búsquedas por el camino del grabado: con el relevo de ffmpeg
+    (vídeo+audio ya remuxados en un único flujo, ver relevo_ffmpeg.py) VLC
+    lo ve como un flujo en vivo sin ventana de retroceso (comprobado:
+    is_seekable=0, length=0), y sin relevo VLC reproduce el HLS directo
+    con una duración de ventana (unos 30 s) y una posición contada desde
+    el inicio de la reproducción, así que set_time() cae en un destino
+    sin sentido. En ambos casos sin este aviso la app dice «Moviendo a...»
+    y recién a los 8 s «No se pudo mover el vídeo». Los saltos del directo
+    van por el camino del relevo (ver reproductor._saltar_en_relevo).
     Un VOD por el relevo en modo grabado sí las admite: cada salto reabre
     el relevo desde el destino (ver reproductor._ir_a).
     """
     if usa_relevo:
         return not bool(es_directo)
     if es_directo:
-        return True
+        return False
     if es_local:
         return True
     if tiene_esclavo:

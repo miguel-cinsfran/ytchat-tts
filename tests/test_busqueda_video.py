@@ -1513,18 +1513,18 @@ class TestBusquedaPermitida(unittest.TestCase):
         from ytchat.player.busqueda_video import busqueda_permitida
         self.assertTrue(busqueda_permitida(False, True, False))
 
-    def test_directo_remoto_dividido_si_permitida(self):
+    def test_directo_remoto_dividido_no_permitida(self):
         from ytchat.player.busqueda_video import busqueda_permitida
-        self.assertTrue(busqueda_permitida(True, False, True))
+        self.assertFalse(busqueda_permitida(True, False, True))
 
-    def test_directo_local_si_permitida(self):
+    def test_directo_local_no_permitida(self):
         from ytchat.player.busqueda_video import busqueda_permitida
-        self.assertTrue(busqueda_permitida(True, True, True))
-        self.assertTrue(busqueda_permitida(True, True, False))
+        self.assertFalse(busqueda_permitida(True, True, True))
+        self.assertFalse(busqueda_permitida(True, True, False))
 
-    def test_directo_remoto_unica_si_permitida(self):
+    def test_directo_remoto_unica_no_permitida(self):
         from ytchat.player.busqueda_video import busqueda_permitida
-        self.assertTrue(busqueda_permitida(True, False, False))
+        self.assertFalse(busqueda_permitida(True, False, False))
 
     def test_directo_por_relevo_no_permitida(self):
         # El relevo de ffmpeg deja el directo como un único flujo sin

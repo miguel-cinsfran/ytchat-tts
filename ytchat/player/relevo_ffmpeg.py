@@ -141,7 +141,33 @@ def argumentos_relevo(ffmpeg_exe: str, video_url: str, audio_url: str,
     «-live_start_index», y el contenedor pasa a ser matroska: el mpegts que
     usa el directo saca el vídeo AV1 de esos VOD como pista de datos y no
     como vídeo (comprobado). El desfase se ignora si llega inicio_ms.
+
+    Con audio vacío (formato mixto de un directo: una sola URL con vídeo y
+    audio juntos) hay una sola entrada «-i» y los mapas salen de ella
+    («-map 0:v:0 -map 0:a:0»): duplicar la misma URL como dos entradas
+    doblaría el consumo de red.
     """
+    if not audio_url:
+        if inicio_ms is not None:
+            segundos = f"{max(0, int(inicio_ms)) / 1000:.3f}"
+            return [
+                ffmpeg_exe, "-loglevel", "warning", "-nostdin",
+                "-ss", segundos, "-i", video_url,
+                "-map", "0:v:0", "-map", "0:a:0",
+                "-c", "copy", "-f", "matroska", "-listen", "1",
+                direccion_relevo(puerto),
+            ]
+        entrada = []
+        if desfase_segmentos and desfase_segmentos > 0:
+            entrada = ["-live_start_index",
+                       str(-(int(desfase_segmentos) + SEGMENTOS_BORDE))]
+        return [
+            ffmpeg_exe, "-loglevel", "warning", "-nostdin",
+            *entrada, "-i", video_url,
+            "-map", "0:v:0", "-map", "0:a:0",
+            "-c", "copy", "-f", "mpegts", "-listen", "1",
+            direccion_relevo(puerto),
+        ]
     if inicio_ms is not None:
         segundos = f"{max(0, int(inicio_ms)) / 1000:.3f}"
         return [

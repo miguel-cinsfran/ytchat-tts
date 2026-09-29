@@ -380,6 +380,23 @@ def fuentes_para_directo(info: dict) -> tuple[str, str]:
     return "", ""
 
 
+def _es_hls(info: dict, url: str) -> bool:
+    """Dice si esa URL de vídeo es una lista HLS (protocol m3u8).
+
+    Se mira el formato de info["formats"] cuya url coincide; si la URL es
+    la de nivel superior (yt-dlp ya eligió un formato mixto), se mira
+    info["protocol"]. Cualquier otra URL no es HLS.
+    """
+    if not url or not isinstance(info, dict):
+        return False
+    for formato in info.get("formats", []) or []:
+        if formato.get("url") == url:
+            return (formato.get("protocol") or "").startswith("m3u8")
+    if (info.get("url") or "") == url:
+        return (info.get("protocol") or "").startswith("m3u8")
+    return False
+
+
 def _fmt_t(ms) -> str:
     """Compacto para la etiqueta visual: H:MM:SS, o M:SS si dura menos de 1 h."""
     s = max(0, int(ms or 0) // 1000)
@@ -1464,6 +1481,14 @@ class ReproductorPanel(wx.Panel):
                     "sí" if self._info.get("url") else "no",
                     len(self._info.get("formats", []) or []),
                     len(self._info.get("requested_formats", []) or []), es_directo)
+            elif not slave and _es_hls(self._info, url):
+                # HLS mixto (una sola URL con vídeo y audio): sin relevo VLC
+                # reproduce el HLS directo y las flechas caen en destinos sin
+                # sentido con la duración de la ventana. Va por el relevo con
+                # una sola entrada (ver relevo_ffmpeg.argumentos_relevo).
+                self._relevo_ventana = None
+                self._arrancar_relevo(url, "", reproducir)
+                return
         elif altura is None:
             # VOD en automático: altura efectiva y la misma rama que la
             # calidad elegida a mano, con pistas que no son HLS.
@@ -2506,6 +2531,15 @@ class ReproductorPanel(wx.Panel):
             motivo = "relevo_sin_barra"
             anunciar("En este directo solo se puede retroceder o adelantar "
                      "con los botones o las flechas")
+        elif self._es_directo_actual():
+            # Directo sin relevo (HLS que VLC no supo remuxar o fuente no
+            # HLS): las flechas no entran al camino del grabado, se avisa.
+            if getattr(self, "_url_flujo", ""):
+                motivo = "tiktok_sin_barra"
+                anunciar("En un directo de TikTok no se puede adelantar ni retroceder")
+            else:
+                motivo = "directo_sin_relevo"
+                anunciar("En este directo no se puede adelantar ni retroceder")
         else:
             motivo = "vod_dividido"
             anunciar("No se puede mover este vídeo mientras usa la fuente de internet")

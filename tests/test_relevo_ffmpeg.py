@@ -363,5 +363,61 @@ class PruebasModoGrabado(unittest.TestCase):
         relevo.detener()
 
 
+class PruebasEntradaUnica(unittest.TestCase):
+    """Directo con formato mixto: una sola URL con vídeo y audio juntos."""
+
+    def test_audio_vacio_en_vivo_una_sola_entrada(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "ffmpeg.exe", "https://video.example/hls.m3u8", "", 5000)
+        self.assertEqual(argumentos, [
+            "ffmpeg.exe", "-loglevel", "warning", "-nostdin",
+            "-i", "https://video.example/hls.m3u8",
+            "-map", "0:v:0", "-map", "0:a:0",
+            "-c", "copy", "-f", "mpegts", "-listen", "1",
+            "tcp://127.0.0.1:5000",
+        ])
+        self.assertEqual(argumentos.count("-i"), 1)
+
+    def test_audio_none_en_vivo_una_sola_entrada(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "ffmpeg.exe", "https://video.example/hls.m3u8", None, 5000)
+        self.assertEqual(argumentos.count("-i"), 1)
+        self.assertIn("0:a:0", argumentos)
+        self.assertNotIn("1:a:0", argumentos)
+
+    def test_audio_vacio_con_desfase_una_sola_entrada(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "f", "v", "", 5000, 12)
+        esperado = str(-(12 + relevo_ffmpeg.SEGMENTOS_BORDE))
+        self.assertEqual(argumentos.count("-live_start_index"), 1)
+        self.assertIn(esperado, argumentos)
+        self.assertEqual(argumentos.count("-i"), 1)
+        self.assertIn("0:a:0", argumentos)
+
+    def test_audio_vacio_en_grabado_usa_ss_y_matroska(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "f", "v", "", 5000, inicio_ms=10000)
+        self.assertEqual(argumentos, [
+            "f", "-loglevel", "warning", "-nostdin",
+            "-ss", "10.000", "-i", "v",
+            "-map", "0:v:0", "-map", "0:a:0",
+            "-c", "copy", "-f", "matroska", "-listen", "1",
+            "tcp://127.0.0.1:5000",
+        ])
+
+    def test_con_dos_url_la_lista_es_identica_a_la_de_antes(self):
+        argumentos = relevo_ffmpeg.argumentos_relevo(
+            "ffmpeg.exe", "https://video.example/hls.m3u8",
+            "https://audio.example/hls.m3u8", 5000)
+        self.assertEqual(argumentos, [
+            "ffmpeg.exe", "-loglevel", "warning", "-nostdin",
+            "-i", "https://video.example/hls.m3u8",
+            "-i", "https://audio.example/hls.m3u8",
+            "-map", "0:v:0", "-map", "1:a:0",
+            "-c", "copy", "-f", "mpegts", "-listen", "1",
+            "tcp://127.0.0.1:5000",
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()
