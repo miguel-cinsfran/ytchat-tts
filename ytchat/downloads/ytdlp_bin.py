@@ -252,7 +252,8 @@ def descargar_audio(video_id: str, destino: Path, aviso_progreso=None,
         return False
 
 
-def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: str) -> list[str]:
+def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: str,
+                          tope_mb: int | None = None) -> list[str]:
     argumentos = [
         str(ruta), "-f",
         "bv*[height<=720][protocol=https]+ba[protocol=https][ext=m4a]/b[height<=720]/bv*+ba/b",
@@ -260,6 +261,10 @@ def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: s
         "--no-warnings", "--limit-rate", LIMITE_CACHE,
         "--merge-output-format", "mp4",
     ]
+    # El tope se mira antes de bajar: sin esto un vídeo largo se descarga
+    # entero y al podar desplaza los vídeos buenos.
+    if tope_mb is not None and tope_mb > 0:
+        argumentos.extend(["--max-filesize", f"{tope_mb}M"])
     ffmpeg = ffmpeg_bin.ruta_ffmpeg()
     if ffmpeg:
         argumentos.extend(["--ffmpeg-location", ffmpeg])
@@ -268,7 +273,8 @@ def _argumentos_video_cache(ruta: str | os.PathLike, temporal: Path, video_id: s
 
 
 def descargar_video_cache(video_id: str, destino: Path, cancel_event=None,
-                          tope_segundos: int = 3600) -> bool:
+                          tope_segundos: int = 3600,
+                          tope_mb: int | None = None) -> bool:
     """Descarga vídeo y audio completos a un archivo local limitado."""
     ruta = ruta_ytdlp()
     if ruta is None:
@@ -281,7 +287,8 @@ def descargar_video_cache(video_id: str, destino: Path, cancel_event=None,
                                          dir=destino.parent, delete=False) as archivo:
             temporal = Path(archivo.name)
         temporal.unlink()
-        argumentos = _argumentos_video_cache(ruta, temporal, video_id)
+        argumentos = _argumentos_video_cache(ruta, temporal, video_id,
+                                             tope_mb=tope_mb)
         from ytchat.core.subprocesos import Estado, ejecutar
         estado = ejecutar(
             argumentos, cancel_event=cancel_event, tope_segundos=tope_segundos,

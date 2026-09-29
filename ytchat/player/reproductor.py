@@ -1407,7 +1407,8 @@ class ReproductorPanel(wx.Panel):
                 carpeta.mkdir(parents=True, exist_ok=True)
                 self._podar_cache_video(carpeta)
                 completa = ytdlp_bin.descargar_video_cache(
-                    video_id, destino, cancel_event=tarea.cancelacion)
+                    video_id, destino, cancel_event=tarea.cancelacion,
+                    tope_mb=int(getattr(self, "_config", {}).get("cache_video_mb", 1024)))
             except Exception as exc:
                 logger.debug("caché de vídeo: %s", exc)
                 completa = False

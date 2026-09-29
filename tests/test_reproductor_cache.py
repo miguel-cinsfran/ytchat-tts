@@ -462,6 +462,37 @@ class TestReproductorCache(unittest.TestCase):
             for t in hilos:
                 self.assertFalse(t.is_alive())
 
+    def test_descargar_pasa_el_tope_de_la_configuracion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            panel = self._panel()
+            panel._config = {"cache_video_mb": 777}
+            capturado = {}
+            hilos = []
+            callbacks = []
+
+            def fake_descargar(video_id, destino, cancel_event=None, **kw):
+                capturado.update(kw)
+                return False
+
+            def fake_crear_hilo(target, nombre, *, args=(), daemon=True):
+                t = threading.Thread(target=target, daemon=daemon, name=nombre)
+                hilos.append(t)
+                return t
+
+            try:
+                with mock.patch.object(reproductor.diagnostico, "crear_hilo", side_effect=fake_crear_hilo), \
+                     mock.patch.object(reproductor.wx, "CallAfter", side_effect=lambda f, *a, **k: callbacks.append((f, a, k))), \
+                     redirigir_rutas(tmp), \
+                     mock.patch.object(reproductor.ytdlp_bin, "descargar_video_cache", side_effect=fake_descargar):
+                    panel._descargar_video_cache(panel._video_id, panel._gen)
+                    for t in hilos:
+                        t.join(timeout=2)
+                self.assertFalse(any(t.is_alive() for t in hilos))
+                self.assertEqual(777, capturado.get("tope_mb"))
+            finally:
+                for t in hilos:
+                    t.join(timeout=2)
+
     def _panel_real(self, cache_mb):
         panel = self._panel()
         panel._config = {"cache_video_mb": cache_mb}

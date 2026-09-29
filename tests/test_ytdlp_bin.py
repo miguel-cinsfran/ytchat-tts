@@ -509,6 +509,22 @@ class PruebasDescargarVideoCache(unittest.TestCase):
                 args2 = ytdlp_bin._argumentos_video_cache("yt-dlp.exe", temporal, "A" * 11)
                 self.assertNotIn("--ffmpeg-location", args2)
 
+    def test_argumentos_con_tope_agrega_max_filesize(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            temporal = Path(carpeta) / ".ytcache-x.mp4"
+            args = ytdlp_bin._argumentos_video_cache(
+                "yt-dlp.exe", temporal, "A" * 11, tope_mb=5)
+            self.assertIn("--max-filesize", args)
+            self.assertEqual("5M", args[args.index("--max-filesize") + 1])
+
+    def test_argumentos_sin_tope_no_agrega_max_filesize(self):
+        with tempfile.TemporaryDirectory() as carpeta:
+            temporal = Path(carpeta) / ".ytcache-x.mp4"
+            for tope in (None, 0, -3):
+                args = ytdlp_bin._argumentos_video_cache(
+                    "yt-dlp.exe", temporal, "A" * 11, tope_mb=tope)
+                self.assertNotIn("--max-filesize", args)
+
     def test_cancelado_borra_tambien_fragmentos_y_part_del_temporal(self):
         # yt-dlp deja «.part», «.ytdl» y fragmentos «.fNNN.ext» junto al
         # temporal; solo borrar el temporal los dejaba huérfanos en la caché.
@@ -702,7 +718,7 @@ class PruebasDescargarVideoCache(unittest.TestCase):
             evento = threading.Event()
             evento.set()
 
-            def constructor_falso(ruta, temporal, video_id):
+            def constructor_falso(ruta, temporal, video_id, tope_mb=None):
                 return [sys.executable, "-c", "import time; time.sleep(5)"]
 
             with patch.object(ytdlp_bin, "ruta_ytdlp", return_value="yt-dlp.exe"), \
@@ -768,7 +784,7 @@ class PruebasDescargarVideoCache(unittest.TestCase):
             destino = Path(carpeta) / "salida.mp4"
             contenido_esperado = b"contenido-prueba"
 
-            def constructor_falso(ruta, temporal, video_id):
+            def constructor_falso(ruta, temporal, video_id, tope_mb=None):
                 return [sys.executable, "-c",
                         "import pathlib, sys; p=pathlib.Path(sys.argv[1]); sys.exit(1) if p.exists() else p.write_bytes(b'contenido-prueba')",
                         str(temporal)]
