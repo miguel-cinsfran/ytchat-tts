@@ -598,6 +598,10 @@ class ReproductorPanel(wx.Panel):
         # Reapertura agendada por _ir_a (debounce de 400 ms) y contador de
         # recuperaciones tras un corte a mitad del vídeo (ver _on_timer).
         self._relevo_vod_reapertura = None
+        # Destino guardado al mover la posición con el VOD por relevo en
+        # pausa: no se reabre el relevo hasta reanudar (ver _ir_a). None
+        # salvo mientras hay un salto en pausa pendiente de reanudar.
+        self._relevo_vod_destino_en_pausa = None
         # Reapertura agendada por _saltar_en_relevo con el mismo debounce:
         # cada pulsación anuncia al instante y el reinicio de ffmpeg espera
         # 400 ms por si viene otra pulsación encadenada (ver _saltar_en_relevo).
@@ -1180,6 +1184,7 @@ class ReproductorPanel(wx.Panel):
         self._alturas = []
         self._recargas_directo = 0
         self._recargas_apertura = 0
+        self._relevo_vod_destino_en_pausa = None
         if self._video_id and autoplay:
             self.cargar(reproducir=True)
         else:
@@ -1279,6 +1284,7 @@ class ReproductorPanel(wx.Panel):
         self._usando_cache_local = False
         self._cancelar_transporte()
         self._vod_por_relevo = False
+        self._relevo_vod_destino_en_pausa = None
         self._relevo_vod_recuperaciones = 0
         self._relevo_vod_ultima = None
         self._intencion_reproducir = reproducir
@@ -1432,6 +1438,7 @@ class ReproductorPanel(wx.Panel):
                 directa.Stop()
             except Exception:
                 pass
+        self._relevo_vod_destino_en_pausa = None
         relevo = getattr(self, "_relevo_ffmpeg", None)
         self._relevo_ffmpeg = None
         self._relevo_vod_base_ms = None
@@ -1813,6 +1820,20 @@ class ReproductorPanel(wx.Panel):
             # momento actual del directo.
             if self._url_flujo:
                 self._reproducir_flujo()
+            elif getattr(self, "_relevo_vod_destino_en_pausa", None) is not None \
+                    and getattr(self, "_vod_por_relevo", False):
+                # Salto en pausa pendiente: se reabre el relevo desde ese
+                # destino reproduciendo, sin pasar por set_pause sobre el
+                # flujo viejo (que volvía al principio).
+                destino = int(self._relevo_vod_destino_en_pausa)
+                self._relevo_vod_destino_en_pausa = None
+                self._intencion_reproducir = True
+                try:
+                    self._timer.Start(500)
+                except Exception:
+                    pass
+                anunciar("Reanudando")
+                self._reabrir_relevo_vod(destino)
             else:
                 self._player.set_pause(0)
                 self._orden_transporte = OrdenTransporte(intencion_reproducir=True, instante=time.monotonic())
@@ -1855,6 +1876,7 @@ class ReproductorPanel(wx.Panel):
         self._relevo_desfase = 0
         self._relevo_ventana = None
         self._vod_por_relevo = False
+        self._relevo_vod_destino_en_pausa = None
         self._relevo_vod_recuperaciones = 0
         self._relevo_vod_ultima = None
         self._intencion_reproducir = False
@@ -2057,6 +2079,10 @@ class ReproductorPanel(wx.Panel):
         bus = getattr(self, "_estado_busqueda", None)
         if bus is None:
             return
+        if getattr(self, "_relevo_vod_destino_en_pausa", None) is not None:
+            # Salto en pausa ya confirmado: las lecturas viejas de VLC no
+            # deben ni mover el destino ni anunciar un fallo hasta reanudar.
+            return
         muestra = self._lectura_cruda()
         dur = self._duracion_actual()
         estado = self._estado_vlc_actual()
@@ -2098,6 +2124,23 @@ class ReproductorPanel(wx.Panel):
         if not getattr(self, "_vod_por_relevo", False):
             self._player.set_time(destino)
             return
+        if not bool(getattr(self, "_intencion_reproducir", True)):
+            # En pausa no se reabre el relevo ni se toca VLC: reabrir sin
+            # reproducir dejaba a VLC sin muestras y al reanudar el vídeo
+            # volvía al principio. Se guarda el destino hasta reanudar.
+            pendiente = getattr(self, "_relevo_vod_reapertura", None)
+            if pendiente is not None:
+                try:
+                    pendiente.Stop()
+                except Exception:
+                    pass
+            self._relevo_vod_reapertura = None
+            self._relevo_vod_destino_en_pausa = int(destino)
+            # _marcar_destino se llama después en todos los llamadores y deja
+            # la búsqueda pendiente: la confirmación va diferida para que
+            # reemplace ese pendiente por el destino ya confirmado.
+            wx.CallAfter(self._confirmar_salto_en_pausa, int(destino))
+            return
         pendiente = getattr(self, "_relevo_vod_reapertura", None)
         if pendiente is not None:
             try:
@@ -2107,8 +2150,32 @@ class ReproductorPanel(wx.Panel):
         self._relevo_vod_reapertura = wx.CallLater(
             400, self._reabrir_relevo_vod, int(destino))
 
+    def _confirmar_salto_en_pausa(self, destino) -> None:
+        """Confirma un salto hecho en pausa sin tocar VLC ni anunciar.
+
+        Reemplaza la búsqueda pendiente que dejó _marcar_destino por el
+        destino ya confirmado, para que las pulsaciones siguientes sumen
+        desde ahí y nunca llegue «No se pudo mover el vídeo»."""
+        try:
+            destino = int(destino)
+        except Exception:
+            return
+        if getattr(self, "_relevo_vod_destino_en_pausa", None) != destino:
+            return
+        self._estado_busqueda = EstadoBusqueda(confirmada=destino)
+        try:
+            dur = self._duracion_actual()
+        except Exception:
+            dur = 0
+        try:
+            self._fijar_tiempo(destino, dur, mover_slider=True,
+                               anunciar_t=False)
+        except Exception:
+            pass
+
     def _reabrir_relevo_vod(self, destino) -> None:
         self._relevo_vod_reapertura = None
+        self._relevo_vod_destino_en_pausa = None
         fuentes = getattr(self, "_relevo_fuentes", None)
         if fuentes is None:
             return
