@@ -10,8 +10,9 @@ escritura/moderación están en INFORME_TIKTOK.md.
 Diseño espejo de la captura de YouTube en main.py:
   - `usuario_de_url()` es lógica pura (testeable sin la librería).
   - `capturar_con_reconexion()` bloquea en un hilo propio y reporta por
-    callbacks: `on_info(dict)` al conectar (título, espectadores, URL HLS que
-    reproduce libVLC tal cual), `on_evento(...)` por cada mensaje y
+    callbacks: `on_info(dict)` al conectar (título, espectadores, el flujo de
+    TikTok (FLV, o HLS si no hay FLV) que reproduce libVLC tal cual),
+    `on_evento(...)` por cada mensaje y
     `on_estado(tipo, texto)` para la GUI. El filtrado, el TTS y la cola los
     decide quien llama (main), igual que con pytchat.
   - Todo degrada tras guardas: sin TikTokLive instalado, `disponible()` es

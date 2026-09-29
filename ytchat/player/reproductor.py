@@ -556,7 +556,7 @@ class ReproductorPanel(wx.Panel):
         super().__init__(parent, name="PanelReproductor")
         self._config = config
         self._video_id = ""
-        # URL de flujo directa (HLS de TikTok): reproduce sin pasar por yt-dlp.
+        # URL de flujo directa (flujo de TikTok: FLV, o HLS si no hay FLV): reproduce sin pasar por yt-dlp.
         # Excluyente con _video_id: solo una de las dos fuentes está activa.
         self._url_flujo = ""
         self._cargando = False
@@ -1213,7 +1213,7 @@ class ReproductorPanel(wx.Panel):
             self._fijar_estado("Listo. Pulsa Reproducir.")
 
     def set_flujo(self, url: str, autoplay: bool = True) -> None:
-        """Reproduce una URL de flujo directa (el HLS de un directo de TikTok).
+        """Reproduce una URL de flujo directa (el flujo de TikTok: FLV, o HLS si no hay FLV).
         Sin yt-dlp ni calidades: la URL ya viene resuelta por quien conecta."""
         self._video_id = ""
         self._url_flujo = (url or "").strip()
@@ -1274,7 +1274,7 @@ class ReproductorPanel(wx.Panel):
     def get_es_live(self) -> bool:
         """¿El vídeo actual es un directo en curso? True si yt-dlp ya lo
         clasificó como live. False si aún no se cargó, si es VOD/programado,
-        o si la reproducción viene de un flujo HLS de TikTok."""
+        o si la reproducción viene del flujo de TikTok (FLV, o HLS si no hay FLV)."""
         if self._info is None:
             return False
         try:    return bool(self._info.get("is_live"))

@@ -2203,7 +2203,7 @@ class YTChatFrame(wx.Frame):
     def configurar_tiktok(self, usuario: str, url_flujo: str) -> None:
         """Prepara la ventana para un directo de TikTok: chat en limpio, pestaña
         de chat al frente, comentarios fuera (TikTok no los tiene aquí) y el
-        reproductor con la URL HLS directa. Lo llama main vía wx.CallAfter."""
+        reproductor con el flujo de TikTok (FLV, o HLS si no hay FLV). Lo llama main vía wx.CallAfter."""
         if not self._alive:
             return
         self._tipo_video = deteccion.LIVE
