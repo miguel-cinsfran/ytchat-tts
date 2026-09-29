@@ -173,17 +173,45 @@ async def _vigilar_parada(client, parada) -> None:
         logger.debug("vigilar_parada: %s", exc)
 
 
+def _clase_suscripcion(modulo_eventos):
+    """Clase del evento de suscripción según la TikTokLive instalada.
+
+    En 6.6.5 y anteriores es `SubscribeEvent`; en 6.6.6 desapareció y el
+    aviso de suscripción es `SubNotifyEvent`. Si no hay ninguna, None y
+    quien llama simplemente no registra ese manejador, sin error."""
+    for nombre in ("SubscribeEvent", "SubNotifyEvent"):
+        clase = getattr(modulo_eventos, nombre, None)
+        if clase is not None:
+            return clase
+    return None
+
+
+# Texto del estado permanente cuando la TikTokLive instalada no trae lo que
+# la captura necesita (llega a la GUI por on_estado como los demás estados).
+_TEXTO_VERSION_INCOMPATIBLE = (
+    "La versión instalada de TikTokLive no es compatible con la aplicación.")
+
+
 def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores,
             anunciar_entradas=False):
     """Una conexión completa (bloquea hasta desconectar). Devuelve la excepción
-    de conexión si la hubo, o None si terminó con normalidad."""
-    _parchear_extended_user()   # antes de tocar ningún evento (ver la función)
-    from TikTokLive import TikTokLiveClient
-    from TikTokLive.events import (ConnectEvent, CommentEvent, GiftEvent,
-                                   SubscribeEvent, DisconnectEvent, LiveEndEvent,
-                                   RoomUserSeqEvent, JoinEvent)
+    de conexión si la hubo, o None si terminó con normalidad.
 
-    client = TikTokLiveClient(unique_id=usuario)
+    Lo que falle al preparar la sesión (imports y creación del cliente) no
+    sale como excepción: se devuelve como el error de la sesión, igual que
+    el de conexión, para que el bucle lo informe en vez de matar el hilo."""
+    try:
+        _parchear_extended_user()   # antes de tocar ningún evento (ver la función)
+        from TikTokLive import TikTokLiveClient
+        from TikTokLive.events import (ConnectEvent, CommentEvent, GiftEvent,
+                                       DisconnectEvent, LiveEndEvent,
+                                       RoomUserSeqEvent, JoinEvent)
+        from TikTokLive import events as modulo_eventos
+        client = TikTokLiveClient(unique_id=usuario)
+    except Exception as exc:
+        logger.debug("preparación TikTok: %s", exc)
+        return exc
+    clase_suscripcion = _clase_suscripcion(modulo_eventos)
     error: list = [None]
     _autor = autor_de_evento
 
@@ -218,10 +246,11 @@ def _sesion(usuario, parada, on_evento, on_estado, on_info, on_espectadores,
         monto = f"{total} diamantes" if total else ""
         on_evento(autor, detalle, TIPO_SUPERCHAT, monto, canal_id)
 
-    @client.on(SubscribeEvent)
-    async def _on_subscribe(evento):
-        autor, canal_id = _autor(evento)
-        on_evento(autor, "", TIPO_MIEMBRO, "", canal_id)
+    if clase_suscripcion is not None:
+        @client.on(clase_suscripcion)
+        async def _on_subscribe(evento):
+            autor, canal_id = _autor(evento)
+            on_evento(autor, "", TIPO_MIEMBRO, "", canal_id)
 
     if anunciar_entradas:
         # Quién entra al directo. Solo si el usuario lo pidió: en directos
@@ -357,8 +386,21 @@ def capturar_con_reconexion(usuario, config, parada, on_evento,
         if on_estado:
             on_estado("conectando", f"Conectando al directo de TikTok de @{usuario}...")
         conecto[0] = False
-        err = _sesion(usuario, parada, on_evento, _estado, on_info, on_espectadores,
-                      anunciar_entradas=bool(config.get("tiktok_anunciar_entradas")))
+        try:
+            err = _sesion(usuario, parada, on_evento, _estado, on_info, on_espectadores,
+                          anunciar_entradas=bool(config.get("tiktok_anunciar_entradas")))
+        except Exception as exc:
+            # Nada de lo que salga de _sesion puede matar el hilo: se trata
+            # como un error de conexión y sigue la misma política de reintentos.
+            logger.debug("sesión TikTok inesperada: %s", exc)
+            err = exc
+        if isinstance(err, (ImportError, AttributeError)):
+            # Preparación imposible con esta versión de la librería: no vale
+            # la pena reintentar, se avisa una vez y se termina.
+            if on_estado:
+                on_estado("error_permanente", _TEXTO_VERSION_INCOMPATIBLE)
+            parada.set()
+            break
         if conecto[0]:
             intentos = 0
         if parada.is_set():
