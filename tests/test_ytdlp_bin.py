@@ -195,7 +195,9 @@ class PruebasYtdlpBin(unittest.TestCase):
             paquete.write_bytes(b"programa")
             with patch.object(sys, "executable", str(ejecutable)), \
                     patch.object(sys, "frozen", True, create=True):
-                self.assertEqual(paquete.resolve(), ytdlp_bin._ruta_del_paquete())
+                resultado = ytdlp_bin._ruta_del_paquete()
+                self.assertIsNotNone(resultado)
+                self.assertEqual(paquete.resolve(), resultado.resolve())
 
     def test_construccion_rechaza_archivo_menor_que_un_mib(self):
         construir = Path(__file__).parents[1] / "construir.bat"
