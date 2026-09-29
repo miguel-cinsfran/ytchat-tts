@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -494,6 +495,212 @@ class TestGestorDescargas(unittest.TestCase):
                 threading.Event().wait(0.01)
 
         self.assertEqual(progresos[0][4], "Título conocido")
+
+
+def _esperar_hasta(condicion, tiempo=5.0):
+    """Espera corta por una condición de hilos, sin sleeps fijos largos."""
+    limite = time.time() + tiempo
+    while time.time() < limite:
+        if condicion():
+            return True
+        threading.Event().wait(0.01)
+    return condicion()
+
+
+class TestGestorDescargasLimite(unittest.TestCase):
+    """La cola es una cola de verdad: dos a la vez, en orden de encolado."""
+
+    def opciones(self): return {"formato": "mp4", "bitrate": 192, "carpeta": "/tmp"}
+
+    def _registrador(self, finales):
+        candado = threading.Lock()
+
+        def estado(item_id, estado, _mensaje):
+            with candado:
+                finales[item_id] = estado
+        return estado
+
+    def test_como_mucho_dos_descargas_a_la_vez(self):
+        gestor = GestorDescargas(self.opciones())
+        liberar = threading.Event()
+        candado = threading.Lock()
+        dentro = 0
+        maximo = 0
+        entradas = []
+        finales = {}
+
+        def descargar_simulada(_url, _opciones, _progreso, estado, _cancelar):
+            nonlocal dentro, maximo
+            with candado:
+                dentro += 1
+                maximo = max(maximo, dentro)
+                entradas.append(_url)
+            try:
+                liberar.wait(5)
+            finally:
+                with candado:
+                    dentro -= 1
+            estado("completado", "")
+
+        with mock.patch.object(descargas, "analizar_url",
+                               return_value={"tipo": "video"}), \
+                mock.patch.object(descargas, "descargar",
+                                  side_effect=descargar_simulada):
+            ids = [gestor.encolar(f"url-{i}", lambda *a: None,
+                                  self._registrador(finales)) for i in range(5)]
+            self.assertTrue(_esperar_hasta(lambda: len(entradas) >= 2))
+            with candado:
+                self.assertEqual(len(entradas), 2)
+                self.assertLessEqual(maximo, 2)
+            liberar.set()
+            self.assertTrue(_esperar_hasta(lambda: len(finales) == 5, tiempo=10))
+        with candado:
+            self.assertEqual(maximo, 2)
+        self.assertEqual([finales[i] for i in ids], ["completado"] * 5)
+        self.assertTrue(all(gestor.obtener(i).estado == "completado" for i in ids))
+
+    def test_el_orden_de_entrada_es_el_de_encolado(self):
+        gestor = GestorDescargas(self.opciones())
+        candado = threading.Lock()
+        entradas = []
+        finales = {}
+
+        def descargar_simulada(url, _opciones, _progreso, estado, _cancelar):
+            with candado:
+                entradas.append(url)
+            estado("completado", "")
+
+        with mock.patch.object(descargas, "analizar_url",
+                               return_value={"tipo": "video"}), \
+                mock.patch.object(descargas, "descargar",
+                                  side_effect=descargar_simulada):
+            urls = [f"url-{i}" for i in range(5)]
+            for url in urls:
+                gestor.encolar(url, lambda *a: None, self._registrador(finales))
+            self.assertTrue(_esperar_hasta(lambda: len(finales) == 5, tiempo=10))
+        self.assertEqual(entradas, urls)
+
+    def test_cancelado_mientras_espera_no_lanza_nada(self):
+        gestor = GestorDescargas(self.opciones())
+        liberar = threading.Event()
+        candado = threading.Lock()
+        entradas = []
+        finales = {}
+
+        def descargar_simulada(url, _opciones, _progreso, estado, _cancelar):
+            with candado:
+                entradas.append(url)
+            liberar.wait(5)
+            estado("completado", "")
+
+        with mock.patch.object(descargas, "analizar_url",
+                               return_value={"tipo": "video"}) as analizar_mock, \
+                mock.patch.object(descargas, "descargar",
+                                  side_effect=descargar_simulada):
+            primero = gestor.encolar("url-0", lambda *a: None,
+                                     self._registrador(finales))
+            segundo = gestor.encolar("url-1", lambda *a: None,
+                                     self._registrador(finales))
+            self.assertTrue(_esperar_hasta(lambda: len(entradas) == 2))
+            tercero = gestor.encolar("url-2", lambda *a: None,
+                                     self._registrador(finales))
+            gestor.cancelar(tercero)
+            self.assertTrue(_esperar_hasta(lambda: finales.get(tercero) == "cancelado"))
+            # El cancelado no lanzó nada y no le quitó el turno a los demás.
+            self.assertEqual(analizar_mock.call_count, 2)
+            self.assertEqual(list(entradas), ["url-0", "url-1"])
+            cuarto = gestor.encolar("url-3", lambda *a: None,
+                                    self._registrador(finales))
+            liberar.set()
+            self.assertTrue(_esperar_hasta(
+                lambda: len([i for i in (primero, segundo, cuarto)
+                             if finales.get(i) == "completado"]) == 3, tiempo=10))
+        self.assertEqual(finales[tercero], "cancelado")
+        self.assertEqual(gestor.obtener(tercero).estado, "cancelado")
+        self.assertIn("url-3", list(entradas))
+
+    def test_si_descargar_falla_el_turno_se_libera(self):
+        gestor = GestorDescargas(self.opciones())
+        candado = threading.Lock()
+        entradas = []
+        finales = {}
+
+        def descargar_simulada(url, _opciones, _progreso, estado, _cancelar):
+            with candado:
+                entradas.append(url)
+            if url == "url-falla":
+                raise RuntimeError("falla simulada")
+            estado("completado", "")
+
+        with mock.patch.object(descargas, "analizar_url",
+                               return_value={"tipo": "video"}), \
+                mock.patch.object(descargas, "descargar",
+                                  side_effect=descargar_simulada):
+            fallido = gestor.encolar("url-falla", lambda *a: None,
+                                     self._registrador(finales))
+            ok1 = gestor.encolar("url-ok-1", lambda *a: None,
+                                 self._registrador(finales))
+            ok2 = gestor.encolar("url-ok-2", lambda *a: None,
+                                 self._registrador(finales))
+            self.assertTrue(_esperar_hasta(lambda: len(finales) == 3, tiempo=10))
+        self.assertEqual(sorted(entradas), ["url-falla", "url-ok-1", "url-ok-2"])
+        self.assertEqual(finales[fallido], "error")
+        self.assertEqual(finales[ok1], "completado")
+        self.assertEqual(finales[ok2], "completado")
+
+    def test_el_turno_respeta_la_fila_aunque_arranquen_al_reves(self):
+        # Sin la fila por _orden, el semáforo atiende en orden de arranque.
+        gestor = GestorDescargas(self.opciones())
+        hilos = []
+        candado = threading.Lock()
+        entradas = []
+        finales = {}
+        liberar = threading.Event()
+
+        def crear_sin_arrancar(destino, nombre, *args, **kwargs):
+            # El encolar arranca lo que crear_hilo devuelve: se le entrega
+            # un falso con start mudo y el hilo real queda guardado sin
+            # arrancar para lanzarlo después en orden inverso.
+            pargs = kwargs.get("args", ())
+            hilo = threading.Thread(target=destino, args=pargs,
+                                    name=nombre, daemon=True)
+            hilos.append(hilo)
+            falso = mock.Mock()
+            falso.start = lambda: None
+            return falso
+
+        def descargar_simulada(url, _opciones, _progreso, estado, _cancelar):
+            with candado:
+                entradas.append(url)
+            liberar.wait(5)
+            estado("completado", "")
+
+        try:
+            with mock.patch.object(descargas, "analizar_url",
+                                   return_value={"tipo": "video"}), \
+                    mock.patch.object(descargas, "descargar",
+                                      side_effect=descargar_simulada), \
+                    mock.patch.object(descargas.diagnostico, "crear_hilo",
+                                      new=crear_sin_arrancar):
+                urls = [f"url-{i}" for i in range(5)]
+                for url in urls:
+                    gestor.encolar(url, lambda *a: None,
+                                   self._registrador(finales))
+                self.assertEqual(len(hilos), 5)
+                for hilo in reversed(hilos):
+                    hilo.start()
+                self.assertTrue(_esperar_hasta(lambda: len(entradas) >= 2))
+                with candado:
+                    self.assertEqual(list(entradas[:2]), urls[:2])
+                liberar.set()
+                self.assertTrue(_esperar_hasta(lambda: len(finales) == 5,
+                                              tiempo=10))
+        finally:
+            liberar.set()
+            for hilo in hilos:
+                hilo.join(5)
+        self.assertFalse(any(h.is_alive() for h in hilos))
+        self.assertEqual(list(entradas), urls)
 
 
 class TestGestorUnico(unittest.TestCase):

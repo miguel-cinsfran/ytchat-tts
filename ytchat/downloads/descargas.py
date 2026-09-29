@@ -379,6 +379,10 @@ def frase_aviso_descarga(estado: str, mensaje: str, nombre: str) -> str:
 
 # ── Gestor de cola ───────────────────────────────────────────────────────────
 
+# Como mucho dos descargas corren a la vez: la PC que usa la app tiene
+# cuatro núcleos y 7,83 GiB, y diez yt-dlp a la vez la dejan sin resto.
+DESCARGAS_SIMULTANEAS = 2
+
 class GestorDescargas:
     """Cola de descargas. Cada ítem corre en su propio hilo (daemon).
 
@@ -394,6 +398,8 @@ class GestorDescargas:
         self._orden: list[str] = []
         self._suscriptores_fin: list[Callable] = []
         self._lock = threading.Lock()
+        self._turnos = threading.Semaphore(DESCARGAS_SIMULTANEAS)
+        self._empezados: set[str] = set()
 
     def set_opciones(self, op: dict) -> None:
         """Reemplaza las opciones que se pasan a cada descarga nueva."""
@@ -414,6 +420,10 @@ class GestorDescargas:
     def encolar(self, url: str, progreso_cb: Callable, estado_cb: Callable,
                 creado_cb: Optional[Callable] = None) -> str:
         """Crea un ItemDescarga, lo deja en 'en_cola' y lanza su hilo.
+
+        Como mucho DESCARGAS_SIMULTANEAS corren a la vez; las demás esperan
+        en 'en_cola', en el orden en que se encolaron, y se pueden cancelar
+        mientras esperan.
 
         `progreso_cb(item_id, pct, velocidad, eta, nombre)` y
         `estado_cb(item_id, estado, mensaje)` reciben el id del ítem.
@@ -463,18 +473,56 @@ class GestorDescargas:
 
         def _run() -> None:
             # Doble red de seguridad: capturar lo que sea que se escape.
+            tomado = False
             try:
-                info = analizar_url(url)
-                it.tipo = info.get("tipo", "video")
-                titulo = info.get("titulo") or ""
-                if titulo:
-                    _cb_progreso(it.progreso, "", "", titulo)
-                if ev.is_set():
-                    # Cancelada durante el análisis: no lanzar yt-dlp para nada.
-                    _cb_estado("cancelado", "Descarga cancelada")
-                    return
-                logger.info("descarga %s: inicio", item_id)
-                descargar(url, self._opciones, _cb_progreso, _cb_estado, ev)
+                # Espera del turno, ANTES de analizar (que también lanza
+                # yt-dlp). El semáforo acota cuántos corren y el repaso de
+                # _orden impone la fila: un hilo solo toma el turno cuando
+                # ningún ítem anterior a él sigue en 'en_cola' sin empezar.
+                # Si cancelan mientras espera, se avisa cancelado sin lanzar
+                # nada y sin tomar el turno.
+                while True:
+                    if ev.is_set():
+                        _cb_estado("cancelado", "Descarga cancelada")
+                        return
+                    with self._lock:
+                        bloqueado = False
+                        for previo in self._orden:
+                            if previo == item_id:
+                                break
+                            if previo in self._empezados:
+                                continue
+                            anterior = self._items.get(previo)
+                            if anterior is None or anterior.estado != "en_cola":
+                                continue
+                            evento_previo = self._eventos.get(previo)
+                            if evento_previo is not None and evento_previo.is_set():
+                                continue
+                            bloqueado = True
+                            break
+                    if not bloqueado:
+                        if self._turnos.acquire(timeout=0.2):
+                            tomado = True
+                            with self._lock:
+                                self._empezados.add(item_id)
+                            break
+                    else:
+                        ev.wait(0.02)
+                try:
+                    info = analizar_url(url)
+                    it.tipo = info.get("tipo", "video")
+                    titulo = info.get("titulo") or ""
+                    if titulo:
+                        _cb_progreso(it.progreso, "", "", titulo)
+                    if ev.is_set():
+                        # Cancelada durante el análisis: no lanzar yt-dlp para nada.
+                        _cb_estado("cancelado", "Descarga cancelada")
+                        return
+                    logger.info("descarga %s: inicio", item_id)
+                    descargar(url, self._opciones, _cb_progreso, _cb_estado, ev)
+                finally:
+                    if tomado:
+                        self._turnos.release()
             except Exception as exc:
                 logger.warning("hilo descarga: %s", exc)
                 _cb_estado("error", str(exc) or exc.__class__.__name__)
