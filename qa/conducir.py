@@ -1360,6 +1360,18 @@ def escenario_historial(app: Aplicacion, args, res: Resultado):
                     vueltas_tab=12)
 
 
+def obs_abierto() -> bool:
+    """¿Hay un proceso `obs64.exe` corriendo? Falso ante cualquier error."""
+    try:
+        r = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq obs64.exe", "/NH"],
+            capture_output=True, text=True, timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+        return "obs64.exe" in (r.stdout or "").lower()
+    except Exception:
+        return False
+
+
 def escenario_transmision(app: Aplicacion, args, res: Resultado):
     """El diálogo que coloca el panel de chat dentro de una escena de OBS.
 
@@ -1372,6 +1384,17 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
     La fase 3 del smoke NO llega hasta acá: solo audita la pantalla
     desconectada. Esta es la única auditoría automática de esta superficie.
     """
+    # Sin OBS los controles de OBS nacen deshabilitados a propósito, y wx saca
+    # lo deshabilitado del orden de Tab. Exigirlos ahí mide la pantalla de
+    # espera, no el diálogo. Medido el 29/09/2026.
+    if obs_abierto():
+        esperados_tab = ("Preparar el panel", "Fuente", "Escena",
+                         "Poner al aire", "Posición del panel",
+                         "Restablecer", "Transmitir", "Grabar")
+    else:
+        esperados_tab = ("Transmitir",)
+        res.nota("Transmisión: OBS está cerrado, así que los controles de OBS "
+                 "no se exigen en el orden de Tab")
     auditar_dialogo(
         app, res, "Transmisión", "Transmisión", vueltas_tab=25,
         esperados=("Estado de la transmisión", "Actualizar estado", "Preparar el panel", "Escena",
@@ -1382,8 +1405,7 @@ def escenario_transmision(app: Aplicacion, args, res: Resultado):
                    "Restablecer", "Transmitir", "Grabar", "Pausar la grabación",
                    "Cerrar"),
         # Arranca deshabilitado sin grabación y wx lo saca del orden de Tab.
-        esperados_en_tab=("Preparar el panel", "Fuente", "Escena", "Poner al aire", "Posición del panel",
-                          "Restablecer", "Transmitir", "Grabar"))
+        esperados_en_tab=esperados_tab)
 
 
 def escenario_ayuda(app: Aplicacion, args, res: Resultado):

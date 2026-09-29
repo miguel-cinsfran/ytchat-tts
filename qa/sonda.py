@@ -353,8 +353,38 @@ class Sonda:
                 if objetivo is frame:
                     frame.Iconize(False)
                 objetivo.Raise()
+                # Windows solo deja pasar al frente al proceso que recibió la
+                # última entrada. `IsActive` es lo que cree wx, no lo que tiene
+                # Windows delante, así que se comprueba con
+                # `GetForegroundWindow`. Si no está al frente, se desbloquea
+                # con una pulsación de F24, que no usa ninguna aplicación ni
+                # NVDA, y se repite el `Raise`. Nunca con Alt: un Alt sintético
+                # abre la barra de menú y rompe los aceleradores. Medido el
+                # 29/09/2026: sin esto la primera tecla de la corrida se pierde.
+                import ctypes
+                try:
+                    al_frente_windows = (ctypes.windll.user32.GetForegroundWindow()
+                                         == objetivo.GetHandle())
+                except Exception:
+                    al_frente_windows = False
+                if not al_frente_windows:
+                    try:
+                        wx.UIActionSimulator().Char(wx.WXK_F24)
+                    except Exception:
+                        pass
+                    try:
+                        objetivo.Raise()
+                    except Exception:
+                        pass
+                    try:
+                        al_frente_windows = (
+                            ctypes.windll.user32.GetForegroundWindow()
+                            == objetivo.GetHandle())
+                    except Exception:
+                        al_frente_windows = False
                 self.responder(id_orden, True, {
-                    "activa": bool(objetivo.IsActive()),
+                    "activa": bool(objetivo.IsActive()) and al_frente_windows,
+                    "frente_windows": bool(al_frente_windows),
                     "ventana": objetivo.GetTitle(),
                 })
 

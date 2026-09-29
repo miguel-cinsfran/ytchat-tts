@@ -55,7 +55,7 @@ Los escenarios que terminan en `directo_` son los únicos que tocan la red. No
 entran en la corrida completa: gastan minutos y dependen de que haya alguien
 emitiendo en ese momento.
 
-## Cuatro trampas que costaron una tarde
+## Cinco trampas que costaron una tarde
 
 Están escritas acá porque hicieron que el banco diera por roto algo que
 funcionaba, o peor, por bueno algo que nunca miró. Todas son fáciles de volver
@@ -129,7 +129,20 @@ La firma es inconfundible: **fallan a la vez todas las comprobaciones que
 teclean, y ninguna de las que no**. Antes de creerse eso, cerrar los procesos
 de Python que estén corriendo la aplicación y repetir.
 
-Y la regla que sale de las cuatro: cuando el instrumento y el código no
+**wx dice activa y Windows no, y la primera tecla se pierde.** La orden `frente`
+llamaba a `Raise()` y creía `IsActive()`, que es lo que cree wx, no lo que
+Windows tiene delante: Windows solo deja pasar al frente al proceso que recibió
+la última entrada. El banco tecleaba, la primera tecla la inyectaba el propio
+proceso, iba a otra ventana y, como efecto, desbloqueaba el frente. Medido el
+29/09/2026: la primera tecla no llegaba y desde la segunda todo llegaba. Ahora
+`frente` comprueba con `GetForegroundWindow`, desbloquea con una pulsación de
+F24, que no usa ninguna aplicación ni NVDA, repite el `Raise`, y solo da
+`activa` si wx y Windows coinciden.
+
+Transmisión solo exige los controles de OBS en el orden de Tab con OBS abierto:
+sin él nacen deshabilitados a propósito y wx los saca del Tab.
+
+Y la regla que sale de las cinco: cuando el instrumento y el código no
 coinciden, mirar primero el instrumento.
 
 ## Lo que esto no prueba
