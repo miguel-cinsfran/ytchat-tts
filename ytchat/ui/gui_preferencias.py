@@ -64,6 +64,32 @@ _FORMATOS = [
 ]
 
 
+# Opciones que se guardan con el mismo molde (leer el control, escribir el
+# texto en el ini y copiar el valor a la config en memoria). Lo que no sigue
+# ese molde va a mano en `_on_guardar`.
+_OPCIONES_SIMPLES = (
+    ("chk_programados", "programados", "activo", "programados_activo", bool),
+    ("sp_fuente", "ui", "tamanio_fuente_chat", "tamanio_fuente_chat", int),
+    ("chk_total_sc", "ui", "mostrar_total_superchats", "mostrar_total_superchats", bool),
+    ("chk_autoplay", "ui", "autoplay_reproductor", "autoplay_reproductor", bool),
+    ("chk_metadatos", "ui", "mostrar_metadatos", "mostrar_metadatos", bool),
+    ("chk_botones_rep", "ui", "mostrar_botones_reproductor", "mostrar_botones_reproductor", bool),
+    ("sp_cache_video", "ui", "cache_video_mb", "cache_video_mb", int),
+    ("chk_multivoz", "voz", "multivoz", "multivoz", bool),
+    ("chk_emojis", "texto", "limpiar_emojis", "limpiar_emojis", bool),
+    ("chk_urls", "texto", "eliminar_urls", "eliminar_urls", bool),
+    ("chk_entradas", "tiktok", "anunciar_entradas", "tiktok_anunciar_entradas", bool),
+    ("sp_long", "texto", "max_longitud_mensaje", "max_longitud_mensaje", int),
+    ("sp_cola_maxima", "cola", "tamanio_maximo", "tamanio_maximo", int),
+    ("sp_umbral_nombre", "cola", "umbral_solo_nombre", "umbral_solo_nombre", int),
+    ("chk_reconectar", "reconexion", "reconectar", "reconectar", bool),
+    ("sp_espera_reconexion", "reconexion", "espera_entre_intentos", "espera_entre_intentos", int),
+    ("sp_max_intentos", "reconexion", "max_intentos", "max_intentos", int),
+    ("chk_registro_detallado", "diagnostico", "registro_detallado", "registro_detallado", bool),
+    ("sp_puerto_overlay", "overlay", "puerto", "overlay_puerto", int),
+)
+
+
 # ── Captura de atajos (pulsar en vez de escribir) ─────────────────────────────
 # Idea tomada del proyecto bellbird del dueño: en vez de teclear el atajo (con
 # riesgo de escribirlo mal), se pulsa un botón, se captura la combinación real y
@@ -994,37 +1020,21 @@ class PreferenciasDialog(wx.Dialog):
         c = self._config
         self._fallo_guardado = False
         registro_detallado_inicial = bool(c.get("registro_detallado", False))
+        puerto_anterior = int(c.get("overlay_puerto", 8730))
         # Los atajos ya vienen validados desde la captura (área + conflicto), así
         # que aquí solo se guardan; no hace falta revalidar por escritura.
 
-        # Interfaz
-        programados_activo = self.chk_programados.GetValue()
-        self._set("programados", "activo", "true" if programados_activo else "false")
-        c["programados_activo"] = programados_activo
-
-        fuente = str(self.sp_fuente.GetValue())
-        self._set("ui", "tamanio_fuente_chat", fuente)
-        c["tamanio_fuente_chat"] = int(fuente)
-
-        total_sc = self.chk_total_sc.GetValue()
-        self._set("ui", "mostrar_total_superchats", "true" if total_sc else "false")
-        c["mostrar_total_superchats"] = total_sc
-
-        autoplay = self.chk_autoplay.GetValue()
-        self._set("ui", "autoplay_reproductor", "true" if autoplay else "false")
-        c["autoplay_reproductor"] = autoplay
-
-        metadatos = self.chk_metadatos.GetValue()
-        self._set("ui", "mostrar_metadatos", "true" if metadatos else "false")
-        c["mostrar_metadatos"] = metadatos
-
-        botones_rep = self.chk_botones_rep.GetValue()
-        self._set("ui", "mostrar_botones_reproductor", "true" if botones_rep else "false")
-        c["mostrar_botones_reproductor"] = botones_rep
-
-        cache_video = self.sp_cache_video.GetValue()
-        self._set("ui", "cache_video_mb", str(cache_video))
-        c["cache_video_mb"] = cache_video
+        # Opciones simples: las de la tabla van por el bucle, el resto a mano.
+        for atributo, seccion, clave, en_memoria, tipo in _OPCIONES_SIMPLES:
+            control = getattr(self, atributo)
+            if tipo is bool:
+                valor = control.GetValue()
+                self._set(seccion, clave, "true" if valor else "false")
+                c[en_memoria] = valor
+            else:
+                valor = int(control.GetValue())
+                self._set(seccion, clave, str(valor))
+                c[en_memoria] = valor
 
         tema = self.cho_tema.GetStringSelection()
         if tema and tema != cfg.tema_sonido_actual():
@@ -1043,57 +1053,16 @@ class PreferenciasDialog(wx.Dialog):
             self._set("voz", "voz_eventos", str(idx_ev))
             c["voz_eventos"] = str(idx_ev)
 
-        multivoz = self.chk_multivoz.GetValue()
-        self._set("voz", "multivoz", "true" if multivoz else "false")
-        c["multivoz"] = multivoz
-
         formato = _FORMATOS[self.rb_formato.GetSelection()][1]
         self._set("lectura", "formato_prefijo", formato)
         c["formato_prefijo"] = formato
-
-        emojis = self.chk_emojis.GetValue()
-        self._set("texto", "limpiar_emojis", "true" if emojis else "false")
-        c["limpiar_emojis"] = emojis
-        urls = self.chk_urls.GetValue()
-        self._set("texto", "eliminar_urls", "true" if urls else "false")
-        c["eliminar_urls"] = urls
-
-        entradas = self.chk_entradas.GetValue()
-        self._set("tiktok", "anunciar_entradas", "true" if entradas else "false")
-        c["tiktok_anunciar_entradas"] = entradas
-        longitud = str(self.sp_long.GetValue())
-        self._set("texto", "max_longitud_mensaje", longitud)
-        c["max_longitud_mensaje"] = int(longitud)
 
         # Se guarda la clave, no la etiqueta, porque config.ini solo admite estas claves.
         estrategia = ("todas", "limite")[self.rb_estrategia.GetSelection()]
         self._set("cola", "estrategia", estrategia)
         c["estrategia"] = estrategia
-        tamanio_maximo = int(self.sp_cola_maxima.GetValue())
-        self._set("cola", "tamanio_maximo", str(tamanio_maximo))
-        c["tamanio_maximo"] = tamanio_maximo
-        umbral_solo_nombre = int(self.sp_umbral_nombre.GetValue())
-        self._set("cola", "umbral_solo_nombre", str(umbral_solo_nombre))
-        c["umbral_solo_nombre"] = umbral_solo_nombre
-
-        reconectar = self.chk_reconectar.GetValue()
-        self._set("reconexion", "reconectar", "true" if reconectar else "false")
-        c["reconectar"] = reconectar
-        espera_entre_intentos = int(self.sp_espera_reconexion.GetValue())
-        self._set("reconexion", "espera_entre_intentos", str(espera_entre_intentos))
-        c["espera_entre_intentos"] = espera_entre_intentos
-        max_intentos = int(self.sp_max_intentos.GetValue())
-        self._set("reconexion", "max_intentos", str(max_intentos))
-        c["max_intentos"] = max_intentos
-
-        registro_detallado = self.chk_registro_detallado.GetValue()
-        self._set("diagnostico", "registro_detallado",
-                  "true" if registro_detallado else "false")
-        c["registro_detallado"] = registro_detallado
-        puerto_anterior = int(c.get("overlay_puerto", 8730))
-        puerto_overlay = int(self.sp_puerto_overlay.GetValue())
-        self._set("overlay", "puerto", str(puerto_overlay))
-        c["overlay_puerto"] = puerto_overlay
+        registro_detallado = c["registro_detallado"]
+        puerto_overlay = c["overlay_puerto"]
         microfono_obs = ("" if self.cho_microfono_obs.GetSelection() == 0
                          else self.cho_microfono_obs.GetStringSelection())
         self._set("obs", "microfono", microfono_obs)

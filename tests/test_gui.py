@@ -1361,7 +1361,8 @@ class TestCategoriasDePreferencias(unittest.TestCase):
         esperadas.extend(("atajos", accion)
                           for accion in dialogo._valores_atajo
                           if accion not in gui_preferencias.cfg.ATAJOS_FIJOS)
-        self.assertEqual(claves, esperadas)
+        self.assertEqual(sorted(claves), sorted(esperadas))
+        self.assertEqual(len(claves), len(set(claves)))
 
 
 class TestGuardadoDeNuevasPreferencias(unittest.TestCase):
