@@ -268,7 +268,8 @@ cuenta. Se puede revocar en cualquier momento desde
 <https://myaccount.google.com/permissions>
 
 **¿Dónde se guardan las claves?**
-En un archivo `credenciales.json` junto al programa, solo en ese equipo. Nunca
+En un archivo `credenciales.json` dentro de la carpeta `data`, junto al
+programa, solo en ese equipo. Nunca
 se sube a internet ni al repositorio: está excluido por `.gitignore`. Eso
 significa también que **no viajan a otro ordenador**: en una segunda máquina
 hay que repetir el paso 6, aunque el proyecto de Google ya esté creado y sirva

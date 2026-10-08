@@ -103,7 +103,7 @@ lo que se lee, entre cuatro:
 - **Solo el mensaje**.
 - **Solo el nombre**.
 
-En esa misma pestaña se puede activar una **segunda voz para los eventos**, de
+En *Preferencias, Voz* se puede activar una **segunda voz para los eventos**, de
 modo que los Super Chats, los regalos, las membresías y las entradas se
 distingan de los mensajes normales.
 
@@ -124,8 +124,8 @@ El nombre real no se pierde: expulsar, vetar, silenciar y responder siguen
 actuando sobre la cuenta de verdad. Las entradas del menú pasan a nombrar al
 usuario como se lo ve en la lista, para que no digan cosas distintas.
 
-Los alias se guardan en `alias.json`, junto al programa, y se conservan entre
-sesiones.
+Los alias se guardan en `alias.json`, dentro de la carpeta `data` que está junto al
+programa, y se conservan entre sesiones.
 
 ## Comentarios de vídeos
 
@@ -144,22 +144,32 @@ mediante libVLC. Se maneja por completo con el teclado:
   minuto.
 - `Ctrl+Flecha arriba` y `Ctrl+Flecha abajo` suben y bajan el volumen del
   reproductor, que es independiente del volumen de la voz.
+- `Ctrl+Fin` va al directo.
 - `Ctrl+D` detiene la reproducción y `Ctrl+M` silencia el audio.
 - `Ctrl+F` activa la pantalla completa.
 
-La calidad se elige en el propio panel. Los botones en pantalla están ocultos de
-forma predeterminada, porque toda la funcionalidad está disponible por menú y
-por atajo; se muestran desde el menú *Reproductor*.
+La calidad se elige en el menú *Reproductor*, en *Calidad del vídeo*. Los botones
+en pantalla se muestran de forma predeterminada. Se ocultan con *Mostrar botones
+en pantalla* en ese mismo menú, o desde *Preferencias, Reproductor*. Toda la
+funcionalidad sigue disponible por menú y por atajo.
 
 Dentro del deslizador de posición, las flechas mueven la reproducción diez
-segundos, y el deslizador anuncia el tiempo transcurrido en lugar de un número
-sin contexto.
+segundos. En un directo, el deslizador y `F2` dicen cuánto por detrás del directo
+se va, por ejemplo «40 segundos por detrás del directo», o «En el directo».
+
+En los directos, los saltos de un minuto funcionan y cada uno anuncia dónde
+queda. Las flechas seguidas se acumulan. Con las pistas separadas que ofrece
+YouTube se puede retroceder hasta una hora. En los directos que traen vídeo y
+audio juntos, unos 30 segundos. Mover el deslizador o pedir un porcentaje no está
+disponible en los directos. `Ctrl+Fin` vuelve al borde del directo, y el menú
+*Reproductor* tiene la misma acción, *Ir al directo*.
 
 Al cargar un vídeo de YouTube, la aplicación guarda su audio en una carpeta
-`cache-audio`, junto al ejecutable. Es lo que permite que pausar y saltar
-respondan al instante: leído desde el disco, el audio no frena las órdenes del
-reproductor como hacía al venir por la red. Se conservan los tres últimos y los
-demás se borran solos. Si la descarga falla, el vídeo se reproduce igual.
+`cache-audio`, dentro de la carpeta `data` que está junto al programa. Es lo que
+permite que pausar y saltar respondan al instante: leído desde el disco, el audio
+no frena las órdenes del reproductor como hacía al venir por la red. Se conservan
+los tres últimos y los demás se borran solos. Si la descarga falla, el vídeo se
+reproduce igual.
 
 La primera vez que se abre la aplicación, el reproductor tarda unos segundos en
 quedar disponible. Durante esa preparación se anuncia «Preparando el
@@ -172,9 +182,10 @@ los espectadores de la transmisión. Está pensado para añadirse como fuente de
 navegador en un programa de emisión como OBS Studio, Streamlabs o Prism Live
 Studio.
 
-Se activa en *Herramientas, Panel de chat para transmitir*. Al activarlo se
-anuncia el puerto en el que queda disponible, y la dirección que hay que
-indicar en el programa de emisión es:
+Se activa con la casilla *Panel de chat para transmitir* de la ventana
+*Transmisión*, que se abre desde el menú *Transmisión, Panel de transmisión…* o
+con `Ctrl+Mayúsculas+T`. Al activarlo se anuncia el puerto en el que queda
+disponible, y la dirección que hay que indicar en el programa de emisión es:
 
     http://127.0.0.1:8730/chat
 
@@ -206,13 +217,13 @@ la imagen.
 
 ### Componer la escena desde la aplicación
 
-Con OBS Studio no hace falta colocar nada a mano. *Herramientas, Transmisión*,
-o `Ctrl+Mayúsculas+T`, abre una ventana que habla con OBS y permite ordenar la
-escena entera sin ver la pantalla.
+Con OBS Studio no hace falta colocar nada a mano. *Transmisión, Panel de
+transmisión…*, o `Ctrl+Mayúsculas+T`, abre una ventana que habla con OBS y permite
+ordenar la escena entera sin ver la pantalla.
 
 Antes de usarla hay que activar el servidor de OBS una sola vez. Lo más cómodo
 es hacerlo desde aquí: *Preferencias, Transmisión*, botón *Activar el servidor
-de OBS*. Deja el servidor encendido y la aplicación se queda con el puerto y la
+websocket de OBS*. Deja el servidor encendido y la aplicación se queda con el puerto y la
 contraseña. También puede hacerse a mano dentro del propio OBS, en
 *Herramientas, Configuración del servidor WebSocket*.
 
@@ -230,6 +241,8 @@ La ventana permite:
 - Guardar una **captura de la escena** en un archivo, para enseñársela a alguien
   que vea.
 - **Restablecer** todo lo hecho desde que se abrió la ventana.
+- **Transmitir, grabar, pausar** la grabación y **poner al aire** la escena elegida.
+  Son botones de la misma ventana.
 
 Cada cambio se anuncia con lo que hace falta saber: en qué posición quedó, qué
 tamaño tiene, qué parte de la pantalla ocupa, cuánto se recorta si se sale del
@@ -298,7 +311,12 @@ conectado a ningún directo.
 Admite vídeo en MP4 o WebM y audio en MP3 o M4A, con calidad de audio
 seleccionable entre 192, 256 y 320 kbps. Permite elegir la carpeta de destino y
 numerar los elementos de una lista de reproducción. Las descargas en curso se
-pueden cancelar.
+pueden cancelar, también mientras esperan su turno.
+
+Se bajan como mucho dos a la vez. Las demás esperan en la cola, en el orden en
+que se pidieron. La cola y el historial de las descargas terminadas están en dos
+pestañas del gestor, y el historial se conserva entre sesiones. Por defecto, la
+carpeta Descargas queda junto al programa.
 
 La herramienta de descarga se actualiza desde *Herramientas, Actualizar yt-dlp*.
 Si ya está al día se indica en una ventana; si hay una versión nueva, se muestra
@@ -309,7 +327,8 @@ el progreso con el porcentaje y un botón para cancelar.
 El menú *Archivo* da acceso al historial de lo visto, organizado en dos
 pestañas, una para YouTube y otra para TikTok, con el título y el canal de cada
 entrada. Permite volver a un directo sin recordar la dirección. Los directos ya
-terminados aparecen señalados como tales, porque su enlace deja de servir.
+terminados aparecen señalados como tales, porque su enlace deja de servir. Se
+abre con `Ctrl+Mayúsculas+H`.
 
 ## Estado por voz
 
@@ -321,9 +340,10 @@ mensajes automáticos cuando están activos.
 El número de espectadores y el tiempo de emisión se actualizan solos cada
 minuto, y necesitan tener configurada la API de YouTube.
 
-Qué se incluye en ese resumen se elige en *Herramientas, Preferencias, Estado
-(F2)*, de modo que sea posible dejar solo lo relevante y que el anuncio no se
-alargue.
+Qué se incluye en ese resumen se elige en *Preferencias, Estado (F2)*, de modo
+que sea posible dejar solo lo relevante y que el anuncio no se alargue. Ahí
+también se activan los datos de OBS, como si está transmitiendo, grabando o con
+una escena al aire. Vienen desactivados de fábrica.
 
 ## Directos de TikTok
 
@@ -373,6 +393,9 @@ Tres funciones requieren credenciales propias y sesión de Google iniciada:
   de la lista, en la pestaña *Chat en vivo*.
 - **Publicar y responder comentarios** en vídeos ya publicados.
 
+Si la sesión de Google caduca, la aplicación lo anuncia con voz y se puede volver
+a iniciar desde *Preferencias, API y sesión*.
+
 Cada usuario emplea credenciales propias, creadas en su cuenta de Google. La
 guía paso a paso, redactada para leerse con lector de pantalla, está en
 [docs/CONFIGURACION_API.md](docs/CONFIGURACION_API.md).
@@ -409,6 +432,7 @@ Reproductor:
 - `Ctrl+Flecha izquierda` y `Ctrl+Flecha derecha` retroceder y avanzar un
   minuto.
 - `Ctrl+Flecha arriba` y `Ctrl+Flecha abajo` volumen del reproductor.
+- `Ctrl+Fin` ir al directo.
 - `Ctrl+D` detener, `Ctrl+M` silenciar el audio.
 - `Ctrl+F` pantalla completa.
 - `Ctrl+S` abrir el gestor de descargas.
@@ -418,6 +442,8 @@ Ventanas y paneles:
 - `Ctrl+Mayúsculas+P` abrir Preferencias.
 - `Ctrl+Mayúsculas+H` abrir el historial de directos.
 - `Ctrl+Mayúsculas+I` marcar una incidencia en el registro.
+- `Ctrl+Mayúsculas+T` abrir la ventana Transmisión, con el panel de chat.
+- `Ctrl+Mayúsculas+M` silenciar o activar el micrófono de OBS.
 
 Navegación, no personalizables:
 
@@ -429,10 +455,10 @@ Los atajos se personalizan en *Herramientas, Preferencias, Atajos*. Cada acción
 tiene su botón, y el nombre del botón incluye el atajo asignado en ese momento,
 de modo que el lector de pantalla lo anuncia al recorrer la lista.
 
-Para cambiar uno se activa su botón y se pulsa la combinación deseada: queda
-guardada de inmediato, sin ningún paso de confirmación, y el foco permanece en
-el mismo botón. `Intro` sin ninguna otra tecla deja la acción sin atajo, y
-`Escape` sale sin cambiar nada.
+Para cambiar uno se activa su botón y se pulsa la combinación deseada, y el foco
+permanece en el mismo botón. El cambio se aplica al pulsar *Guardar*. `Intro` sin
+ninguna otra tecla deja la acción sin atajo, y `Escape` cancela la captura sin
+cambiar nada.
 
 La aplicación comprueba que la combinación sea válida para su área y que no
 coincida con otra ya asignada. Si no lo es, se indica el motivo por voz y en un
@@ -468,14 +494,20 @@ los espectadores. El chat accesible es la lista de la ventana principal.
 ## Configuración
 
 Casi todo se ajusta en *Herramientas, Preferencias*, repartido en trece
-pestañas: voz, lectura, cola de lectura, interfaz y sonidos, reproductor,
+categorías: voz, lectura, cola de lectura, interfaz y sonidos, reproductor,
 conexión, filtros, estado (F2), atajos, API y sesión, mensajes automáticos,
-transmisión y diagnóstico. Los cambios se aplican en el momento.
+transmisión y diagnóstico. Los cambios se aplican al pulsar *Guardar*, y
+*Cancelar* los descarta.
 
-Los ajustes se guardan en `config.ini` y `sounds.ini`, junto al ejecutable.
-Ambos son archivos de texto que pueden editarse con el Bloc de notas, y si se
-eliminan se regeneran con los valores predeterminados. Los mensajes automáticos
-se guardan aparte, en `mensajes_programados.json`.
+Los ajustes se guardan en `config.ini` y `sounds.ini`, dentro de la carpeta
+`data` que está junto al ejecutable. Ambos son archivos de texto que pueden
+editarse con el Bloc de notas, y si se eliminan se regeneran con los valores
+predeterminados. Los mensajes automáticos se guardan aparte, en
+`mensajes_programados.json`, en la misma carpeta.
+
+Los datos de versiones anteriores, que estaban junto al ejecutable, se mueven
+solos a la carpeta `data` al abrir la versión nueva. No hace falta copiarlos a
+mano.
 
 ## Problemas frecuentes
 
@@ -500,10 +532,10 @@ en la aplicación.
 general activado, sesión de Google iniciada y un directo de YouTube conectado.
 Si faltó alguna de las tres, no se envía nada y no se anuncia.
 
-**Algo falla.** El archivo `ytchat.log`, junto al ejecutable, recoge los
-errores. En funcionamiento normal está vacío. Si la aplicación llega a cerrarse
-sola, deja además `ytchat-fallos.log`, con los datos del equipo y lo que estaba
-haciendo cada parte del programa en ese momento.
+**Algo falla.** El archivo `ytchat.log`, en la carpeta `data`, recoge los
+errores. Si la aplicación llega a cerrarse sola, deja además `ytchat-fallos.log`,
+con los datos del equipo y lo que estaba haciendo cada parte del programa en ese
+momento.
 
 **Cómo dar un informe útil.** En *Preferencias, Diagnóstico* hay una casilla,
 *Guardar un registro detallado para diagnosticar fallos*, apagada de fábrica. Al

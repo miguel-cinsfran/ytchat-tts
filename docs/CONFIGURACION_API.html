@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10" />
+  <meta name="generator" content="pandoc 3.10.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>YTChat TTS — Configurar la API de YouTube</title>
   <style>
@@ -41,7 +41,6 @@
       body {
         background-color: transparent;
         color: black;
-        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -505,12 +504,12 @@ puede cambiar la contraseña, leer el correo ni borrar la cuenta. Se
 puede revocar en cualquier momento desde <a
 href="https://myaccount.google.com/permissions">https://myaccount.google.com/permissions</a></p>
 <p><strong>¿Dónde se guardan las claves?</strong> En un archivo
-<code>credenciales.json</code> junto al programa, solo en ese equipo.
-Nunca se sube a internet ni al repositorio: está excluido por
-<code>.gitignore</code>. Eso significa también que <strong>no viajan a
-otro ordenador</strong>: en una segunda máquina hay que repetir el paso
-6, aunque el proyecto de Google ya esté creado y sirva el mismo ID de
-cliente.</p>
+<code>credenciales.json</code> dentro de la carpeta <code>data</code>,
+junto al programa, solo en ese equipo. Nunca se sube a internet ni al
+repositorio: está excluido por <code>.gitignore</code>. Eso significa
+también que <strong>no viajan a otro ordenador</strong>: en una segunda
+máquina hay que repetir el paso 6, aunque el proyecto de Google ya esté
+creado y sirva el mismo ID de cliente.</p>
 <p><strong>¿Se nota que los mensajes salen de una aplicación?</strong>
 Para los espectadores, no: salen como el propio canal, sin etiqueta. El
 único matiz es que YouTube a veces retiene o filtra los comentarios

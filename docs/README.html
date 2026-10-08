@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="es" xml:lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="generator" content="pandoc 3.10" />
+  <meta name="generator" content="pandoc 3.10.1" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <title>YTChat TTS — Léeme</title>
   <style>
@@ -41,7 +41,6 @@
       body {
         background-color: transparent;
         color: black;
-        font-size: 12pt;
       }
       p, h2, h3 {
         orphans: 3;
@@ -321,9 +320,9 @@ esperar.</li>
 <li><strong>Solo el mensaje</strong>.</li>
 <li><strong>Solo el nombre</strong>.</li>
 </ul>
-<p>En esa misma pestaña se puede activar una <strong>segunda voz para
-los eventos</strong>, de modo que los Super Chats, los regalos, las
-membresías y las entradas se distingan de los mensajes normales.</p>
+<p>En <em>Preferencias, Voz</em> se puede activar una <strong>segunda
+voz para los eventos</strong>, de modo que los Super Chats, los regalos,
+las membresías y las entradas se distingan de los mensajes normales.</p>
 <h3 id="alias-para-los-nombres-difíciles-de-escuchar">Alias para los
 nombres difíciles de escuchar</h3>
 <p>Muchos nombres de usuario son cadenas de letras y números que la voz
@@ -341,8 +340,9 @@ abre lo mismo y se deja el campo vacío.</p>
 siguen actuando sobre la cuenta de verdad. Las entradas del menú pasan a
 nombrar al usuario como se lo ve en la lista, para que no digan cosas
 distintas.</p>
-<p>Los alias se guardan en <code>alias.json</code>, junto al programa, y
-se conservan entre sesiones.</p>
+<p>Los alias se guardan en <code>alias.json</code>, dentro de la carpeta
+<code>data</code> que está junto al programa, y se conservan entre
+sesiones.</p>
 <h2 id="comentarios-de-vídeos">Comentarios de vídeos</h2>
 <p>Cuando la dirección corresponde a un vídeo ya publicado y no a un
 directo, la pestaña de comentarios muestra los comentarios del vídeo y
@@ -358,23 +358,34 @@ aplicación, mediante libVLC. Se maneja por completo con el teclado:</p>
 <li><code>Ctrl+Flecha arriba</code> y <code>Ctrl+Flecha abajo</code>
 suben y bajan el volumen del reproductor, que es independiente del
 volumen de la voz.</li>
+<li><code>Ctrl+Fin</code> va al directo.</li>
 <li><code>Ctrl+D</code> detiene la reproducción y <code>Ctrl+M</code>
 silencia el audio.</li>
 <li><code>Ctrl+F</code> activa la pantalla completa.</li>
 </ul>
-<p>La calidad se elige en el propio panel. Los botones en pantalla están
-ocultos de forma predeterminada, porque toda la funcionalidad está
-disponible por menú y por atajo; se muestran desde el menú
-<em>Reproductor</em>.</p>
+<p>La calidad se elige en el menú <em>Reproductor</em>, en <em>Calidad
+del vídeo</em>. Los botones en pantalla se muestran de forma
+predeterminada. Se ocultan con <em>Mostrar botones en pantalla</em> en
+ese mismo menú, o desde <em>Preferencias, Reproductor</em>. Toda la
+funcionalidad sigue disponible por menú y por atajo.</p>
 <p>Dentro del deslizador de posición, las flechas mueven la reproducción
-diez segundos, y el deslizador anuncia el tiempo transcurrido en lugar
-de un número sin contexto.</p>
+diez segundos. En un directo, el deslizador y <code>F2</code> dicen
+cuánto por detrás del directo se va, por ejemplo «40 segundos por detrás
+del directo», o «En el directo».</p>
+<p>En los directos, los saltos de un minuto funcionan y cada uno anuncia
+dónde queda. Las flechas seguidas se acumulan. Con las pistas separadas
+que ofrece YouTube se puede retroceder hasta una hora. En los directos
+que traen vídeo y audio juntos, unos 30 segundos. Mover el deslizador o
+pedir un porcentaje no está disponible en los directos.
+<code>Ctrl+Fin</code> vuelve al borde del directo, y el menú
+<em>Reproductor</em> tiene la misma acción, <em>Ir al directo</em>.</p>
 <p>Al cargar un vídeo de YouTube, la aplicación guarda su audio en una
-carpeta <code>cache-audio</code>, junto al ejecutable. Es lo que permite
-que pausar y saltar respondan al instante: leído desde el disco, el
-audio no frena las órdenes del reproductor como hacía al venir por la
-red. Se conservan los tres últimos y los demás se borran solos. Si la
-descarga falla, el vídeo se reproduce igual.</p>
+carpeta <code>cache-audio</code>, dentro de la carpeta <code>data</code>
+que está junto al programa. Es lo que permite que pausar y saltar
+respondan al instante: leído desde el disco, el audio no frena las
+órdenes del reproductor como hacía al venir por la red. Se conservan los
+tres últimos y los demás se borran solos. Si la descarga falla, el vídeo
+se reproduce igual.</p>
 <p>La primera vez que se abre la aplicación, el reproductor tarda unos
 segundos en quedar disponible. Durante esa preparación se anuncia
 «Preparando el reproductor», y al terminar, «Reproductor listo».</p>
@@ -384,7 +395,9 @@ transmitir</h2>
 que lo vean los espectadores de la transmisión. Está pensado para
 añadirse como fuente de navegador en un programa de emisión como OBS
 Studio, Streamlabs o Prism Live Studio.</p>
-<p>Se activa en <em>Herramientas, Panel de chat para transmitir</em>. Al
+<p>Se activa con la casilla <em>Panel de chat para transmitir</em> de la
+ventana <em>Transmisión</em>, que se abre desde el menú <em>Transmisión,
+Panel de transmisión…</em> o con <code>Ctrl+Mayúsculas+T</code>. Al
 activarlo se anuncia el puerto en el que queda disponible, y la
 dirección que hay que indicar en el programa de emisión es:</p>
 <pre><code>http://127.0.0.1:8730/chat</code></pre>
@@ -414,16 +427,16 @@ tarjetas de los mensajes, y solo tapan lo que hay justo debajo de ellas.
 El resto del rectángulo deja pasar la imagen.</p>
 <h3 id="componer-la-escena-desde-la-aplicación">Componer la escena desde
 la aplicación</h3>
-<p>Con OBS Studio no hace falta colocar nada a mano. <em>Herramientas,
-Transmisión</em>, o <code>Ctrl+Mayúsculas+T</code>, abre una ventana que
-habla con OBS y permite ordenar la escena entera sin ver la
+<p>Con OBS Studio no hace falta colocar nada a mano. <em>Transmisión,
+Panel de transmisión…</em>, o <code>Ctrl+Mayúsculas+T</code>, abre una
+ventana que habla con OBS y permite ordenar la escena entera sin ver la
 pantalla.</p>
 <p>Antes de usarla hay que activar el servidor de OBS una sola vez. Lo
 más cómodo es hacerlo desde aquí: <em>Preferencias, Transmisión</em>,
-botón <em>Activar el servidor de OBS</em>. Deja el servidor encendido y
-la aplicación se queda con el puerto y la contraseña. También puede
-hacerse a mano dentro del propio OBS, en <em>Herramientas, Configuración
-del servidor WebSocket</em>.</p>
+botón <em>Activar el servidor websocket de OBS</em>. Deja el servidor
+encendido y la aplicación se queda con el puerto y la contraseña.
+También puede hacerse a mano dentro del propio OBS, en <em>Herramientas,
+Configuración del servidor WebSocket</em>.</p>
 <p>La ventana permite:</p>
 <ul>
 <li>Elegir la <strong>escena</strong> y, dentro de ella, <strong>qué
@@ -442,6 +455,9 @@ de un píxel con <code>Mayúsculas</code>. <code>Intro</code> confirma y
 para enseñársela a alguien que vea.</li>
 <li><strong>Restablecer</strong> todo lo hecho desde que se abrió la
 ventana.</li>
+<li><strong>Transmitir, grabar, pausar</strong> la grabación y
+<strong>poner al aire</strong> la escena elegida. Son botones de la
+misma ventana.</li>
 </ul>
 <p>Cada cambio se anuncia con lo que hace falta saber: en qué posición
 quedó, qué tamaño tiene, qué parte de la pantalla ocupa, cuánto se
@@ -505,7 +521,13 @@ directo.</p>
 <p>Admite vídeo en MP4 o WebM y audio en MP3 o M4A, con calidad de audio
 seleccionable entre 192, 256 y 320 kbps. Permite elegir la carpeta de
 destino y numerar los elementos de una lista de reproducción. Las
-descargas en curso se pueden cancelar.</p>
+descargas en curso se pueden cancelar, también mientras esperan su
+turno.</p>
+<p>Se bajan como mucho dos a la vez. Las demás esperan en la cola, en el
+orden en que se pidieron. La cola y el historial de las descargas
+terminadas están en dos pestañas del gestor, y el historial se conserva
+entre sesiones. Por defecto, la carpeta Descargas queda junto al
+programa.</p>
 <p>La herramienta de descarga se actualiza desde <em>Herramientas,
 Actualizar yt-dlp</em>. Si ya está al día se indica en una ventana; si
 hay una versión nueva, se muestra el progreso con el porcentaje y un
@@ -515,7 +537,8 @@ botón para cancelar.</p>
 organizado en dos pestañas, una para YouTube y otra para TikTok, con el
 título y el canal de cada entrada. Permite volver a un directo sin
 recordar la dirección. Los directos ya terminados aparecen señalados
-como tales, porque su enlace deja de servir.</p>
+como tales, porque su enlace deja de servir. Se abre con
+<code>Ctrl+Mayúsculas+H</code>.</p>
 <h2 id="estado-por-voz">Estado por voz</h2>
 <p><code>F2</code> anuncia un resumen de la situación actual: estado de
 la conexión, título del directo, canal, espectadores en ese momento,
@@ -524,9 +547,11 @@ recibidas, y el estado del panel de chat y de los mensajes automáticos
 cuando están activos.</p>
 <p>El número de espectadores y el tiempo de emisión se actualizan solos
 cada minuto, y necesitan tener configurada la API de YouTube.</p>
-<p>Qué se incluye en ese resumen se elige en <em>Herramientas,
-Preferencias, Estado (F2)</em>, de modo que sea posible dejar solo lo
-relevante y que el anuncio no se alargue.</p>
+<p>Qué se incluye en ese resumen se elige en <em>Preferencias, Estado
+(F2)</em>, de modo que sea posible dejar solo lo relevante y que el
+anuncio no se alargue. Ahí también se activan los datos de OBS, como si
+está transmitiendo, grabando o con una escena al aire. Vienen
+desactivados de fábrica.</p>
 <h2 id="directos-de-tiktok">Directos de TikTok</h2>
 <p>Se admiten direcciones con el formato
 <code>tiktok.com/@usuario/live</code>. La aplicación lee el chat, los
@@ -574,6 +599,8 @@ que hay debajo de la lista, en la pestaña <em>Chat en vivo</em>.</li>
 <li><strong>Publicar y responder comentarios</strong> en vídeos ya
 publicados.</li>
 </ul>
+<p>Si la sesión de Google caduca, la aplicación lo anuncia con voz y se
+puede volver a iniciar desde <em>Preferencias, API y sesión</em>.</p>
 <p>Cada usuario emplea credenciales propias, creadas en su cuenta de
 Google. La guía paso a paso, redactada para leerse con lector de
 pantalla, está en <a
@@ -611,6 +638,7 @@ sonidos.</li>
 <code>Ctrl+Flecha derecha</code> retroceder y avanzar un minuto.</li>
 <li><code>Ctrl+Flecha arriba</code> y <code>Ctrl+Flecha abajo</code>
 volumen del reproductor.</li>
+<li><code>Ctrl+Fin</code> ir al directo.</li>
 <li><code>Ctrl+D</code> detener, <code>Ctrl+M</code> silenciar el
 audio.</li>
 <li><code>Ctrl+F</code> pantalla completa.</li>
@@ -622,6 +650,10 @@ audio.</li>
 <li><code>Ctrl+Mayúsculas+H</code> abrir el historial de directos.</li>
 <li><code>Ctrl+Mayúsculas+I</code> marcar una incidencia en el
 registro.</li>
+<li><code>Ctrl+Mayúsculas+T</code> abrir la ventana Transmisión, con el
+panel de chat.</li>
+<li><code>Ctrl+Mayúsculas+M</code> silenciar o activar el micrófono de
+OBS.</li>
 </ul>
 <p>Navegación, no personalizables:</p>
 <ul>
@@ -634,10 +666,10 @@ Atajos</em>. Cada acción tiene su botón, y el nombre del botón incluye
 el atajo asignado en ese momento, de modo que el lector de pantalla lo
 anuncia al recorrer la lista.</p>
 <p>Para cambiar uno se activa su botón y se pulsa la combinación
-deseada: queda guardada de inmediato, sin ningún paso de confirmación, y
-el foco permanece en el mismo botón. <code>Intro</code> sin ninguna otra
-tecla deja la acción sin atajo, y <code>Escape</code> sale sin cambiar
-nada.</p>
+deseada, y el foco permanece en el mismo botón. El cambio se aplica al
+pulsar <em>Guardar</em>. <code>Intro</code> sin ninguna otra tecla deja
+la acción sin atajo, y <code>Escape</code> cancela la captura sin
+cambiar nada.</p>
 <p>La aplicación comprueba que la combinación sea válida para su área y
 que no coincida con otra ya asignada. Si no lo es, se indica el motivo
 por voz y en un aviso en pantalla, y el botón sigue esperando otra
@@ -672,15 +704,19 @@ destinada a los espectadores. El chat accesible es la lista de la
 ventana principal.</p>
 <h2 id="configuración">Configuración</h2>
 <p>Casi todo se ajusta en <em>Herramientas, Preferencias</em>, repartido
-en trece pestañas: voz, lectura, cola de lectura, interfaz y sonidos,
+en trece categorías: voz, lectura, cola de lectura, interfaz y sonidos,
 reproductor, conexión, filtros, estado (F2), atajos, API y sesión,
 mensajes automáticos, transmisión y diagnóstico. Los cambios se aplican
-en el momento.</p>
+al pulsar <em>Guardar</em>, y <em>Cancelar</em> los descarta.</p>
 <p>Los ajustes se guardan en <code>config.ini</code> y
-<code>sounds.ini</code>, junto al ejecutable. Ambos son archivos de
-texto que pueden editarse con el Bloc de notas, y si se eliminan se
-regeneran con los valores predeterminados. Los mensajes automáticos se
-guardan aparte, en <code>mensajes_programados.json</code>.</p>
+<code>sounds.ini</code>, dentro de la carpeta <code>data</code> que está
+junto al ejecutable. Ambos son archivos de texto que pueden editarse con
+el Bloc de notas, y si se eliminan se regeneran con los valores
+predeterminados. Los mensajes automáticos se guardan aparte, en
+<code>mensajes_programados.json</code>, en la misma carpeta.</p>
+<p>Los datos de versiones anteriores, que estaban junto al ejecutable,
+se mueven solos a la carpeta <code>data</code> al abrir la versión
+nueva. No hace falta copiarlos a mano.</p>
 <h2 id="problemas-frecuentes">Problemas frecuentes</h2>
 <p><strong>No hay voces disponibles.</strong> Se añade una en
 <em>Configuración, Hora e idioma, Voz</em>. Las voces neurales de
@@ -701,11 +737,11 @@ la fuente de navegador del programa de emisión, no en la aplicación.</p>
 la vez, el interruptor general activado, sesión de Google iniciada y un
 directo de YouTube conectado. Si faltó alguna de las tres, no se envía
 nada y no se anuncia.</p>
-<p><strong>Algo falla.</strong> El archivo <code>ytchat.log</code>,
-junto al ejecutable, recoge los errores. En funcionamiento normal está
-vacío. Si la aplicación llega a cerrarse sola, deja además
-<code>ytchat-fallos.log</code>, con los datos del equipo y lo que estaba
-haciendo cada parte del programa en ese momento.</p>
+<p><strong>Algo falla.</strong> El archivo <code>ytchat.log</code>, en
+la carpeta <code>data</code>, recoge los errores. Si la aplicación llega
+a cerrarse sola, deja además <code>ytchat-fallos.log</code>, con los
+datos del equipo y lo que estaba haciendo cada parte del programa en ese
+momento.</p>
 <p><strong>Cómo dar un informe útil.</strong> En <em>Preferencias,
 Diagnóstico</em> hay una casilla, <em>Guardar un registro detallado para
 diagnosticar fallos</em>, apagada de fábrica. Al encenderla y reiniciar,
