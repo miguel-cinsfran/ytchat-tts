@@ -7,7 +7,7 @@ REM  comprimir (7-Zip / ZIP) y enviar. Quien la reciba solo descomprime y abre
 REM  YTChatTTS.exe; no necesita Python ni nada instalado.
 REM
 REM  Modo onedir: el .exe queda junto a la carpeta _internal (dependencias) y a
-REM  los archivos editables (config.ini, sounds.ini, sounds/). Es mas fiable y
+REM  los archivos editables (sounds.ini, sounds/). Es mas fiable y
 REM  arranca mas rapido que --onefile, y mantiene pocos elementos sueltos.
 REM ============================================================================
 setlocal enabledelayedexpansion
@@ -125,7 +125,7 @@ if defined FFEXE (
 )
 echo == Empaquetando yt-dlp independiente ==
 echo    La primera vez descarga yt-dlp desde GitHub y puede tardar.
-call uv run python -c "import shutil,ytdlp_bin; from pathlib import Path; r=ytdlp_bin.asegurar_ytdlp(); p=ytdlp_bin.ruta_ytdlp(); d=Path(r'%OUT%') / 'yt-dlp.exe'; shutil.copy2(p,d) if r.correcta and p else None; print('   ' + ('resultado: ' if r.correcta else 'AVISO: ') + r.motivo)"
+call uv run python -c "import shutil; from ytchat.downloads import ytdlp_bin; from pathlib import Path; r=ytdlp_bin.asegurar_ytdlp(); p=ytdlp_bin.ruta_ytdlp(); d=Path(r'%OUT%') / 'yt-dlp.exe'; shutil.copy2(p,d) if r.correcta and p else None; print('   ' + ('resultado: ' if r.correcta else 'AVISO: ') + r.motivo)"
 REM El lanzador del entorno pesa unos 45 KB; el ejecutable oficial observado
 REM el 21/08/2026 pesa unos 17 MB. Un MiB deja margen y descarta el lanzador.
 set "YTDLP_MIN_BYTES=1048576"
@@ -139,11 +139,8 @@ if not exist "%OUT%\yt-dlp.exe" (
     echo    OK: yt-dlp.exe independiente copiado, %%~zf bytes.
   )
 )
-REM config.ini se genera SIEMPRE desde la fuente canonica
-REM config_predeterminada.py. No se copia el config.ini local ni se depende
-REM de git para este archivo. Si falla la generacion, la construccion se detiene.
-call uv run python -m ytchat.core.config_predeterminada "%OUT%\config.ini"
-if errorlevel 1 ( echo ERROR: no se pudo generar config.ini desde config_predeterminada.py. & pause & exit /b 1 )
+REM El paquete no trae config.ini: pisaria el del usuario al descomprimir
+REM encima, y la aplicacion lo crea sola en data al arrancar.
 REM sounds.ini sigue con el tratamiento previo: intentar git, si no local.
 git show HEAD:sounds.ini > "%OUT%\sounds.ini" 2>nul
 if errorlevel 1 ( echo    AVISO: sin git; sounds.ini local ^(puede llevar ajustes personales^). & copy /y "sounds.ini" "%OUT%\" >nul )
@@ -168,6 +165,7 @@ dir /b /s "%OUT%\_internal\yt_dlp\*" >nul 2>nul
 if errorlevel 1 (
   echo    AVISO: yt_dlp no viaja en el paquete; al conectar saldra lento porque falta el modulo.
 )
+if exist "%OUT%\config.ini" ( echo ERROR: config.ini quedo en el paquete y pisaria el del usuario. & pause & exit /b 1 )
 
 echo == Comprimiendo a "%OUT%.zip" ==
 REM Borra zips de cualquier version anterior (incluido el viejo sin version).

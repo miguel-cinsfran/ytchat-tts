@@ -1,5 +1,8 @@
+import ast
 import hashlib
+import importlib.util
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -213,6 +216,87 @@ class PruebasYtdlpBin(unittest.TestCase):
                 self.fail(
                     f"{construir.name}: linea {numero} contiene bytes fuera de ASCII"
                 )
+
+    def test_construccion_solo_importa_modulos_que_existen(self):
+        # Si un `python -c` importa algo inexistente, el paso falla y el
+        # paquete sale sin yt-dlp.exe, como paso el 09/10/2026.
+        construir = Path(__file__).parents[1] / "construir.bat"
+        lineas = construir.read_text(encoding="utf-8").splitlines()
+        fragmentos = 0
+        for numero, linea in enumerate(lineas, 1):
+            marcador = 'python -c "'
+            inicio = linea.find(marcador)
+            if inicio < 0:
+                continue
+            inicio += len(marcador)
+            fin = linea.find('"', inicio)
+            self.assertGreaterEqual(
+                fin, inicio,
+                f"{construir.name}: linea {numero} sin cierre de comillas",
+            )
+            codigo = linea[inicio:fin]
+            codigo = re.sub(r"%[^%]*%", '"X"', codigo)
+            try:
+                arbol = ast.parse(codigo)
+            except SyntaxError:
+                # Las variables del .bat no viajan en el codigo extraido,
+                # pero si alguna rompe el parseo se miran solo los imports.
+                sentencias = [
+                    parte.strip() for parte in codigo.split(";")
+                    if parte.strip().startswith(("import ", "from "))
+                ]
+                try:
+                    arbol = ast.parse("; ".join(sentencias) or "pass")
+                except SyntaxError as error:
+                    self.fail(
+                        f"{construir.name}: linea {numero} no se pudo parsear: {error}"
+                    )
+            modulos = set()
+            nombres_desde = set()
+            for nodo in ast.walk(arbol):
+                if isinstance(nodo, ast.Import):
+                    for alias in nodo.names:
+                        modulos.add(alias.name)
+                        modulos.add(alias.name.split(".")[0])
+                elif isinstance(nodo, ast.ImportFrom):
+                    if nodo.module:
+                        modulos.add(nodo.module)
+                        modulos.add(nodo.module.split(".")[0])
+                        for alias in nodo.names:
+                            if alias.name == "*":
+                                continue
+                            nombres_desde.add((nodo.module, alias.name))
+            self.assertTrue(
+                modulos,
+                f"{construir.name}: linea {numero} sin imports para comprobar",
+            )
+            for modulo in sorted(modulos):
+                self.assertIsNotNone(
+                    importlib.util.find_spec(modulo),
+                    f"{construir.name}: linea {numero} importa '{modulo}' "
+                    "que no se encuentra",
+                )
+            for modulo, nombre in sorted(nombres_desde):
+                try:
+                    if importlib.util.find_spec(f"{modulo}.{nombre}") is not None:
+                        continue
+                except ModuleNotFoundError:
+                    pass
+                try:
+                    importado = importlib.import_module(modulo)
+                except ImportError:
+                    continue
+                self.assertTrue(
+                    hasattr(importado, nombre),
+                    f"{construir.name}: linea {numero} importa '{modulo}.{nombre}' "
+                    "que no se encuentra",
+                )
+            fragmentos += 1
+        self.assertGreaterEqual(
+            fragmentos, 4,
+            f"{construir.name}: solo se encontraron {fragmentos} fragmentos "
+            "con python -c, se esperaban al menos 4",
+        )
 
     def test_firma_sha256_lee_el_archivo_correcto(self):
         texto = (

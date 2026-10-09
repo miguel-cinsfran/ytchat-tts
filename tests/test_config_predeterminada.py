@@ -170,22 +170,50 @@ class TestEstadoDefecto(unittest.TestCase):
 
 
 class TestConstruirBat(unittest.TestCase):
-    def test_construir_invoca_generador_y_no_usa_git_para_config(self):
+    def test_construir_sin_config_de_fabrica_y_con_guarda_antes_del_zip(self):
         base = Path(__file__).parent.parent
         texto = (base / "construir.bat").read_text(encoding="utf-8")
+        lineas = texto.splitlines()
         self.assertNotIn("HEAD:config.ini", texto)
         # no debe copiar config.ini local
         self.assertNotIn('copy /y "config.ini"', texto)
-        self.assertIn("python -m ytchat.core.config_predeterminada", texto)
-        self.assertIn("%OUT%\\config.ini", texto)
-        # debe tener manejo de error tras generar
-        self.assertIn("if errorlevel 1", texto)
-        # el siguiente if errorlevel debe estar tras la invocación del generador
-        idx = texto.lower().find("python -m ytchat.core.config_predeterminada")
-        self.assertGreater(idx, -1)
-        resto = texto[idx: idx + 500].lower()
-        self.assertIn("error", resto)
-        self.assertIn("exit /b 1", resto)
+        # ninguna línea que no sea REM invoca al generador
+        for numero, linea in enumerate(lineas, 1):
+            sin_espacios = linea.strip().lower()
+            if sin_espacios.startswith("rem"):
+                continue
+            self.assertNotIn(
+                "ytchat.core.config_predeterminada", sin_espacios,
+                f"construir.bat:{numero} no debe invocar al generador de config",
+            )
+        # existe la guarda contra config.ini con salida de error
+        indice_guarda = -1
+        for i, linea in enumerate(lineas):
+            baja = linea.lower()
+            if "if exist" in baja and "%out%\\config.ini" in baja:
+                misma = "exit /b 1" in baja
+                siguiente = (
+                    i + 1 < len(lineas)
+                    and "exit /b 1" in lineas[i + 1].lower()
+                )
+                self.assertTrue(
+                    misma or siguiente,
+                    "la guarda de config.ini debe tener exit /b 1 en la misma línea o en la siguiente",
+                )
+                indice_guarda = i
+                break
+        self.assertGreater(
+            indice_guarda, -1,
+            'construir.bat debe tener la guarda if exist "%OUT%\\config.ini"',
+        )
+        # la guarda aparece antes de comprimir el zip
+        indice_zip = texto.lower().find("compress-archive")
+        self.assertGreater(indice_zip, -1, "construir.bat debe comprimir con Compress-Archive")
+        inicio_guarda = texto.lower().find('%out%\\config.ini')
+        self.assertLess(
+            inicio_guarda, indice_zip,
+            "la guarda de config.ini debe aparecer antes de comprimir el zip",
+        )
 
 
 class TestGitignore(unittest.TestCase):
